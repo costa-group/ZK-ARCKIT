@@ -3,3 +3,4 @@
 !*.py
 README.md
 !.gitignore
+!questions.txt

@@ -1,0 +1,5 @@
+
+(Alejandro)
+Do we know the form that the constraints are going to take?
+    It's difficult to implement the actual code without knowing the context in which it will run.
+    Is it going to be the Circuit class from the r1cs-scripts file?
