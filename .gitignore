@@ -1,6 +1,9 @@
 *
 
 !*.py
+!r1cs_scripts
+!r1cs_scripts/*.py
+
 README.md
 !.gitignore
 !questions.txt

@@ -7,7 +7,7 @@ Here we define a constraint abstractly as an ordered list of coefficients, integ
 
 @author: Alejandro
 """
-from modular_operations import divideP
+from r1cs_scripts.modular_operations import divideP
 
 import numpy as np
 from typing import List
