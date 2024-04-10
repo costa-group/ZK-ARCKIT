@@ -8,13 +8,16 @@ Here we define a constraint abstractly as an ordered list of coefficients, integ
 @author: Alejandro
 """
 from r1cs_scripts.modular_operations import divideP
+from r1cs_scripts.constraint import Constraint
 
 import numpy as np
-from typing import List
+from typing import List, Tuple
 from itertools import product
 
 def nonZeroNorm(cons : List[int], p: int, select: bool = False) -> List[int]:
     """
+    TODO: vectorise
+
     Chooses coefficient that minimises normalised sum.
         Deterministic and Factor-Agnostic when sum is not 0
 
@@ -97,3 +100,49 @@ def divisionNorm(cons : List[int], p: int,
 
     choice = max(coef_set) # NOTE: choice isn't factor agnostic
     return  [divideP(cons[i], choice, p) for i in range(len(cons))]
+
+def r1cs_norm(C: Constraint) -> List[Tuple[int, int]]:
+    """
+    returns options for normalisation of the r1cs constraint.
+
+    currently returns A.B option multipled together -- maybe change
+    """
+
+    choices_AB = []
+    # first normalise the quadratic term if there is one
+
+    if len(C.A) * len(C.B) > 0:
+        if 0 in C.A.keys():
+            choices_A = [C.A[0]]
+        else:
+            choices_A = divisionNorm(list(C.A.values()), C.p, early_exit=True, select=True)
+
+        if 0 in C.B.keys():
+            choices_B = [C.B[0]]
+        else:
+            choices_B = divisionNorm(list(C.B.values()), C.p, early_exit=True, select=True)
+
+        choices_AB = [a * b for (a,b) in product(choices_A, choices_B)]
+
+    ## What to do now if len( choices_AB ) > 1 ?
+
+    # current idea, do norm for each?
+    if 0 in C.C.keys():
+        choices_C = [C.C[0]]
+        choices = list(product(choices_AB if choices_AB != [] else [0], choices_C))
+    else:
+        choices = []
+
+        for ab in choices_AB:
+            choices += list(product([ab], divisionNorm([ab] + list(C.C.values()), C.p, early_exit = True, select = True)))
+        
+        if choices_AB == []:
+            choices += list(product([0], divisionNorm(list(C.C.values()), C.p, early_exit = True, select = True)))
+    
+    return choices
+    
+
+
+
+
+    # then normalise the remaining terms
