@@ -5,7 +5,10 @@ Created on Mon Mar 22 17:47:25 2021
 
 @author: clara
 """
-import constraint
+
+# Python really doesn't like relative imports
+# import constraint
+import r1cs_scripts.constraint
 
 
 class Circuit:

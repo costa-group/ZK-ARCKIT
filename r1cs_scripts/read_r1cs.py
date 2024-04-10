@@ -6,8 +6,8 @@ Created on Thu Mar 18 10:21:14 2021
 @author: clara
 """
 import struct
-from circuit_representation import Circuit
-from constraint import Constraint
+from r1cs_scripts.circuit_representation import Circuit
+from r1cs_scripts.constraint import Constraint
         
     
 

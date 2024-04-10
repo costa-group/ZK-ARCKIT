@@ -5,7 +5,7 @@ Created on Fri Mar 19 12:08:25 2021
 
 @author: clara
 """
-import modular_operations 
+import r1cs_scripts.modular_operations 
 
 constFactor = 0
 
