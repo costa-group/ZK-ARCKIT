@@ -10,11 +10,16 @@ The idea is that we have two circuis S_1, S_2, which are equivalent up to renami
 from typing import Tuple, List
 from math import log10
 
+import pysat
+from pysat.card import EncType, CardEnc
+from pysat.solvers import Solver
+from itertools import product
+
 from r1cs_scripts.circuit_representation import Circuit
 from r1cs_scripts.constraint import Constraint
 from r1cs_scripts.modular_operations import divideP
 
-from normalisation import r1cs_norm
+from normalisation import r1cs_norm_choices, r1cs_norm
 
 constSignal = 0
 
@@ -26,8 +31,13 @@ def circuit_equivalence(S1: Circuit, S2: Circuit) -> Tuple[bool, List[Tuple[int,
     pass
 
     N = S1.nConstraints
+    K = S1.nWires
+
+    if K != S2.nWires:
+        return (False, f"Number of signals differs: {S1.nWires, S2.nWires} ")
+
     if N != S2.nConstraints:
-        return (False, [])
+        return (False, f"Number of constraints differs: {S1.nConstraints, S2.nConstraints} ")
     
     in_pair = [('S1', S1), ('S2', S2)]
 
@@ -44,7 +54,7 @@ def circuit_equivalence(S1: Circuit, S2: Circuit) -> Tuple[bool, List[Tuple[int,
             - 2-4th are the const factor of A.B C has a constant factor
         """
         has_quad  =  str(int(len(C.A) * len(C.B) != 0))
-        const_pos = ','.join( [ str(D[0] if int(constSignal in D.keys()) else 0) for D in [C.A, C.B, C.C]] ) # maybe reduce hash len?
+        const_pos = ''.join( [ str(1 if int(constSignal in D.keys()) else 0) for D in [C.A, C.B, C.C]] ) # maybe reduce hash len?
 
         return has_quad + ',' + const_pos          
 
@@ -57,18 +67,23 @@ def circuit_equivalence(S1: Circuit, S2: Circuit) -> Tuple[bool, List[Tuple[int,
     def norm_split(C: Constraint) -> str:
         """
         If there is a single choice - returns the normalised constraints in sorted order
-        If there is not a single choice - returns bracketed list of choices
+        If there is not a single choice - returns num list of choices
         """
 
-        choices = r1cs_norm(C)
+        norms = r1cs_norm(C)
 
-        if len(choices) == 1:
-            vals = ([] if choices[0][0] == 0 else [choices[0][0]]) + list(C.C.values())
-            res = [divideP(i, choices[0][1], C.p) for i in vals]
-            res = str(sorted(res))
+        # would like to encode some more information but it's not possible given the factor a
+        if len(norms) == 1:
+            norm = norms[0]
+
+            AB = f"{list(norm.A.values())}*{list(norm.B.values())}" if len(norm.A) * len(norm.B) > 0 else ""
+            C = f"{list(norm.C.values())}"
+
+            res = f"{AB}+{C}"
         
         else:
-            res = f"n_options={len(choices)}"
+            # TODO: think of a better option here
+            res = f"n_options={len(norms)}"
         return res
 
     # python loops are really slow... ~22s for 818 simple const 10^4 times..
@@ -80,14 +95,164 @@ def circuit_equivalence(S1: Circuit, S2: Circuit) -> Tuple[bool, List[Tuple[int,
                 norm_split(circ.constraints[i])
             ]
 
-            hash_ = '_'.join(hashes)
+            hash_ = ':'.join(hashes)
 
             try:
                 groups[name][hash_].append(i)
             except KeyError:
                 groups[name][hash_] = [i]
 
+    # Early Exiting
+
+    for key in list(groups['S1'].keys()) + list(groups['S2'].keys()):
+        try:
+            if len(groups['S1'][key]) != len(groups['S2'][key]):
+                return (False, f"Size of class {key} differs: {len(groups['S1'][key]), len(groups['S2'])}") 
+        except KeyError as e:
+            return (False, f"Circuit missing class {key} :: " + e)
+    
+
     # SAT
+    """
+    Want the SAT formula be satisfiable only if there exists a bijection between the variables in the two circuits.
+    At this point the 'equivalent' circuits are in the same groups so any variables in the left, may be the same in the right 
+        -- when normalised..
+
+    We have a bijection so for every signal in a constraint in S1
+        - it is matched with exactly 1 signal in an 'equivalent' constraint in S2
+        - and vice versa
+
+    When a class has a canonical form this is easy.
+    When a class has 2 canonical forms (i.e. a +/-)
+        - need to convert to CNF by double propagating
+    When a class has >2 canonical forms -- claim unlikely so break?
+    """
+    
+    formula = pysat.formula.CNF()
+    
+    class Assignment():
+        def __init__(self):
+            self.assignment = [ [None for _ in range(K)] for _ in range(K) ]
+            self.inv_assignment = [None]
+            self.curr = 1
+        
+        def get_assignment(self, i: int, j: int) -> int:
+            ## assignment i, j is from S1 to S2
+
+            if self.assignment[i][j] != None:
+                return self.assignment[i][j]
+            else:
+                self.assignment[i][j] = self.curr
+                self.inv_assignment.append((i, j))
+                self.curr += 1
+                return self.assignment[i][j]
+        
+        def get_inv_assignment(self, i: int) -> Tuple[int, int]:
+            return self.inv_assignment[i]
+        
+    mapp = Assignment()
+
+    total = sum([len(groups["S1"][key])**2 for key in groups["S1"].keys()])
+    i = 0
+
+    for key in groups['S1'].keys():
+        if 'n' in key:
+
+            ## Not exactly 1 canonical form..
+            raise NotImplementedError
+    
+        else:
+
+            comparisons = product(*[ 
+                                    [r1cs_norm(circ.constraints[i])[0] for i in groups[name][key]] 
+                                    for name, circ in in_pair] 
+            )
+            Options = [
+                signal_options(c1, c2)
+                for c1, c2 in comparisons
+            ]
+
+            for options in Options:
+                i += 1
+                # print(i, total, "       ", end = '\r')
+                for name in ["S1", "S2"]:
+                    swap = name == "S2"
+
+                    for part in options[name].keys():
+                        for lsignal in options[name][part].keys():
+
+                            lits = [
+                                mapp.get_assignment(lsignal, rsignal) if not swap else mapp.get_assignment(rsignal, lsignal)
+                                for rsignal in options[name][part][lsignal]
+                            ]
+
+                            # # TODO: understand the empty options
+                            # if lits == []:
+                            #     i_, j_ = groups['S1'][key][i // len(groups['S2'][key])], groups['S2'][key][i % len(groups['S2'][key])]
+                            #     print(f"Empty options found at {i, (i_, j_), part, name, lsignal}")
+                            #     S1.constraints[i_].print_constraint_terminal()
+                            #     S2.constraints[j_].print_constraint_terminal()
+
+                            #     print(options[name][part])
+
+                            #     raise ValueError
+                            #     continue
+                        
+                            formula.extend(
+                                CardEnc.equals(lits = lits,
+                                            bound= 1,
+                                            encoding = EncType.pairwise )
+                            )
+    
+    solver = Solver(name='g4', bootstrap_with=formula)
+
+    # TODO: fix bug in formula creation
+
+    print('began solving')
+    equal = solver.solve()
+    if not equal:
+        print(solver.get_core())
+        return equal, "SAT solver determined final formula unsatisfiable"
+    else:
+        assignment = solver.get_model()
+        assignment = filter(lambda x : x > 0, assignment)
+        assignment = map(
+            lambda x : mapp.inv_assignment(x),
+            assignment
+        )
+        return (True, list(assignment))
+
+
+def signal_options(C1: Constraint, C2: Constraint) -> dict:
+    ## Assume input constraints are in a comparable canonical form
+
+    dicts = [ [('A', d.A), ('B', d.B), ('C', d.C)] for d in [C1, C2]]
+
+    # Generated inverse array i.e. value: [keys] dict
+
+    inv = [
+        {
+            part: {} 
+            for part, _ in dicts[0]
+        } 
+        for _ in range(2)
+    ]
+
+    for i in range(2):
+        for part, dict_ in dicts[i]:
+            for key in dict_.keys():
+                inv[1-i][part].setdefault(dict_[key], []).append(key)
+    
+    options = {
+        circ:{
+            part: {
+                key: inv[0 if circ == 'S2' else 1][part][pdic[key]] for key in pdic.keys()
+            } 
+            for part, pdic in dicts[0]
+        }
+        for circ in ['S1', 'S2']
+    }
+    return options
 
 # short term testing
 # TODO: update
@@ -102,6 +267,6 @@ if __name__ == '__main__':
     start = time.time()
 
     for _ in range(10**0):
-        circuit_equivalence(circ, circ)
+        print( circuit_equivalence(circ, circ) )
 
     print(time.time() - start)
