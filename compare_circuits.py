@@ -118,6 +118,8 @@ def circuit_equivalence(S1: Circuit, S2: Circuit) -> Tuple[bool, List[Tuple[int,
     At this point the 'equivalent' circuits are in the same groups so any variables in the left, may be the same in the right 
         -- when normalised..
 
+    ################################################################################################
+
     We have a bijection so for every signal in a constraint in S1
         - it is matched with exactly 1 signal in an 'equivalent' constraint in S2
         - and vice versa
@@ -126,6 +128,13 @@ def circuit_equivalence(S1: Circuit, S2: Circuit) -> Tuple[bool, List[Tuple[int,
     When a class has 2 canonical forms (i.e. a +/-)
         - need to convert to CNF by double propagating
     When a class has >2 canonical forms -- claim unlikely so break?
+
+    #################################################################################################
+
+    The above encoding (and hence) below implementation is wrong. Specifically it assumes that every constraint in a class is
+        equal to each other when this is not the case. Instead there should be a bijection between the constraints, and the 
+        constraint bijection implies the equals1 case.
+
     """
     
     formula = pysat.formula.CNF()
@@ -185,18 +194,6 @@ def circuit_equivalence(S1: Circuit, S2: Circuit) -> Tuple[bool, List[Tuple[int,
                                 mapp.get_assignment(lsignal, rsignal) if not swap else mapp.get_assignment(rsignal, lsignal)
                                 for rsignal in options[name][part][lsignal]
                             ]
-
-                            # # TODO: understand the empty options
-                            # if lits == []:
-                            #     i_, j_ = groups['S1'][key][i // len(groups['S2'][key])], groups['S2'][key][i % len(groups['S2'][key])]
-                            #     print(f"Empty options found at {i, (i_, j_), part, name, lsignal}")
-                            #     S1.constraints[i_].print_constraint_terminal()
-                            #     S2.constraints[j_].print_constraint_terminal()
-
-                            #     print(options[name][part])
-
-                            #     raise ValueError
-                            #     continue
                         
                             formula.extend(
                                 CardEnc.equals(lits = lits,
