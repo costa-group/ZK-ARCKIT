@@ -32,7 +32,7 @@ def nonZeroNorm(cons : List[int], p: int, select: bool = False) -> List[int]:
 
     s = sum(cons) % p
 
-    assert(s != 0, "tried non-zero normalisation with constraint that sums to zero")
+    assert s != 0, "tried non-zero normalisation with constraint that sums to zero"
 
     values = [ divideP(s, cons[i], p) for i in range(len(cons)) ]
     choice = ( s * min(values) ) % p
@@ -101,7 +101,7 @@ def divisionNorm(cons : List[int], p: int,
     choice = max(coef_set) # NOTE: choice isn't factor agnostic
     return  [divideP(cons[i], choice, p) for i in range(len(cons))]
 
-def r1cs_norm(C: Constraint) -> List[Tuple[int, int]]:
+def r1cs_norm_choices(C: Constraint) -> List[Tuple[int, int]]:
     """
     returns options for normalisation of the r1cs constraint.
 
@@ -122,25 +122,40 @@ def r1cs_norm(C: Constraint) -> List[Tuple[int, int]]:
         else:
             choices_B = divisionNorm(list(C.B.values()), C.p, early_exit=True, select=True)
 
-        choices_AB = [a * b for (a,b) in product(choices_A, choices_B)]
+        choices_AB = list(product(choices_A, choices_B))
 
     ## What to do now if len( choices_AB ) > 1 ?
 
     # current idea, do norm for each?
     if 0 in C.C.keys():
         choices_C = [C.C[0]]
-        choices = list(product(choices_AB if choices_AB != [] else [0], choices_C))
+        choices = list(product(choices_AB if choices_AB != [] else [(0, 0)], choices_C))
     else:
         choices = []
 
-        for ab in choices_AB:
-            choices += list(product([ab], divisionNorm([ab] + list(C.C.values()), C.p, early_exit = True, select = True)))
-        
         if choices_AB == []:
-            choices += list(product([0], divisionNorm(list(C.C.values()), C.p, early_exit = True, select = True)))
+            choices += list(product([(0, 0)], divisionNorm(list(C.C.values()), C.p, early_exit = True, select = True)))
+        else:
+            # normalise by quadratic term if no constant factor
+            choices += list(zip(choices_AB, [a * b for a, b in choices_AB]))
     
     return choices
     
+def r1cs_norm(C: Constraint) -> List[Constraint]:
+    """
+    Returns 'normalised' constraints
+    """
+
+    choices = r1cs_norm_choices(C)
+
+    return [
+        Constraint(
+            A = {key: divideP(C.A[key], a, C.p) for key in sorted(C.A.keys(), key = lambda x : C.A[x])},
+            B = {key: divideP(C.B[key], b, C.p) for key in sorted(C.B.keys(), key = lambda x : C.B[x])},
+            C = {key: divideP(C.C[key], c, C.p) for key in sorted(C.C.keys(), key = lambda x : C.C[x])},
+            p = C.p
+        ) for (a, b), c in choices
+    ]
 
 
 
