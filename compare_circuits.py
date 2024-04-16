@@ -14,6 +14,7 @@ import pysat
 from pysat.card import EncType, CardEnc
 from pysat.solvers import Solver
 from itertools import product
+from functools import reduce
 
 from r1cs_scripts.circuit_representation import Circuit
 from r1cs_scripts.constraint import Constraint
@@ -193,6 +194,12 @@ def circuit_equivalence(S1: Circuit, S2: Circuit) -> Tuple[bool, List[Tuple[int,
     total = sum([len(groups["S1"][key])**2 for key in groups["S1"].keys()])
     i = 0
 
+    # TODO: ignore 0 signal
+    potential = {
+        name: {}
+        for name in ["S1", "S2"]
+    }
+
     for key in groups['S1'].keys():
         if 'n' in key:
 
@@ -201,38 +208,61 @@ def circuit_equivalence(S1: Circuit, S2: Circuit) -> Tuple[bool, List[Tuple[int,
     
         else:
 
+            ## Collect 'additively' the options within a class
+            class_potential = {
+                name: {}
+                for name in ["S1", "S2"]
+            }
+
             comparisons = product(*[ 
                                     [r1cs_norm(circ.constraints[i])[0] for i in groups[name][key]] 
                                     for name, circ in in_pair] 
             )
+
             Options = [
                 signal_options(c1, c2)
                 for c1, c2 in comparisons
             ]
 
-            for options in Options:
-                i += 1
-                # print(i, total, "       ", end = '\r')
+            def merge(class_potential, options):
                 for name in ["S1", "S2"]:
-                    swap = name == "S2"
+                    for key in options[name].keys():
+                        class_potential[name][key] = class_potential[name].setdefault(key, set([])).union(options[name][key])
+                return class_potential
+            
+            reduce(
+                merge,
+                Options,
+                class_potential
+            )
+            
+            ## Collect 'intersectionally' the options accross classes
+            for name in ["S1", "S2"]:
+                for key in class_potential[name].keys():
+                    potential[name][key] = potential[name].setdefault(
+                                                                key, class_potential[name][key]
+                                                         ).intersection(
+                                                                class_potential[name][key]
+                                                         )
 
-                    for part in options[name].keys():
-                        for lsignal in options[name][part].keys():
+    for name in ["S1", "S2"]:
+        for key in potential[name].keys():
+            
+            lits = [
+                mapp.get_assignment(key, pair) if (name == "S1") else mapp.get_assignment(pair, key)
+                for pair in potential[name][key]
+            ]
 
-                            lits = [
-                                mapp.get_assignment(lsignal, rsignal) if not swap else mapp.get_assignment(rsignal, lsignal)
-                                for rsignal in options[name][part][lsignal]
-                            ]
-                        
-                            formula.extend(
-                                CardEnc.equals(lits = lits,
-                                            bound= 1,
-                                            encoding = EncType.pairwise )
-                            )
+            formula.extend(
+                CardEnc.equals(
+                    lits = lits,
+                    bound = 1,
+                    encoding = EncType.pairwise
+                )
+            )
     
+    # solver choice aribtrary might be better options
     solver = Solver(name='g4', bootstrap_with=formula)
-
-    # TODO: fix bug in formula creation
 
     print('began solving')
     equal = solver.solve()
@@ -243,7 +273,7 @@ def circuit_equivalence(S1: Circuit, S2: Circuit) -> Tuple[bool, List[Tuple[int,
         assignment = solver.get_model()
         assignment = filter(lambda x : x > 0, assignment)
         assignment = map(
-            lambda x : mapp.inv_assignment(x),
+            lambda x : mapp.get_inv_assignment(x),
             assignment
         )
         return (True, list(assignment))
@@ -311,6 +341,6 @@ if __name__ == '__main__':
     start = time.time()
 
     for _ in range(10**0):
-        print( circuit_equivalence(circ, circ) )
+        bool, mapp = circuit_equivalence(circ, circ)
 
     print(time.time() - start)
