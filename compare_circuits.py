@@ -98,10 +98,7 @@ def circuit_equivalence(S1: Circuit, S2: Circuit) -> Tuple[bool, List[Tuple[int,
 
             hash_ = ':'.join(hashes)
 
-            try:
-                groups[name][hash_].append(i)
-            except KeyError:
-                groups[name][hash_] = [i]
+            groups[name].setdefault(hash_, []).append(i)
 
     # Early Exiting
 
@@ -263,15 +260,14 @@ def circuit_equivalence(S1: Circuit, S2: Circuit) -> Tuple[bool, List[Tuple[int,
     
     # solver choice aribtrary might be better options
     solver = Solver(name='g4', bootstrap_with=formula)
-
-    print('began solving')
+    print(mapp.curr)
     equal = solver.solve()
     if not equal:
         print(solver.get_core())
         return equal, "SAT solver determined final formula unsatisfiable"
     else:
         assignment = solver.get_model()
-        assignment = filter(lambda x : x > 0, assignment)
+        assignment = filter(lambda x : x > 0, assignment) ## retains only the assignment choices
         assignment = map(
             lambda x : mapp.get_inv_assignment(x),
             assignment
@@ -333,14 +329,16 @@ def signal_options(C1: Constraint, C2: Constraint) -> dict:
 if __name__ == '__main__':
     import r1cs_scripts.read_r1cs
 
-    circ = Circuit()
+    circ, circ_shuffled = Circuit(), Circuit()
     r1cs_scripts.read_r1cs.parse_r1cs("SudokuO1.r1cs", circ)
+    r1cs_scripts.read_r1cs.parse_r1cs("SudokuO1_shuffled.r1cs", circ_shuffled)
 
     import time
     print(circ.nConstraints)
     start = time.time()
 
     for _ in range(10**0):
-        bool, mapp = circuit_equivalence(circ, circ)
+        bool, mapp = circuit_equivalence(circ, circ_shuffled)
+        print(bool)
 
     print(time.time() - start)
