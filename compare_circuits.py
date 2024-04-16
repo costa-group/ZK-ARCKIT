@@ -252,32 +252,50 @@ def circuit_equivalence(S1: Circuit, S2: Circuit) -> Tuple[bool, List[Tuple[int,
 def signal_options(C1: Constraint, C2: Constraint) -> dict:
     ## Assume input constraints are in a comparable canonical form
 
-    dicts = [ [('A', d.A), ('B', d.B), ('C', d.C)] for d in [C1, C2]]
+    # iterator for dicts in a constraint
+    dicts = [ 
+        [d.A, d.B, d.C] for d in [C1, C2]
+    ]
 
-    # Generated inverse array i.e. value: [keys] dict
+
+    allkeys = [
+        set(d.A.keys()).union(d.B.keys()).union(d.C.keys()) 
+        for d in [C1, C2] 
+    ]
 
     inv = [
-        {
-            part: {} 
-            for part, _ in dicts[0]
-        } 
+        [
+            {} 
+            for _ in range(3)
+        ] 
+        for _ in range(2)
+    ]
+
+    app = [
+        {} 
         for _ in range(2)
     ]
 
     for i in range(2):
-        for part, dict_ in dicts[i]:
+        for j, dict_ in enumerate(dicts[i]):
             for key in dict_.keys():
-                inv[1-i][part].setdefault(dict_[key], []).append(key)
-    
+                inv[1-i][j].setdefault(dict_[key], set([])).add(key)
+                app[i].setdefault(key, []).append( j )
+
     options = {
-        circ:{
-            part: {
-                key: inv[0 if circ == 'S2' else 1][part][pdic[key]] for key in pdic.keys()
-            } 
-            for part, pdic in dicts[0]
+        circ: {
+            key: reduce(
+                lambda x, y : x.intersection(y), 
+                [ inv[1-i][j][dicts[i][j][key]] for j in app[i][key] ], 
+                allkeys[1-i]
+            )
+            for key in allkeys[i]
         }
-        for circ in ['S1', 'S2']
+        for circ, i in [('S1', 0), ('S2', 1)]
     }
+
+    # FINAL: for each circ -- for each signal - potential signals could map to
+    #           intersection of potential mappings seen in each part         
     return options
 
 # short term testing
