@@ -333,6 +333,21 @@ if __name__ == '__main__':
     r1cs_scripts.read_r1cs.parse_r1cs("SudokuO1.r1cs", circ)
     r1cs_scripts.read_r1cs.parse_r1cs("SudokuO1_shuffled.r1cs", circ_shuffled)
 
+    import numpy as np
+    from r1cs_scripts.modular_operations import multiplyP
+
+    np.random.seed(42)
+    to_mult = np.random.choice(range(circ_shuffled.nConstraints), size = circ_shuffled.nConstraints // 2)
+    coefs = np.random.randint(low=1, high = 2**10-1, size=circ_shuffled.nConstraints // 2)
+
+    for consi, coef in zip(to_mult, coefs):
+        cons = circ_shuffled.constraints[consi]
+        for dict in [cons.A, cons.C]:
+            for key in dict.keys():
+                dict[key] = multiplyP(dict[key], coef, circ_shuffled.prime_number)
+    
+    #TODO: can verify equivalence if there is no scalar overflow in multiplyP
+
     import time
     print(circ.nConstraints)
     start = time.time()
