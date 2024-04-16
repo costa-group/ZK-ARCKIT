@@ -227,19 +227,21 @@ def circuit_equivalence(S1: Circuit, S2: Circuit) -> Tuple[bool, List[Tuple[int,
                         class_potential[name][key] = class_potential[name].setdefault(key, set([])).union(options[name][key])
                 return class_potential
             
-            reduce(
+            class_potential = reduce(
                 merge,
                 Options,
                 class_potential
             )
             
             ## Collect 'intersectionally' the options accross classes
-            for name in ["S1", "S2"]:
-                for key in class_potential[name].keys():
-                    potential[name][key] = potential[name].setdefault(
-                                                                key, class_potential[name][key]
+            for name, circ in in_pair:
+                for signal in class_potential[name].keys():
+                    if len(class_potential[name][signal]) == 0:
+                        continue
+                    potential[name][signal] = potential[name].setdefault(
+                                                                signal, class_potential[name][signal]
                                                          ).intersection(
-                                                                class_potential[name][key]
+                                                                class_potential[name][signal]
                                                          )
 
     for name in ["S1", "S2"]:
@@ -249,6 +251,10 @@ def circuit_equivalence(S1: Circuit, S2: Circuit) -> Tuple[bool, List[Tuple[int,
                 mapp.get_assignment(key, pair) if (name == "S1") else mapp.get_assignment(pair, key)
                 for pair in potential[name][key]
             ]
+
+            if lits == []:
+                ## Not possible for equivalent circuits -- TODO: check
+                return (False, f"Signal {key} in circuit {name} has no potential mapping.")
 
             formula.extend(
                 CardEnc.equals(
@@ -260,11 +266,9 @@ def circuit_equivalence(S1: Circuit, S2: Circuit) -> Tuple[bool, List[Tuple[int,
     
     # solver choice aribtrary might be better options
     solver = Solver(name='g4', bootstrap_with=formula)
-    print(mapp.curr)
     equal = solver.solve()
     if not equal:
-        print(solver.get_core())
-        return equal, "SAT solver determined final formula unsatisfiable"
+        return False, "SAT solver determined final formula unsatisfiable"
     else:
         assignment = solver.get_model()
         assignment = filter(lambda x : x > 0, assignment) ## retains only the assignment choices
@@ -272,7 +276,7 @@ def circuit_equivalence(S1: Circuit, S2: Circuit) -> Tuple[bool, List[Tuple[int,
             lambda x : mapp.get_inv_assignment(x),
             assignment
         )
-        return (True, list(assignment))
+        return True, list(assignment)
 
 
 def signal_options(C1: Constraint, C2: Constraint) -> dict:
@@ -289,6 +293,7 @@ def signal_options(C1: Constraint, C2: Constraint) -> dict:
         for d in [C1, C2] 
     ]
 
+    # inv[Ci][part][value] = set({keys in Ci with value in Ci.part})
     inv = [
         [
             {} 
@@ -297,6 +302,7 @@ def signal_options(C1: Constraint, C2: Constraint) -> dict:
         for _ in range(2)
     ]
 
+    # app[Ci][key] = [parts in Ci that key appears in]
     app = [
         {} 
         for _ in range(2)
@@ -305,7 +311,7 @@ def signal_options(C1: Constraint, C2: Constraint) -> dict:
     for i in range(2):
         for j, dict_ in enumerate(dicts[i]):
             for key in dict_.keys():
-                inv[1-i][j].setdefault(dict_[key], set([])).add(key)
+                inv[i][j].setdefault(dict_[key], set([])).add(key)
                 app[i].setdefault(key, []).append( j )
 
     options = {
