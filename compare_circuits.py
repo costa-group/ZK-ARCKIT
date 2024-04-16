@@ -135,6 +135,35 @@ def circuit_equivalence(S1: Circuit, S2: Circuit) -> Tuple[bool, List[Tuple[int,
         equal to each other when this is not the case. Instead there should be a bijection between the constraints, and the 
         constraint bijection implies the equals1 case.
 
+    -------------------------------------------------------------------------------------------------
+
+    Some options
+        encode the bijection between constraints into the formula, and add a -k term to each clause where the k clause
+            is the bijection from that constraint to the other. Will add ~79K variables and more clauses... (best option?)
+        
+        collect all options together within a class then do exactly 1 of these. << -- seems better
+        
+    Need to do some theoretical work to proove the correctness of an encoding I think
+
+    --------------------------------------------------------------------------------------------------
+
+    What do we actually need to encode into SAT. We want to be SATisfiable only if a bijection exists.
+
+        if a bijection exists : 
+            - within each class a signal is mapped to a signal in it's class <-- in both directions
+            - each signal is mapped at most once across classes <-- how to encode? (again both directions)
+        
+        Inverse :
+            - If the above two conditions are met, then each signal is mapped to exactly 1 signal in the other circuit
+            - This defines a bijection -- if choices are ensured to be equivalent
+
+    Implementation? 
+        array of sets, scan over all classes
+            within a class pickup options for mapping and intersect with previous (if not empty)
+                ^^ maybe for classes with multiple options there are just more options here?
+        
+        then at the end add the equals 1 term for each of the sets.
+
     """
     
     formula = pysat.formula.CNF()
