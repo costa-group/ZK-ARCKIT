@@ -16,6 +16,9 @@ from pysat.solvers import Solver
 from itertools import product
 from functools import reduce
 
+import bij_encodings
+import bij_encodings.constraint_map
+import bij_encodings.signal_map
 from r1cs_scripts.circuit_representation import Circuit
 from r1cs_scripts.constraint import Constraint
 from r1cs_scripts.modular_operations import divideP
@@ -163,258 +166,45 @@ def circuit_equivalence(S1: Circuit, S2: Circuit) -> Tuple[bool, List[Tuple[int,
         then at the end add the equals 1 term for each of the sets.
 
     """
-    class Assignment():
-        def __init__(self, offset = 0):
-            self.assignment = {}
-            self.inv_assignment = [None]
-            self.curr = 1 + offset
-            self.offset = offset
-        
-        def get_assignment(self, i: int, j: int) -> int:
-            ## assignment i, j is from S1 to S2
-            try:
-                return self.assignment[i][j]
-            except KeyError:
-                self.assignment.setdefault(i, {})
-                self.assignment[i][j] = self.curr
-                self.inv_assignment.append((i, j))
-                self.curr += 1
-                return self.assignment[i][j]
-        
-        def get_inv_assignment(self, i: int) -> Tuple[int, int]:
-            return self.inv_assignment[i - self.offset]
-        
-    mapp = Assignment()
 
-    #### TODO: Remove Verifier Stuff
+    formula, _ = bij_encodings.signal_map.encode(
+        groups, in_pair, True
+    )
 
-    cmapp = Assignment(offset=K**2)
-    ver_formula = pysat.formula.CNF()
-
-    #### TODO: Remove Verifier Stuff
-
-    total = sum([len(groups["S1"][key])**2 for key in groups["S1"].keys()])
-    i = 0
-
-    # TODO: ignore 0 signal
-    potential = {
-        name: {}
-        for name in ["S1", "S2"]
-    }
-
-    for key in groups['S1'].keys():
-        if 'n' in key:
-
-            ## Not exactly 1 canonical form..
-            raise NotImplementedError
+    ver_formula, mapp = bij_encodings.constraint_map.encode(
+        groups, in_pair, K**2, True
+    )
     
-        else:
-
-            ## Collect 'additively' the options within a class
-            class_potential = {
-                name: {}
-                for name in ["S1", "S2"]
-            }
-
-            comparisons = product(*[ 
-                                    [r1cs_norm(circ.constraints[i])[0] for i in groups[name][key]] 
-                                    for name, circ in in_pair] 
-            )
-
-            Options = [
-                signal_options(c1, c2)
-                for c1, c2 in comparisons
-            ]
-
-            ### TODO: Remove Verifier Stuff
-
-            def extend(formula, info):
-                i, options = info
-
-                i_, j_ = i // len(groups["S1"][key]), i % len(groups["S1"][key])
-                i, j = S1.constraints[ groups["S1"][key][i_] ], S2.constraints[ groups["S2"][key][j_] ]
-
-                var = cmapp.get_assignment(i, j)
-
-                clauses = pysat.formula.CNF()
-
-                for name in ["S1", "S2"]:
-                    for signal in options[name].keys():
-
-                        if len(options[name][signal]) == 0:
-                            continue
-
-                        lits = [
-                            mapp.get_assignment(signal, pair) if (name == "S1") else mapp.get_assignment(pair, signal)
-                            for pair in options[name][signal]
-                        ]
-
-                        clauses.extend( CardEnc.equals(
-                            lits = lits,
-                            bound = 1,
-                            encoding = EncType.pairwise
-                        ) )
-
-                clauses = map(lambda x : x + [-var], clauses.clauses)
-                formula.extend(clauses)
-
-                return formula
-
-            ver_formula = reduce(
-                extend,
-                zip(range(len(Options)), Options),
-                ver_formula
-            )
-
-            for name, circ in in_pair:
-                oname = "S2" if name == "S1" else "S1"
-                ocirc = S2 if name == "S1" else S1
-                others = [ ocirc.constraints[j] for j in groups[oname][key] ]
-                for i in groups[name][key]:
-                    i_ = circ.constraints[i]
-
-
-                    lits = [
-                        cmapp.get_assignment(i_, j_) if name == "S1" else cmapp.get_assignment(j_, i_)
-                        for j_ in others
-                    ]
-
-                    ver_formula.extend(
-                        CardEnc.equals(
-                            lits = lits,
-                            bound = 1,
-                            encoding = EncType.pairwise
-                        )
-                    )
-
-            ### TODO: Remove Verifier Stuff
-
-            def merge(class_potential, options):
-                for name in ["S1", "S2"]:
-                    for key in options[name].keys():
-                        class_potential[name][key] = class_potential[name].setdefault(key, set([])).union(options[name][key])
-                return class_potential
-            
-            class_potential = reduce(
-                merge,
-                Options,
-                class_potential
-            )
-            
-            ## Collect 'intersectionally' the options accross classes
-            for name, circ in in_pair:
-                for signal in class_potential[name].keys():
-                    if len(class_potential[name][signal]) == 0:
-                        continue
-                    potential[name][signal] = potential[name].setdefault(
-                                                                signal, class_potential[name][signal]
-                                                         ).intersection(
-                                                                class_potential[name][signal]
-                                                         )
-    # Internal consistency.
-    for name, oname in [("S1", "S2"), ("S2", "S1")]:
-        for signal in potential[name].keys():
-            potential[name][signal] = [
-                pair for pair in potential[name][signal]
-                    if signal in potential[oname][pair]
-            ]
-
-    formula = pysat.formula.CNF()
-    for name in ["S1", "S2"]:
-        for key in potential[name].keys():
-            
-            lits = [
-                mapp.get_assignment(key, pair) if (name == "S1") else mapp.get_assignment(pair, key)
-                for pair in potential[name][key]
-            ]
-
-            if lits == []:
-                ## Not possible for equivalent circuits -- TODO: check
-                return (False, f"Signal {key} in circuit {name} has no potential mapping.")
-
-            formula.extend(
-                CardEnc.equals(
-                    lits = lits,
-                    bound = 1,
-                    encoding = EncType.pairwise
-                )
-            )
-    
-    # solver choice aribtrary might be better options
-    solver = Solver(name='g4', bootstrap_with=formula)
+    # solver choice aribtrary might be better options -- straight ver_formula ~120s to solve
+    solver = Solver(name='g4', bootstrap_with=ver_formula)
     equal = solver.solve()
     if not equal:
         return False, "SAT solver determined final formula unsatisfiable"
     else:
         assignment = solver.get_model()
-        assignment = filter(lambda x : x > 0, assignment) ## retains only the assignment choices
+        assignment = filter(lambda x : 0 < x < K ** 2, assignment) ## retains only the assignment choices
         assignment = map(
             lambda x : mapp.get_inv_assignment(x),
             assignment
         )
+        # assignment = list(assignment)
+        # f = open("assignment.txt", "w")
+        # f.writelines(map(lambda x : str(x) + '\n', assignment))
+        # f.close()
 
+        
         ## NOTE: Testing to Verify Correctness of Mapping Here
         #### TODO: Remove Verifier Stuff
 
-        vsolver = Solver(name='g4', bootstrap_with=ver_formula)
-        equal = vsolver.solve(assumptions=solver.get_model()) # very quick since it's almost just propagation
+        # print('begun verifying')
+        # vsolver = Solver(name='g4', bootstrap_with=ver_formula)
+        # equal = vsolver.solve(assumptions=solver.get_model()) # takes ~120s with assumptions...
 
-        print(f"Constraint mapping was able to find correct solution: {equal}")
+        # print(f"Constraint mapping was able to find correct solution: {equal}")
+        # if not equal : print(vsolver.get_core())
 
         #### TODO: Remove Verifier Stuff
 
         # TODO: investigate whether mapping can be incorrect -- verifier was unsatisfiable
 
         return True, list(assignment)
-
-
-def signal_options(C1: Constraint, C2: Constraint) -> dict:
-    ## Assume input constraints are in a comparable canonical form
-
-    # iterator for dicts in a constraint
-    dicts = [ 
-        [d.A, d.B, d.C] for d in [C1, C2]
-    ]
-
-
-    allkeys = [
-        set(d.A.keys()).union(d.B.keys()).union(d.C.keys()) 
-        for d in [C1, C2] 
-    ]
-
-    # inv[Ci][part][value] = set({keys in Ci with value in Ci.part})
-    inv = [
-        [
-            {} 
-            for _ in range(3)
-        ] 
-        for _ in range(2)
-    ]
-
-    # app[Ci][key] = [parts in Ci that key appears in]
-    app = [
-        {} 
-        for _ in range(2)
-    ]
-
-    for i in range(2):
-        for j, dict_ in enumerate(dicts[i]):
-            for key in dict_.keys():
-                inv[i][j].setdefault(dict_[key], set([])).add(key)
-                app[i].setdefault(key, []).append( j )
-
-    options = {
-        circ: {
-            key: reduce(
-                lambda x, y : x.intersection(y), 
-                [ inv[1-i][j][dicts[i][j][key]] for j in app[i][key] ], 
-                allkeys[1-i]
-            ) if key != 0 else set([0]) ## ensures constant is always mapped to constant
-            for key in allkeys[i] 
-        }
-        for circ, i in [('S1', 0), ('S2', 1)]
-    }
-
-    # FINAL: for each circ -- for each signal - potential signals could map to
-    #           intersection of potential mappings seen in each part         
-    return options

@@ -4,6 +4,9 @@
 !r1cs_scripts
 !r1cs_scripts/*.py
 
+!bij_encodings
+!bij_encodings/*.py
+
 README.md
 !.gitignore
 !questions.txt
