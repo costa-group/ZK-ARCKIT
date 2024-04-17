@@ -243,7 +243,15 @@ def circuit_equivalence(S1: Circuit, S2: Circuit) -> Tuple[bool, List[Tuple[int,
                                                          ).intersection(
                                                                 class_potential[name][signal]
                                                          )
+    # Internal consistency.
+    for name, oname in [("S1", "S2"), ("S2", "S1")]:
+        for signal in potential[name].keys():
+            potential[name][signal] = [
+                pair for pair in potential[name][signal]
+                    if signal in potential[oname][pair]
+            ]
 
+    formula = pysat.formula.CNF()
     for name in ["S1", "S2"]:
         for key in potential[name].keys():
             
@@ -320,8 +328,8 @@ def signal_options(C1: Constraint, C2: Constraint) -> dict:
                 lambda x, y : x.intersection(y), 
                 [ inv[1-i][j][dicts[i][j][key]] for j in app[i][key] ], 
                 allkeys[1-i]
-            )
-            for key in allkeys[i]
+            ) if key != 0 else set([0]) ## ensures constant is always mapped to constant
+            for key in allkeys[i] 
         }
         for circ, i in [('S1', 0), ('S2', 1)]
     }
