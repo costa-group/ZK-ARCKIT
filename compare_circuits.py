@@ -163,30 +163,35 @@ def circuit_equivalence(S1: Circuit, S2: Circuit) -> Tuple[bool, List[Tuple[int,
         then at the end add the equals 1 term for each of the sets.
 
     """
-    
-    formula = pysat.formula.CNF()
-    
     class Assignment():
-        def __init__(self):
-            self.assignment = [ [None for _ in range(K)] for _ in range(K) ]
+        def __init__(self, offset = 0):
+            self.assignment = {}
             self.inv_assignment = [None]
-            self.curr = 1
+            self.curr = 1 + offset
+            self.offset = offset
         
         def get_assignment(self, i: int, j: int) -> int:
             ## assignment i, j is from S1 to S2
-
-            if self.assignment[i][j] != None:
+            try:
                 return self.assignment[i][j]
-            else:
+            except KeyError:
+                self.assignment.setdefault(i, {})
                 self.assignment[i][j] = self.curr
                 self.inv_assignment.append((i, j))
                 self.curr += 1
                 return self.assignment[i][j]
         
         def get_inv_assignment(self, i: int) -> Tuple[int, int]:
-            return self.inv_assignment[i]
+            return self.inv_assignment[i - self.offset]
         
     mapp = Assignment()
+
+    #### TODO: Remove Verifier Stuff
+
+    cmapp = Assignment(offset=K**2)
+    ver_formula = pysat.formula.CNF()
+
+    #### TODO: Remove Verifier Stuff
 
     total = sum([len(groups["S1"][key])**2 for key in groups["S1"].keys()])
     i = 0
@@ -220,6 +225,69 @@ def circuit_equivalence(S1: Circuit, S2: Circuit) -> Tuple[bool, List[Tuple[int,
                 signal_options(c1, c2)
                 for c1, c2 in comparisons
             ]
+
+            ### TODO: Remove Verifier Stuff
+
+            def extend(formula, info):
+                i, options = info
+
+                i_, j_ = i // len(groups["S1"][key]), i % len(groups["S1"][key])
+                i, j = S1.constraints[ groups["S1"][key][i_] ], S2.constraints[ groups["S2"][key][j_] ]
+
+                var = cmapp.get_assignment(i, j)
+
+                clauses = pysat.formula.CNF()
+
+                for name in ["S1", "S2"]:
+                    for signal in options[name].keys():
+
+                        if len(options[name][signal]) == 0:
+                            continue
+
+                        lits = [
+                            mapp.get_assignment(signal, pair) if (name == "S1") else mapp.get_assignment(pair, signal)
+                            for pair in options[name][signal]
+                        ]
+
+                        clauses.extend( CardEnc.equals(
+                            lits = lits,
+                            bound = 1,
+                            encoding = EncType.pairwise
+                        ) )
+
+                clauses = map(lambda x : x + [-var], clauses.clauses)
+                formula.extend(clauses)
+
+                return formula
+
+            ver_formula = reduce(
+                extend,
+                zip(range(len(Options)), Options),
+                ver_formula
+            )
+
+            for name, circ in in_pair:
+                oname = "S2" if name == "S1" else "S1"
+                ocirc = S2 if name == "S1" else S1
+                others = [ ocirc.constraints[j] for j in groups[oname][key] ]
+                for i in groups[name][key]:
+                    i_ = circ.constraints[i]
+
+
+                    lits = [
+                        cmapp.get_assignment(i_, j_) if name == "S1" else cmapp.get_assignment(j_, i_)
+                        for j_ in others
+                    ]
+
+                    ver_formula.extend(
+                        CardEnc.equals(
+                            lits = lits,
+                            bound = 1,
+                            encoding = EncType.pairwise
+                        )
+                    )
+
+            ### TODO: Remove Verifier Stuff
 
             def merge(class_potential, options):
                 for name in ["S1", "S2"]:
@@ -284,6 +352,19 @@ def circuit_equivalence(S1: Circuit, S2: Circuit) -> Tuple[bool, List[Tuple[int,
             lambda x : mapp.get_inv_assignment(x),
             assignment
         )
+
+        ## NOTE: Testing to Verify Correctness of Mapping Here
+        #### TODO: Remove Verifier Stuff
+
+        vsolver = Solver(name='g4', bootstrap_with=ver_formula)
+        equal = vsolver.solve(assumptions=solver.get_model()) # very quick since it's almost just propagation
+
+        print(f"Constraint mapping was able to find correct solution: {equal}")
+
+        #### TODO: Remove Verifier Stuff
+
+        # TODO: investigate whether mapping can be incorrect -- verifier was unsatisfiable
+
         return True, list(assignment)
 
 
