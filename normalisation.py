@@ -158,14 +158,11 @@ def r1cs_norm(C: Constraint) -> List[Constraint]:
         ## sorting
         for dict_ in [res.A, res.B, res.C]:
             dict_ = {key: dict_[key] for key in sorted(dict_.keys(), key = lambda x : dict_[x])}
+        
+        return res
 
     return [
-        Constraint(
-            A = {key: divideP(C.A[key], a, C.p) for key in C.A.keys()},
-            B = {key: divideP(C.B[key], b, C.p) for key in C.B.keys()},
-            C = {key: divideP(C.C[key], c, C.p) for key in C.C.keys()},
-            p = C.p
-        ) for (a, b), c in choices
+        normalise_with_choices(a, b, c) for (a, b), c in choices
     ]
 
 
