@@ -25,7 +25,9 @@ def encode(
 
     formula = CNF()
 
+    # TODO: maybe refactor so we hash_ the long strings less
     for class_ in classes[in_pair[0][0]].keys():
+        
         for (name, _) , (oname, _) in zip(in_pair, in_pair[::-1]):
             for i in classes[name][class_]:
 
@@ -41,85 +43,97 @@ def encode(
                         encoding = EncType.pairwise
                     )
                 )
-
-        if 'n' in class_:
         
-            #  if not 1 canonical form then every constraint has n canonical forms..
-            #   need to compare between c1_c2 where c2 is multiplied is normalised n different ways (equivalent to c1 doing the same)
-            #  Notably each C1 - nC2 is still the same bijection so the number of bij variables remains the same.
+        #  if not 1 canonical form then every constraint has n canonical forms..
+        #   need to compare between c1_c2 where c2 is multiplied is normalised n different ways (equivalent to c1 doing the same)
+        #  Notably each C1 - nC2 is still the same bijection so the number of bij variables remains the same.
 
-            #  What differs is now the RHS of \psi_{C1, C2} -> (CNF logic) is (\bigvee_n CNF_n logic) because at least 1 of the the
-            #   logics for each n must be correct
+        #  What differs is now the RHS of \psi_{C1, C2} -> (CNF logic) is (\bigvee_n CNF_n logic) because at least 1 of the the
+        #   logics for each n must be correct
 
-            #  Additionally, the detect for empty variables options for non-viability is now over the whole set 
+        #  Additionally, the detect for empty variables options for non-viability is now over the whole set 
 
-            left_normed = [
-                r1cs_norm(in_pair[0][1].constraints[i])[0] for i in classes[in_pair[0][0]][class_]
+        left_normed = [
+            r1cs_norm(in_pair[0][1].constraints[i])[0] for i in classes[in_pair[0][0]][class_]
+        ]
+
+        right_normed = [
+            r1cs_norm(in_pair[1][1].constraints[i]) for i in classes[in_pair[1][0]][class_]
+        ]
+
+        comparison = product(
+            range(len(classes[in_pair[0][0]][class_])), range(len(classes[in_pair[0][0]][class_]))
+        )
+
+        Options = [
+            [signal_options(left_normed[i], right_normed[j][k]) for k in range(len(right_normed[j]))]
+            for i, j in comparison
+        ]
+
+        def extend(formula, info):
+            # We have CNF \or CNF \or ... \or CNF
+            # Is every clause OR with each other... for |CNF|^n clauses -- hopefully n is low-ish (usually at most 4)
+
+            i, opset = info
+
+            name1, name2 = in_pair[0][0], in_pair[1][0]
+
+            i_, j_ = i // len(classes[name1][class_]), i % len(classes[name1][class_])
+            i, j = classes[name1][class_][i_], classes[name2][class_][j_]
+            ij = cmapp.get_assignment(i, j)
+
+            clauses = CNF()
+
+            # Need to catch when a pairing isn't viable because a signal bijection has no options
+            viable_options = [
+                options for options in opset
+                    if all(
+                        [all(
+                            [len(options[name][signal]) > 0 
+                                for signal in options[name].keys()]) 
+                        for name, _ in in_pair]
+                    )
             ]
 
-            right_normed = [
-                r1cs_norm(in_pair[1][1].constraints[i]) for i in classes[in_pair[1][0]][class_]
-            ]
-
-            #TODO: finish
-            
-        else:
-            
-            comparisons = product(*[ 
-                                    [r1cs_norm(circ.constraints[i])[0] for i in classes[name][class_]] 
-                                    for name, circ in in_pair] 
-            )
-
-            Options = [
-                signal_options(c1, c2)
-                for c1, c2 in comparisons
-            ]
-
-            def extend(formula, info):
-                i, options = info
-
-                name1, name2 = in_pair[0][0], in_pair[1][0]
-
-
-                i_, j_ = i // len(classes[name1][class_]), i % len(classes[name1][class_])
-                i, j = classes[name1][class_][i_], classes[name2][class_][j_]
-                ij = cmapp.get_assignment(i, j)
-
-                clauses = CNF()
-
-                for name, _ in in_pair:
-                    for signal in options[name].keys():
-
-                        if len(options[name][signal]) == 0:
-                            ## means that signal has no viable mapping i.e. mapping is not viable
-                            nonviable.append(ij)
-                            return formula
-
-                        lits = [
-                            mapp.get_assignment(signal, pair) if (name == name1) else mapp.get_assignment(pair, signal)
-                            for pair in options[name][signal]
-                        ]
-
-                        clauses.extend( CardEnc.atleast(
-                            lits = lits,
-                            bound = 1,
-                            encoding = EncType.pairwise
-                        ) )
-
-                clauses = map(lambda x : x + [-ij], clauses.clauses)
-                formula.extend(clauses)
-
+            if len(viable_options) == 0:
+                nonviable.append(ij)
                 return formula
 
-            formula = reduce(
-                extend,
-                zip(range(len(Options)), Options),
-                formula
-            )
+            Product = {
+                name: map(
+                lambda options : options[name].items(),
+                viable_options
+            ) for name, _ in in_pair}
+
+            for name, _ in in_pair:
+                for llist in product(*Product[name]):
+
+                    # generate clause
+                    lits = reduce(
+                        lambda acc, x : acc + [
+                            mapp.get_assignment(x[0], j) if name == in_pair[0][0] else mapp.get_assignment(j, x[0])
+                            for j in x[1]
+                        ],
+                        llist,
+                        []
+                    )
+
+                    clauses.append(lits)
+
+            clauses = map(lambda x : x + [-ij], clauses.clauses)
+            formula.extend(clauses)
+
+            return formula
+
+        formula = reduce(
+            extend,
+            zip(range(len(Options)), Options),
+            formula
+        )
     
     # At most 1 for S1
     flipped = {}
-    for i in mapp.assignment.keys(): # <-- all S1 signals
+    for i in mapp.assignment.keys(): # <-- all S1 signals added to formula
         if i == 0:
             continue
 
@@ -135,7 +149,7 @@ def encode(
         )
     
     # at most 1 for S2
-    for j in flipped.keys():
+    for j in flipped.keys(): # <-- all S2 signals added to formula
         formula.extend(
             CardEnc.atmost(
                 lits = flipped[j],
