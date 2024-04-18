@@ -43,7 +43,26 @@ def encode(
                 )
 
         if 'n' in class_:
-            raise NotImplementedError
+        
+            #  if not 1 canonical form then every constraint has n canonical forms..
+            #   need to compare between c1_c2 where c2 is multiplied is normalised n different ways (equivalent to c1 doing the same)
+            #  Notably each C1 - nC2 is still the same bijection so the number of bij variables remains the same.
+
+            #  What differs is now the RHS of \psi_{C1, C2} -> (CNF logic) is (\bigvee_n CNF_n logic) because at least 1 of the the
+            #   logics for each n must be correct
+
+            #  Additionally, the detect for empty variables options for non-viability is now over the whole set 
+
+            left_normed = [
+                r1cs_norm(in_pair[0][1].constraints[i])[0] for i in classes[in_pair[0][0]][class_]
+            ]
+
+            right_normed = [
+                r1cs_norm(in_pair[1][1].constraints[i]) for i in classes[in_pair[1][0]][class_]
+            ]
+
+            #TODO: finish
+            
         else:
             
             comparisons = product(*[ 
