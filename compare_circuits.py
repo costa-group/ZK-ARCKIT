@@ -16,9 +16,8 @@ from pysat.solvers import Solver
 from itertools import product
 from functools import reduce
 
-import bij_encodings
-import bij_encodings.constraint_map
-import bij_encodings.signal_map
+import bij_encodings.natural_encoding
+import bij_encodings.signal_encoding
 from r1cs_scripts.circuit_representation import Circuit
 from r1cs_scripts.constraint import Constraint
 from r1cs_scripts.modular_operations import divideP
@@ -167,16 +166,16 @@ def circuit_equivalence(S1: Circuit, S2: Circuit) -> Tuple[bool, List[Tuple[int,
 
     """
 
-    formula, _ = bij_encodings.signal_map.encode(
-        groups, in_pair, True
-    )
+    # formula, _ = bij_encodings.signal_encoding.encode(
+    #     groups, in_pair, True
+    # )
 
-    ver_formula, mapp = bij_encodings.constraint_map.encode(
+    formula, mapp = bij_encodings.natural_encoding.encode(
         groups, in_pair, K**2, True
     )
     
     # solver choice aribtrary might be better options -- straight ver_formula ~120s to solve
-    solver = Solver(name='g4', bootstrap_with=ver_formula)
+    solver = Solver(name='g4', bootstrap_with=formula)
     equal = solver.solve()
     if not equal:
         return False, "SAT solver determined final formula unsatisfiable"
@@ -191,19 +190,6 @@ def circuit_equivalence(S1: Circuit, S2: Circuit) -> Tuple[bool, List[Tuple[int,
         # f = open("assignment.txt", "w")
         # f.writelines(map(lambda x : str(x) + '\n', assignment))
         # f.close()
-
-        
-        ## NOTE: Testing to Verify Correctness of Mapping Here
-        #### TODO: Remove Verifier Stuff
-
-        # print('begun verifying')
-        # vsolver = Solver(name='g4', bootstrap_with=ver_formula)
-        # equal = vsolver.solve(assumptions=solver.get_model()) # takes ~120s with assumptions...
-
-        # print(f"Constraint mapping was able to find correct solution: {equal}")
-        # if not equal : print(vsolver.get_core())
-
-        #### TODO: Remove Verifier Stuff
 
         # TODO: investigate whether mapping can be incorrect -- verifier was unsatisfiable
 
