@@ -1,3 +1,4 @@
+## Seems to be the only viable encoding method.
 
 from pysat.formula import CNF
 from pysat.card import CardEnc, EncType
@@ -20,9 +21,27 @@ def encode(
     mapp = Assignment()
     cmapp = Assignment(offset)
 
+    nonviable = []
+
     formula = CNF()
 
     for class_ in classes[in_pair[0][0]].keys():
+        for (name, _) , (oname, _) in zip(in_pair, in_pair[::-1]):
+            for i in classes[name][class_]:
+
+                lits = [
+                    cmapp.get_assignment(i, j) if name == in_pair[0][0] else cmapp.get_assignment(j, i)
+                    for j in classes[oname][class_]
+                ]
+
+                formula.extend(
+                    CardEnc.equals(
+                        lits = lits,
+                        bound = 1,
+                        encoding = EncType.pairwise
+                    )
+                )
+
         if 'n' in class_:
             raise NotImplementedError
         else:
@@ -45,6 +64,7 @@ def encode(
 
                 i_, j_ = i // len(classes[name1][class_]), i % len(classes[name1][class_])
                 i, j = classes[name1][class_][i_], classes[name2][class_][j_]
+                ij = cmapp.get_assignment(i, j)
 
                 clauses = CNF()
 
@@ -52,7 +72,9 @@ def encode(
                     for signal in options[name].keys():
 
                         if len(options[name][signal]) == 0:
-                            continue
+                            ## means that signal has no viable mapping i.e. mapping is not viable
+                            nonviable.append(ij)
+                            return formula
 
                         lits = [
                             mapp.get_assignment(signal, pair) if (name == name1) else mapp.get_assignment(pair, signal)
@@ -65,7 +87,7 @@ def encode(
                             encoding = EncType.pairwise
                         ) )
 
-                clauses = map(lambda x : x + [-cmapp.get_assignment(i, j)], clauses.clauses)
+                clauses = map(lambda x : x + [-ij], clauses.clauses)
                 formula.extend(clauses)
 
                 return formula
@@ -75,22 +97,6 @@ def encode(
                 zip(range(len(Options)), Options),
                 formula
             )
-
-            for (name, _) , (oname, _) in zip(in_pair, in_pair[::-1]):
-                for i in classes[name][class_]:
-
-                    lits = [
-                        cmapp.get_assignment(i, j) if name == in_pair[0][0] else cmapp.get_assignment(j, i)
-                        for j in classes[oname][class_]
-                    ]
-
-                    formula.extend(
-                        CardEnc.equals(
-                            lits = lits,
-                            bound = 1,
-                            encoding = EncType.pairwise
-                        )
-                    )
     
     # At most 1 for S1
     flipped = {}
@@ -119,4 +125,4 @@ def encode(
             )
         )
     
-    return formula if not return_signal_mapping else (formula, mapp)
+    return (formula, nonviable) if not return_signal_mapping else (formula, nonviable, mapp)
