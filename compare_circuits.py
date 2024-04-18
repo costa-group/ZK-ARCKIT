@@ -72,22 +72,23 @@ def circuit_equivalence(S1: Circuit, S2: Circuit) -> Tuple[bool, List[Tuple[int,
         If there is a single choice - returns the normalised constraints in sorted order
         If there is not a single choice - returns num list of choices
         """
+        def to_string(circ):
+            AB = f"{list(circ.A.values())}*{list(circ.B.values())}" if len(circ.A) * len(circ.B) > 0 else ""
+            C = f"{list(circ.C.values())}"
+
+            return f"{AB}+{C}"
+        
+        def return_sorted_coefs(circ):
+            return sorted( list(circ.A.values()) + list(circ.B.values()) + list(circ.C.values()))
 
         norms = r1cs_norm(C)
-
-        # would like to encode some more information but it's not possible given the factor a
-        if len(norms) == 1:
-            norm = norms[0]
-
-            AB = f"{list(norm.A.values())}*{list(norm.B.values())}" if len(norm.A) * len(norm.B) > 0 else ""
-            C = f"{list(norm.C.values())}"
-
-            res = f"{AB}+{C}"
+        if len(norms) > 1: norms = sorted(norms, key = return_sorted_coefs) ## need canonical order for returned normed constraints
+        norms = list(map(
+            to_string,
+            norms
+        ))
+        return str(list(norms))
         
-        else:
-            # TODO: think of a better option here
-            res = f"n_options={len(norms)}"
-        return res
 
     # python loops are really slow... ~22s for 818 simple const 10^4 times..
     for i in range(N):
@@ -175,7 +176,7 @@ def circuit_equivalence(S1: Circuit, S2: Circuit) -> Tuple[bool, List[Tuple[int,
     )
 
     print('finished encoding')
-    return False, [None for _ in range(S1.nWires)]
+    return False, [(i, None) for i in range(S1.nWires)]
     
     # solver choice aribtrary might be better options -- straight ver_formula ~120s to solve
     solver = Solver(name='g4', bootstrap_with=formula)
