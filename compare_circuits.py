@@ -69,8 +69,7 @@ def circuit_equivalence(S1: Circuit, S2: Circuit) -> Tuple[bool, List[Tuple[int,
     
     def norm_split(C: Constraint) -> str:
         """
-        If there is a single choice - returns the normalised constraints in sorted order
-        If there is not a single choice - returns num list of choices
+        returns a sorted list of the normalised constraints in sorted order
         """
         def to_string(circ):
             AB = f"{list(circ.A.values())}*{list(circ.B.values())}" if len(circ.A) * len(circ.B) > 0 else ""
@@ -87,6 +86,9 @@ def circuit_equivalence(S1: Circuit, S2: Circuit) -> Tuple[bool, List[Tuple[int,
             to_string,
             norms
         ))
+
+        # TODO: is there are significant performance dip for having long hashes?
+        #   given that usually the list is not more than 4 this seems unlikely.. but something to think about
         return str(list(norms))
         
 

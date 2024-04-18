@@ -1,4 +1,6 @@
-
+"""
+DEPRECATED DUE TO LARGE COST
+"""
 from pysat.formula import CNF
 from pysat.card import CardEnc, EncType
 from typing import Tuple, Dict, List

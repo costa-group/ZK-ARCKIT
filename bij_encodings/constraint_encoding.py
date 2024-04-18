@@ -2,7 +2,7 @@
 Idea here is to use the variable options to draw relations between the constraint mappings and decide
 which are mutually exclusive
 
-Will require maths I think
+DEPRECATED DUE TO LARGE THEORETICAL COST
 """
 
 from pysat.formula import CNF
