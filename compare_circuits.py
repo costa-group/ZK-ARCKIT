@@ -177,9 +177,6 @@ def circuit_equivalence(S1: Circuit, S2: Circuit) -> Tuple[bool, List[Tuple[int,
         groups, in_pair, K**2, True
     )
 
-    print('finished encoding')
-    return False, [(i, None) for i in range(S1.nWires)]
-    
     # solver choice aribtrary might be better options -- straight ver_formula ~120s to solve
     solver = Solver(name='g4', bootstrap_with=formula)
     equal = solver.solve(assumptions=assumptions)
