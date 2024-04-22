@@ -6,9 +6,11 @@ And use Lazy Clause Generation with propagators (pysat.engine) to build the cons
 from pysat.formula import CNF
 from pysat.card import CardEnc, EncType
 from pysat.solvers import Solver
+from pysat.engines import Propagator
 from typing import Tuple, Dict, List
 from itertools import product
 from functools import reduce
+from collections import defaultdict
 
 from normalisation import r1cs_norm
 from r1cs_scripts.circuit_representation import Circuit
@@ -24,6 +26,59 @@ def get_solver(
     ) -> Solver:
     pass
 
+class ConsBijConstraint():
+    pass
+
+class ConstraintEngine(Propagator):
+
+    def __init__(self) -> None:
+
+        # Init Constraints
+        self.vset = set([])
+        self.cons = []
+        self.lins = []
+
+        # PreProcess Constraints
+
+        # Init Backtrack handler
+        #   Method copied from pysat.engines.BooleanEngine by Alexei Igniatev -- https://github.com/pysathq/pysat/blob/master/pysat/engines.py 
+        self.value = {v: None for v in self.vset}
+        self.fixed = {v: False for v in self.vset}
+        self.trail = []
+        self.trlim = []
+        self.props = defaultdict([])
+        self.qhead = None
+
+        self.decision_level = 0
+        self.level = {v: 0 for v in self.vset}
+
+
+        pass
+
+    def on_assignment(self, lit: int, fixed: bool = False) -> None:
+        pass
+
+    def on_new_level(self) -> None:
+        pass
+    
+    def on_backtrack(self, to: int) -> None:
+        pass
+
+    def check_model(self, model: List[int]) -> bool:
+        pass
+
+    def decide(self) -> int:
+        pass
+
+    def propagate(self) -> List[int]:
+        pass
+
+    def provide_reason(self, lit: int) -> List[int]:
+        pass
+
+    def add_clause(self) -> List[int]:
+        pass
+
 def encode(
         classes:Dict[str, Dict[str, List[int]]],
         in_pair: List[Tuple[str, Circuit]],
@@ -33,6 +88,8 @@ def encode(
     """
     multi-norm version of previous simple encoder
     """
+
+    #TODO: update to include all seen variables but include assumptions about non-viable ones
 
     mapp = Assignment()
 
