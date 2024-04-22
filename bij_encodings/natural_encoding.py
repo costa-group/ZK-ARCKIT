@@ -15,7 +15,8 @@ def encode(
         classes:Dict[str, Dict[str, List[int]]],
         in_pair: List[Tuple[str, Circuit]],
         offset: int,
-        return_signal_mapping: bool = False
+        return_signal_mapping: bool = False,
+        debug: bool = False
     ) -> CNF:
     
     mapp = Assignment()
@@ -26,8 +27,14 @@ def encode(
     formula = CNF()
 
     # TODO: maybe refactor so we hash_ the long strings less
+    # TODO: investigate why this version is so much slower on Sudoku despite being mostly the same code
+    class_counter = 1
+
     for class_ in classes[in_pair[0][0]].keys():
-        
+
+        if debug: print(f"Starting Class {class_counter} or {len(classes[in_pair[0][0]])}", end= '\r')
+        class_counter += 1
+
         for (name, _) , (oname, _) in zip(in_pair, in_pair[::-1]):
             for i in classes[name][class_]:
 
@@ -43,7 +50,6 @@ def encode(
                         encoding = EncType.pairwise
                     )
                 )
-        
         #  if not 1 canonical form then every constraint has n canonical forms..
         #   need to compare between c1_c2 where c2 is multiplied is normalised n different ways (equivalent to c1 doing the same)
         #  Notably each C1 - nC2 is still the same bijection so the number of bij variables remains the same.
@@ -130,32 +136,51 @@ def encode(
             zip(range(len(Options)), Options),
             formula
         )
-    
+
+    print("Done with Class Logic          ")
+
+    i_counter = 0
+
     # At most 1 for S1
     flipped = {}
     for i in mapp.assignment.keys(): # <-- all S1 signals added to formula
+
+        if debug: print(f"S1 {i_counter}: {i}, {len(mapp.assignment[i])}                  ", end='\r')
+        i_counter += 1
+
         if i == 0:
             continue
 
         for j in mapp.assignment[i].keys():
             flipped.setdefault(j, []).append( mapp.get_assignment(i, j) )
 
+        negatives = list(map(lambda x : -x, mapp.assignment[i].values()))
+
         formula.extend(
-            CardEnc.atmost(
-                lits = mapp.assignment[i].values(),
-                bound = 1,
-                encoding = EncType.pairwise
-            )
+            product(negatives, negatives) # at most 1
+        )
+
+    # TODO: seems to break linux at a certain point -- memory? doesn't seem like it since taskmanager says it's not using the memory
+    # Even in native windows it seems to take longer at arbitrary j -- I feel it must be a memory thing as the size of flipped is
+    #    more or less equivalent but I can't think of why given we didn't have this problem for the exact same code before
+    # TaskManager does show disk usage so I'm guessing that's the memory swaps happening and hence the time increase
+
+    # at most 1 for S2
+    j_counter = 0
+
+    for j in flipped.keys(): # <-- all S2 signals added to formula
+        if j == 0:
+            continue
+
+        if debug: print(f"S2 {j_counter}: {j}, {len(flipped[j])}                  ", end='\r')
+        j_counter += 1
+
+        negatives = list(map(lambda x : -x, flipped[j]))
+
+        formula.extend(
+            product(negatives, negatives) # at most 1
         )
     
-    # at most 1 for S2
-    for j in flipped.keys(): # <-- all S2 signals added to formula
-        formula.extend(
-            CardEnc.atmost(
-                lits = flipped[j],
-                bound = 1,
-                encoding=EncType.pairwise
-            )
-        )
+    print('done')
     
     return (formula, nonviable) if not return_signal_mapping else (formula, nonviable, mapp)
