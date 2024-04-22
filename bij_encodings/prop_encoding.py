@@ -26,6 +26,8 @@ def get_solver(
     ) -> Solver:
     pass
 
+# ---------------------------------------------------------------------------------------------------------------------------------
+
 class ConsBijConstraint():
     """
         This represents the signal clauses for a bijection between constraints i, j.
@@ -35,6 +37,7 @@ class ConsBijConstraint():
             for i, j at least 1 of the k norm forms must be happy with the given encoding.
 
         The programming logic behind the propagator is relatively straight forward but what clause do we return to justify it,
+
 
     """
 
@@ -82,6 +85,11 @@ class ConsBijConstraint():
             for v in self.vset
         }
 
+        self.expl = {
+            v: None
+            for v in self.vset
+        }
+
         self.assignment = None # will copy the assignment of the Engine
 
     def attach_values(self, values) -> None:
@@ -114,8 +122,12 @@ class ConsBijConstraint():
             
                 if len(opts) == 1:
                     
-                    propagated.append( next(iter(opts)) )
-                    #TODO: be able to justify
+                    p = next(iter(opts))
+                    propagated.append( p )
+
+                    # Builds LHS of implication about if (curr relevant assignment) -> p
+                    #   TODO: think to improve by choosing smaller set
+                    self.expl[p] = [-v for v in self.vset if self.assignment[v] is not None]
     
         return propagated
     
@@ -132,8 +144,12 @@ class ConsBijConstraint():
             )
 
             if len(opts) == 1:
-                propagated.append( next(iter(opts)) )
-                #TODO: be able to justify
+                p = next(iter(opts))
+                propagated.append( p )
+                
+                # Builds LHS of implication about if (curr relevant assignment) -> p
+                    #   TODO: think to improve by choosing smaller set
+                self.expl[p] = [-v for v in self.vset if self.assignment[v] is not None]
         
         return propagated
         
@@ -149,10 +165,13 @@ class ConsBijConstraint():
                 self.valid_norms[i][k] = True
 
     def justify(self, lit) -> List[int]:
-        pass
+        return self.expl[abs(lit)] # propagator will never negate a variable but just in case take abs
 
     def abandon(self, lit) -> List[int]:
-        pass
+        self.expl[abs(lit)].clear() # propagator will never negate a variable but just in case take abs
+
+# ---------------------------------------------------------------------------------------------------------------------------------
+
 
 class ConstraintEngine(Propagator):
 
@@ -201,6 +220,8 @@ class ConstraintEngine(Propagator):
 
     def add_clause(self) -> List[int]:
         pass
+
+# ---------------------------------------------------------------------------------------------------------------------------------
 
 def encode(
         classes:Dict[str, Dict[str, List[int]]],
