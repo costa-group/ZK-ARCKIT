@@ -40,6 +40,7 @@ class ConsBijConstraint():
 
 
     """
+    # TODO: handle falsification for check model
 
     def __init__(self, i: int, j: int, Options: List[dict], mapp: Assignment, in_pair: List[Tuple[str, Circuit]]) -> None:
 
@@ -80,10 +81,7 @@ class ConsBijConstraint():
             set([])
         )
 
-        self.to_undo = {
-            v: []
-            for v in self.vset
-        }
+        self.to_undo = defaultdict(lambda: [])
 
         self.expl = {
             v: None
@@ -97,14 +95,14 @@ class ConsBijConstraint():
 
     def register_watched(self, to_watch) -> None:
         for var in self.vset:
-            to_watch[var].append(self)
+            to_watch[-var].append(self)
 
     def propagate(self, lit: int) -> List[int]:
         propagated = []
         var = abs(lit)
         l, r = self.mapp.inv_assignment(var)
 
-        # update 
+        # If lit > 0, then we don't do anything
         if lit < 0:
             
             for i, signal in [(0, l, r), (1, r, l)]:
@@ -114,7 +112,7 @@ class ConsBijConstraint():
                     if var not in self.possible_norms[i][k][signal]:
                         continue
                     
-                    self.to_undo[var].append((i, k, signal))
+                    self.to_undo[lit].append((i, k, signal))
                     self.possible_norms[i][k][signal].remove(var)
                     self.valid_norms[i][k] = self.valid_norms[i][k] and len(self.possible_norms[i][k][signal]) != 0
 
@@ -146,7 +144,7 @@ class ConsBijConstraint():
             if len(opts) == 1:
                 p = next(iter(opts))
                 propagated.append( p )
-                
+
                 # Builds LHS of implication about if (curr relevant assignment) -> p
                     #   TODO: think to improve by choosing smaller set
                 self.expl[p] = [-v for v in self.vset if self.assignment[v] is not None]
@@ -157,7 +155,7 @@ class ConsBijConstraint():
     def unassign(self, lit: int) -> List[int]:
         var = abs(lit)
 
-        while len(self.to_undo[var]) > 0:
+        while len(self.to_undo[lit]) > 0:
             i, k, signal = self.to_undo.pop()
             self.possible_norms[i][k][signal].add(var)
 
@@ -174,51 +172,119 @@ class ConsBijConstraint():
 
 
 class ConstraintEngine(Propagator):
+    """
+    A modified version of the BooleanEngine by Alexei Ignatiev
+        available at: https://github.com/pysathq/pysat/blob/master/pysat/engines.py#L711 
+    """
 
-    def __init__(self) -> None:
+    def __init__(self, bootstrap_with: List[ConsBijConstraint] = []) -> None:
 
         # Init Constraints
-        self.vset = set([])
-        self.cons = []
-        self.lins = []
+        self.cons = bootstrap_with
+        self.vset = reduce(
+            lambda acc, x : acc.union(x),
+            self.cons,
+            set([])
+        )
+        self.watching = defaultdict(lambda: [])
 
-        # PreProcess Constraints
+        # PreProcess Constraints .. TODO: how?
 
         # Init Backtrack handler
-        #   Method copied from pysat.engines.BooleanEngine by Alexei Igniatev -- https://github.com/pysathq/pysat/blob/master/pysat/engines.py 
         self.value = {v: None for v in self.vset}
         self.fixed = {v: False for v in self.vset}
         self.trail = []
         self.trlim = []
-        self.props = defaultdict([])
+        self.props = defaultdict(lambda: [])
+        self.origin = defaultdict(lambda: None)
         self.qhead = None
-
-        self.decision_level = 0
-        self.level = {v: 0 for v in self.vset}
-        pass
+        
+        for cs in self.cons:
+            # give constraints access to following
+            cs.register_watched(self.watching)
+            cs.attach_values(self.values)
 
     def on_assignment(self, lit: int, fixed: bool = False) -> None:
-        pass
+        
+        var = abs(lit)
+        
+        if self.qhead is None:
+            self.qhead = len(self.trail)
+        
+        self.trail.append(lit)
+
+        if fixed:
+            self.fixed[var] = True
 
     def on_new_level(self) -> None:
-        pass
+        
+        self.trlim.append(len(self.trail))
     
     def on_backtrack(self, to: int) -> None:
-        pass
+        while len(self.trlim) > to:
+            while len(self.trail) > self.trlim[-1]:
+                lit = self.trail.pop()
+                var = abs(lit)
+
+                if self.value[var] is not None and not self.fixed[var]:
+                    for cs in self.watching[lit]:
+                        cs.unassign(lit)
+                    
+                    self.value[var] = None
+
+                for l in self.props[lit]:
+                    self.origin[l].abandon(l)
+                    self.origin[l] = None
+                self.props[lit] = None
+            self.trlim.pop()
+
+        self.qhead = None                 
 
     def check_model(self, model: List[int]) -> bool:
-        pass
-
-    def decide(self) -> int:
+        # TODO
         pass
 
     def propagate(self) -> List[int]:
-        pass
+        results = []
+
+        if self.qhead is not None:
+            while self.qhead < len(self.trail):
+                lit = self.trail[self.qhead]
+
+                if self.origin[-lit] is not None:
+                    break
+                
+                self.value[abs(lit)] = lit
+
+                for cs in self.watching[lit]:
+                    propagated = cs.propagate(lit)
+
+                    for l in propagated:
+                        if self.origin[l] is None:
+                            self.origin[l] = cs
+                            results.append(l)
+                            self.props[lit].append(l)
+            
+            self.qhead += 1
+
+        else:
+
+            for cs in self.cons:
+                propagated = cs.propagate()
+
+                for l in propagated:
+                    if self.origin[l] is None:
+                        self.origin[l] = cs
+                        results.append(l)
+
+        return results
+
 
     def provide_reason(self, lit: int) -> List[int]:
-        pass
+        return [lit] + self.origin[lit].justify(lit)
 
     def add_clause(self) -> List[int]:
+        # TODO
         pass
 
 # ---------------------------------------------------------------------------------------------------------------------------------
