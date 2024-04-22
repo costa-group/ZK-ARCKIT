@@ -15,9 +15,9 @@ from pysat.card import EncType, CardEnc
 from pysat.solvers import Solver
 from itertools import product
 from functools import reduce
+import time
 
-import bij_encodings.natural_encoding
-import bij_encodings.signal_encoding
+import bij_encodings.prop_encoding
 from r1cs_scripts.circuit_representation import Circuit
 from r1cs_scripts.constraint import Constraint
 from r1cs_scripts.modular_operations import divideP
@@ -26,12 +26,15 @@ from normalisation import r1cs_norm_choices, r1cs_norm
 
 constSignal = 0
 
-def circuit_equivalence(S1: Circuit, S2: Circuit) -> Tuple[bool, List[Tuple[int, int]]]:
+def circuit_equivalence(S1: Circuit, 
+                        S2: Circuit,
+                        timing: bool = False
+                        ) -> Tuple[bool, List[Tuple[int, int]]]:
     """
     Currently assumes A*B + C = 0, where each A, B, C are equivalent up to renaming/factor
     """
 
-    pass
+    start = time.time()
 
     N = S1.nConstraints
     K = S1.nWires
@@ -106,6 +109,8 @@ def circuit_equivalence(S1: Circuit, S2: Circuit) -> Tuple[bool, List[Tuple[int,
             groups[name].setdefault(hash_, []).append(i)
 
     # Early Exiting
+    hash_time = time.time()
+    if timing: print(f"Hashing took: {hash_time - start}")
 
     for key in list(groups['S1'].keys()) + list(groups['S2'].keys()):
         try:
@@ -169,17 +174,22 @@ def circuit_equivalence(S1: Circuit, S2: Circuit) -> Tuple[bool, List[Tuple[int,
 
     """
 
-    # formula, _ = bij_encodings.signal_encoding.encode(
-    #     groups, in_pair, True
-    # )
-
-    formula, assumptions, mapp = bij_encodings.natural_encoding.encode(
-        groups, in_pair, K**2, True
+    formula, assumptions, mapp = bij_encodings.prop_encoding.encode(
+        groups, in_pair, True
     )
+    encoding_time = time.time()
+    if timing: print(f"encoding took: {encoding_time - hash_time}")
+
+    # formula, assumptions, mapp = bij_encodings.natural_encoding.encode(
+    #     groups, in_pair, K**2, True
+    # )
 
     # solver choice aribtrary might be better options -- straight ver_formula ~120s to solve
     solver = Solver(name='g4', bootstrap_with=formula)
     equal = solver.solve(assumptions=assumptions)
+
+    solving_time = time.time()
+    if timing: print(f"solving took: {solving_time - encoding_time}")
     if not equal:
         return False, "SAT solver determined final formula unsatisfiable"
     else:

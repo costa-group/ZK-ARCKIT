@@ -52,7 +52,7 @@ if __name__ == '__main__':
 
     # ~30 seconds for this comparison.
     for _ in range(10**0):
-        bool, mapp = circuit_equivalence(circ, circ_shuffled)
+        bool, mapp = circuit_equivalence(circ, circ_shuffled, timing=True)
         print(bool)
         print("Number of mapping disagreements: ", len( [map for map in mapp if map[1] != mapping[map[0]]]))
 
