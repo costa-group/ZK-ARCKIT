@@ -8,7 +8,7 @@ from pysat.card import CardEnc, EncType
 from pysat.solvers import Solver
 from pysat.engines import Propagator
 from typing import Tuple, Dict, List
-from itertools import product
+from itertools import product, chain
 from functools import reduce
 from collections import defaultdict
 
@@ -27,7 +27,132 @@ def get_solver(
     pass
 
 class ConsBijConstraint():
-    pass
+    """
+        This represents the signal clauses for a bijection between constraints i, j.
+        i.e. for every norm in i, j.
+
+        Since all the at most 1 logic is handled in the encoding itself all we care is the at least 1 logic,
+            for i, j at least 1 of the k norm forms must be happy with the given encoding.
+
+        The programming logic behind the propagator is relatively straight forward but what clause do we return to justify it,
+
+    """
+
+    def __init__(self, i: int, j: int, Options: List[dict], mapp: Assignment, in_pair: List[Tuple[str, Circuit]]) -> None:
+
+        self.info = (i, j)
+        self.K = range(len(Options))
+
+        # TODO: get magic string out of there
+        (name1, _), (name2, _) = in_pair
+
+        # split by name and convert to mapping
+        self.possible_norms = [
+            [
+                { 
+                    key: set(map(
+                        lambda pair : mapp.get_assignment(key, pair) if name == in_pair[0][0] else mapp.get_assignment(pair, key),
+                        options[name][key]
+                    )) 
+                    for key in options[name].keys()
+                }
+                for options in Options
+            ]
+            for name, _ in in_pair
+        ]
+
+        self.valid_norms = [
+            [
+                all(map(len, self.possible_norms[i][k].values())) # checks if every len is > 0, i.e. every signal has a potential match
+                for k in self.K
+            ]
+            for i in range(2)
+        ]
+
+        self.mapp = mapp
+
+        self.vset = reduce(
+            lambda acc, x : acc.union(x),
+            chain( *[self.possible_norms[i][k].values() for i in range(2) for k in self.K] ),
+            set([])
+        )
+
+        self.to_undo = {
+            v: []
+            for v in self.vset
+        }
+
+        self.assignment = None # will copy the assignment of the Engine
+
+    def attach_values(self, values) -> None:
+        self.assignment = values
+
+    def register_watched(self, to_watch) -> None:
+        for var in self.vset:
+            to_watch[var].append(self)
+
+    def propagate(self, lit: int) -> List[int]:
+        propagated = []
+        var = abs(lit)
+        l, r = self.mapp.inv_assignment(var)
+
+        # update 
+        if lit < 0:
+            
+            for i, signal in [(0, l, r), (1, r, l)]:
+                opts = set([])
+
+                for k in self.K:
+                    if var not in self.possible_norms[i][k][signal]:
+                        continue
+                    
+                    self.to_undo[var].append((i, k, signal))
+                    self.possible_norms[i][k][signal].remove(var)
+                    self.valid_norms[i][k] = self.valid_norms[i][k] and len(self.possible_norms[i][k][signal]) != 0
+
+                    if self.valid_norms[i][k]: opts = opts.union(self.possible_norms[i][k][signal])
+            
+                if len(opts) == 1:
+                    
+                    propagated.append( next(iter(opts)) )
+                    #TODO: be able to justify
+    
+        return propagated
+    
+    def propagated(self) -> List[int]:
+
+        propagated = []
+
+        for i, var in product(range(2), filter(lambda x : self.assignment[x] is None, self.vsets)):
+            
+            opts = reduce(
+                lambda acc, k : acc.union(self.possible_norms[i][k][var]) if self.valid_norms[i][k] else acc,
+                self.K,
+                set([])
+            )
+
+            if len(opts) == 1:
+                propagated.append( next(iter(opts)) )
+                #TODO: be able to justify
+        
+        return propagated
+        
+
+    def unassign(self, lit: int) -> List[int]:
+        var = abs(lit)
+
+        while len(self.to_undo[var]) > 0:
+            i, k, signal = self.to_undo.pop()
+            self.possible_norms[i][k][signal].add(var)
+
+            if not self.valid_norms[i][k] and all(map(len, self.possible_norms[i][k].values())):
+                self.valid_norms[i][k] = True
+
+    def justify(self, lit) -> List[int]:
+        pass
+
+    def abandon(self, lit) -> List[int]:
+        pass
 
 class ConstraintEngine(Propagator):
 
@@ -51,8 +176,6 @@ class ConstraintEngine(Propagator):
 
         self.decision_level = 0
         self.level = {v: 0 for v in self.vset}
-
-
         pass
 
     def on_assignment(self, lit: int, fixed: bool = False) -> None:
