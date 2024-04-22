@@ -59,13 +59,13 @@ def circuit_equivalence(S1: Circuit, S2: Circuit) -> Tuple[bool, List[Tuple[int,
         has_quad  =  str(int(len(C.A) * len(C.B) != 0))
         const_pos = ''.join( [ str(1 if int(constSignal in D.keys()) else 0) for D in [C.A, C.B, C.C]] ) # maybe reduce hash len?
 
-        return has_quad + ',' + const_pos          
+        return has_quad + const_pos          
 
     def length_split(C: Constraint) -> str:
         """
         returns 3 lengths of A, B, C
         """
-        return ','.join([str(len(D)) for D in [C.A, C.B, C.C]])
+        return '_'.join([str(len(D)) for D in [C.A, C.B, C.C]])
     
     def norm_split(C: Constraint) -> str:
         """
@@ -176,9 +176,6 @@ def circuit_equivalence(S1: Circuit, S2: Circuit) -> Tuple[bool, List[Tuple[int,
     formula, assumptions, mapp = bij_encodings.natural_encoding.encode(
         groups, in_pair, K**2, True
     )
-
-    print('finished encoding')
-    return False, [(i, None) for i in range(S1.nWires)]
     
     # solver choice aribtrary might be better options -- straight ver_formula ~120s to solve
     solver = Solver(name='g4', bootstrap_with=formula)
