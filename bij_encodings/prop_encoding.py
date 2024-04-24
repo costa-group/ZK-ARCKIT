@@ -17,20 +17,11 @@ from r1cs_scripts.circuit_representation import Circuit
 from bij_encodings.single_cons_options import signal_options
 from bij_encodings.assignment import Assignment
 
-
-def get_solver(
-        classes:Dict[str, Dict[str, List[int]]],
-        in_pair: List[Tuple[str, Circuit]],
-        return_signal_mapping: bool = False,
-        debug: bool = False
-    ) -> Solver:
-    pass
-
 # ---------------------------------------------------------------------------------------------------------------------------------
 
 class ConsBijConstraint():
     """
-        This represents the signal clauses for a bijection between constraints i, j.
+        This represents the signal clauses for a bijection between some constraints i, j.
         i.e. for every norm in i, j.
 
         Since all the at most 1 logic is handled in the encoding itself all we care is the at least 1 logic,
@@ -40,11 +31,9 @@ class ConsBijConstraint():
 
 
     """
-    # TODO: handle falsification for check model
 
-    def __init__(self, i: int, j: int, Options: List[dict], mapp: Assignment, in_pair: List[Tuple[str, Circuit]]) -> None:
+    def __init__(self, Options: List[dict], mapp: Assignment, in_pair: List[Tuple[str, Circuit]]) -> None:
 
-        self.info = (i, j)
         self.K = range(len(Options))
 
         # TODO: get magic string out of there
@@ -224,7 +213,7 @@ class ConstraintEngine(Propagator):
         # Init Constraints
         self.cons = bootstrap_with
         self.vset = reduce(
-            lambda acc, x : acc.union(x),
+            lambda acc, x : acc.union(x.vset),
             self.cons,
             set([])
         )
@@ -234,6 +223,8 @@ class ConstraintEngine(Propagator):
 
         # Model Check handler
         self.falsified = None
+
+        self.solver = None
 
         # Init Backtrack handler
         self.value = {v: None for v in self.vset}
@@ -247,7 +238,14 @@ class ConstraintEngine(Propagator):
         for cs in self.cons:
             # give constraints access to following
             cs.register_watched(self.watching)
-            cs.attach_values(self.values)
+            cs.attach_values(self.value)
+    
+    def setup_observe(self, solver: Solver) -> None:
+
+        self.solver = solver
+
+        for v in self.vset:
+            self.solver.observe(v)
 
     def on_assignment(self, lit: int, fixed: bool = False) -> None:
         
@@ -344,23 +342,21 @@ class ConstraintEngine(Propagator):
         self.falsified = None
 
         return clause
-        
+    
 
 # ---------------------------------------------------------------------------------------------------------------------------------
 
-def encode(
+
+def get_solver(
         classes:Dict[str, Dict[str, List[int]]],
         in_pair: List[Tuple[str, Circuit]],
         return_signal_mapping: bool = False,
         debug: bool = False
-    ) -> CNF:
-    """
-    multi-norm version of previous simple encoder
-    """
-
-    #TODO: update to include all seen variables but include assumptions about non-viable ones
+    ) -> Solver:
 
     mapp = Assignment()
+    bijconstraints = []
+    false_variables = []
 
     all_posibilities = {
         name: {}
@@ -383,17 +379,19 @@ def encode(
 
         # no constraint logic so can flatten list
         Options = [
-            signal_options(left_normed[i], right_normed[j][k])
-            for i, j in comparison for k in range(len(right_normed[j]))
+            [ signal_options(left_normed[i], right_norm) for right_norm in right_normed[j] ]
+            for i, j in comparison
         ]
 
-        def extend_opset(opset_possibilities, options):
-            # take union of all options
+        bijconstraints += [ConsBijConstraint(options, mapp, in_pair) for options in Options]
 
+        def extend_opset(opset_possibilities, opset):
+            # take union of all options
             for name, _ in in_pair:
-                for signal in options[name].keys():
-                    opset_possibilities[name][signal] = opset_possibilities[name].setdefault(signal, set([])
-                                                                                ).union(options[name][signal])
+                for options in opset:
+                    for signal in options[name].keys():
+                        opset_possibilities[name][signal] = opset_possibilities[name].setdefault(signal, set([])
+                                                                                    ).union(options[name][signal])
             
             return opset_possibilities
         # union within classes
@@ -409,15 +407,19 @@ def encode(
         # intersection accross classes
         for name, _ in in_pair:
             for signal in class_posibilities[name].keys():
-                all_posibilities[name][signal] = all_posibilities[name].setdefault(signal, class_posibilities[name][signal]
-                                                                      ).intersection(class_posibilities[name][signal])
+
+                false_variables.extend( all_posibilities[name].setdefault(signal, class_posibilities[name][signal]
+                                                        ).symmetric_difference(class_posibilities[name][signal]) )
+                all_posibilities[name][signal] = all_posibilities[name][signal].intersection(class_posibilities[name][signal])
     # internal consistency
     for (name, _), (oname, _) in zip(in_pair, in_pair[::-1]):
         for lsignal in all_posibilities[name].keys():
-            all_posibilities[name][lsignal] = [
-                rsignal for rsignal in all_posibilities[name][lsignal]
-                if lsignal in all_posibilities[oname][rsignal]
-            ]
+
+            internally_inconsistent = [rsignal for rsignal in all_posibilities[name][lsignal] 
+                                      if lsignal not in all_posibilities[oname][rsignal]]
+            
+            false_variables.extend( internally_inconsistent )
+            all_posibilities[name][lsignal] = all_posibilities[name][lsignal].difference(internally_inconsistent)
     
     formula = CNF()
 
@@ -439,9 +441,15 @@ def encode(
                     bound = 1,
                     encoding=EncType.pairwise
                 )
-            )
-    
-    return (formula, []) if not return_signal_mapping else (formula, [], mapp)
+            )   
 
+    solver = Solver(name='cadical195', bootstrap_with=formula)
+    engine = ConstraintEngine(bootstrap_with=bijconstraints)
 
-    
+    solver.connect_propagator(engine)
+    engine.setup_observe(solver)
+
+    res = [solver, false_variables]
+
+    if return_signal_mapping: res.append(mapp)
+    return res
