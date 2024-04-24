@@ -97,12 +97,12 @@ class ConsBijConstraint():
     def propagate(self, lit: int) -> List[int]:
         propagated = []
         var = abs(lit)
-        l, r = self.mapp.inv_assignment(var)
+        l, r = self.mapp.get_inv_assignment(var)
 
         # If lit > 0, then we don't do anything
         if lit < 0:
             
-            for i, signal in [(0, l, r), (1, r, l)]:
+            for i, signal in [(0, l), (1, r)]:
                 opts = set([])
 
                 for k in self.K:
@@ -194,7 +194,7 @@ class ConsBijConstraint():
         
         return st
 
-    def explain_failure(self, model):
+    def explain_failure(self):
         return self.fmod
         
         
@@ -264,6 +264,7 @@ class ConstraintEngine(Propagator):
         self.trlim.append(len(self.trail))
     
     def on_backtrack(self, to: int) -> None:
+
         while len(self.trlim) > to:
             while len(self.trail) > self.trlim[-1]:
                 lit = self.trail.pop()
@@ -304,7 +305,7 @@ class ConstraintEngine(Propagator):
                             results.append(l)
                             self.props[lit].append(l)
             
-            self.qhead += 1
+                self.qhead += 1
 
         else:
 
@@ -451,7 +452,6 @@ def get_solver(
     # TODO: figure out why it takes forever on even tiny instances
     solver.connect_propagator(engine)
     engine.setup_observe(solver)
-    solver.disable_propagator()
 
     res = [solver, [-var for var in false_variables]]
 
