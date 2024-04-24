@@ -441,7 +441,7 @@ def get_solver(
                     bound = 1,
                     encoding=EncType.pairwise
                 )
-            )   
+            )  
 
     solver = Solver(name='cadical195', bootstrap_with=formula)
     engine = ConstraintEngine(bootstrap_with=bijconstraints)
@@ -449,7 +449,7 @@ def get_solver(
     solver.connect_propagator(engine)
     engine.setup_observe(solver)
 
-    res = [solver, false_variables]
+    res = [solver, [-var for var in false_variables]]
 
     if return_signal_mapping: res.append(mapp)
     return res
