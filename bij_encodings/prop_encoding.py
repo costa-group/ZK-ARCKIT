@@ -408,8 +408,10 @@ def get_solver(
         for name, _ in in_pair:
             for signal in class_posibilities[name].keys():
 
-                false_variables.extend( all_posibilities[name].setdefault(signal, class_posibilities[name][signal]
-                                                        ).symmetric_difference(class_posibilities[name][signal]) )
+                wrong_rsignals = all_posibilities[name].setdefault(signal, class_posibilities[name][signal]
+                                                        ).symmetric_difference(class_posibilities[name][signal])
+
+                false_variables.extend( [mapp.get_assignment(*( (signal, pair) if name == in_pair[0][0] else (pair, signal) )) for pair in wrong_rsignals ] )
                 all_posibilities[name][signal] = all_posibilities[name][signal].intersection(class_posibilities[name][signal])
     # internal consistency
     for (name, _), (oname, _) in zip(in_pair, in_pair[::-1]):
@@ -418,7 +420,7 @@ def get_solver(
             internally_inconsistent = [rsignal for rsignal in all_posibilities[name][lsignal] 
                                       if lsignal not in all_posibilities[oname][rsignal]]
             
-            false_variables.extend( internally_inconsistent )
+            false_variables.extend( [mapp.get_assignment(*( (lsignal, pair) if name == in_pair[0][0] else (pair, lsignal) )) for pair in internally_inconsistent ] )
             all_posibilities[name][lsignal] = all_posibilities[name][lsignal].difference(internally_inconsistent)
     
     formula = CNF()
@@ -446,8 +448,10 @@ def get_solver(
     solver = Solver(name='cadical195', bootstrap_with=formula)
     engine = ConstraintEngine(bootstrap_with=bijconstraints)
 
+    # TODO: figure out why it takes forever on even tiny instances
     solver.connect_propagator(engine)
     engine.setup_observe(solver)
+    solver.disable_propagator()
 
     res = [solver, [-var for var in false_variables]]
 
