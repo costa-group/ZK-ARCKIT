@@ -96,6 +96,7 @@ class ConsBijConstraint():
         }
 
         self.assignment = None # will copy the assignment of the Engine
+        self.fmod = None # will store falsified model for when falsified
 
     def attach_values(self, values) -> None:
         self.assignment = values
@@ -178,8 +179,36 @@ class ConsBijConstraint():
     def abandon(self, lit) -> List[int]:
         self.expl[abs(lit)].clear() # propagator will never negate a variable but just in case take abs
     
-    def is_falsified(self, model):
-        pass
+    def falsified_by(self, model):
+        """
+        Logic for:
+            In both directions,
+                at least 1 norm factor
+                    must have every signal
+                        have at least 1 mapping
+        """
+        st = all([
+            any([
+                all([
+                    any([
+                        self.assignment[var] == var for var in self.possible_norms[i][k][signal]
+                    ])
+                    for signal in self.possible_norms[i][k].keys()
+                ])
+                for k in self.K
+            ])
+            for i in range(2)    
+        ])
+
+        if not st:
+            self.fmod = [lit for lit in model if abs(lit) in self.vset] 
+        
+        return st
+
+    def explain_failure(self, model):
+        return self.fmod
+        
+        
 
 # ---------------------------------------------------------------------------------------------------------------------------------
 
@@ -202,6 +231,9 @@ class ConstraintEngine(Propagator):
         self.watching = defaultdict(lambda: [])
 
         # TODO: PreProcess Constraints?
+
+        # Model Check handler
+        self.falsified = None
 
         # Init Backtrack handler
         self.value = {v: None for v in self.vset}
@@ -253,10 +285,6 @@ class ConstraintEngine(Propagator):
 
         self.qhead = None                 
 
-    def check_model(self, model: List[int]) -> bool:
-        # TODO
-        pass
-
     def propagate(self) -> List[int]:
         results = []
 
@@ -296,9 +324,27 @@ class ConstraintEngine(Propagator):
     def provide_reason(self, lit: int) -> List[int]:
         return [lit] + self.origin[lit].justify(lit)
 
+    def check_model(self, model: List[int]) -> bool:
+        st = True
+
+        for cs in self.cons:
+            if cs.falsified_by(model):
+                self.falsified = cs
+                st = False
+                break
+        
+        return st
+
+
     def add_clause(self) -> List[int]:
-        # TODO
-        pass
+        if self.falsified is None:
+            return []
+        
+        clause = self.falsified.explain_failure()
+        self.falsified = None
+
+        return clause
+        
 
 # ---------------------------------------------------------------------------------------------------------------------------------
 
