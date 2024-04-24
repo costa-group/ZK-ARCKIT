@@ -75,13 +75,20 @@ class ConsBijConstraint():
 
         self.mapp = mapp
 
+        self.signals = [
+            reduce(
+                lambda acc, k : acc.union(self.possible_norms[i][k].keys()),
+                self.K,
+                set([])
+            )
+            for i in range(2)
+        ]
+
         self.vset = reduce(
             lambda acc, x : acc.union(x),
             chain( *[self.possible_norms[i][k].values() for i in range(2) for k in self.K] ),
             set([])
         )
-
-        self.to_undo = defaultdict(lambda: [])
 
         self.expl = {
             v: None
@@ -111,12 +118,12 @@ class ConsBijConstraint():
                 for k in self.K:
                     if var not in self.possible_norms[i][k][signal]:
                         continue
-                    
-                    self.to_undo[lit].append((i, k, signal))
-                    self.possible_norms[i][k][signal].remove(var)
-                    self.valid_norms[i][k] = self.valid_norms[i][k] and len(self.possible_norms[i][k][signal]) != 0
 
-                    if self.valid_norms[i][k]: opts = opts.union(self.possible_norms[i][k][signal])
+                    current_options = [v for v in self.possible_norms[i][k][signal] if self.assignment[v] != -v and v != var]
+                    
+                    self.valid_norms[i][k] = self.valid_norms[i][k] and len(current_options) != 0
+
+                    if self.valid_norms[i][k]: opts = opts.union(current_options)
             
                 if len(opts) == 1:
                     
@@ -133,21 +140,24 @@ class ConsBijConstraint():
 
         propagated = []
 
-        for i, var in product(range(2), filter(lambda x : self.assignment[x] is None, self.vsets)):
-            
-            opts = reduce(
-                lambda acc, k : acc.union(self.possible_norms[i][k][var]) if self.valid_norms[i][k] else acc,
-                self.K,
-                set([])
-            )
+        # check each signal to see if it has only 1 option left
+        for i in range(2):
 
-            if len(opts) == 1:
-                p = next(iter(opts))
-                propagated.append( p )
+            for signal in self.signals[i]:
 
-                # Builds LHS of implication about if (curr relevant assignment) -> p
-                    #   TODO: think to improve by choosing smaller set
-                self.expl[p] = [-v for v in self.vset if self.assignment[v] is not None]
+                opts = reduce(
+                    lambda acc, k : acc.union(  [v for v in self.possible_norms[i][k].get(signal, []) if self.assignment[v] != -v]  ) if self.valid_norms[i][k] else acc,
+                    self.K,
+                    set([])
+                )
+
+                if len(opts) == 1:
+                    p = next(iter(opts))
+                    propagated.append( p )
+
+                    # Builds LHS of implication about if (curr relevant assignment) -> p
+                        #   TODO: think to improve by choosing smaller set
+                    self.expl[p] = [-v for v in self.vset if self.assignment[v] is not None]
         
         return propagated
         
@@ -167,6 +177,9 @@ class ConsBijConstraint():
 
     def abandon(self, lit) -> List[int]:
         self.expl[abs(lit)].clear() # propagator will never negate a variable but just in case take abs
+    
+    def is_falsified(self, model):
+        pass
 
 # ---------------------------------------------------------------------------------------------------------------------------------
 
@@ -188,7 +201,7 @@ class ConstraintEngine(Propagator):
         )
         self.watching = defaultdict(lambda: [])
 
-        # PreProcess Constraints .. TODO: how?
+        # TODO: PreProcess Constraints?
 
         # Init Backtrack handler
         self.value = {v: None for v in self.vset}
