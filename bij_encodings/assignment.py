@@ -19,4 +19,5 @@ class Assignment():
                 return self.assignment[i][j]
         
         def get_inv_assignment(self, i: int) -> Tuple[int, int]:
+            assert i -self.offset > 0, "invalid choice for i"
             return self.inv_assignment[i - self.offset]
