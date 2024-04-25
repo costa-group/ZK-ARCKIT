@@ -40,14 +40,6 @@ class ConsBijConstraint():
 
         self.norm_options = Options
 
-        self.valid_norms = [
-            all([
-                len(self.norm_options[k][name][signal])
-                for name, _ in in_pair for signal in self.norm_options[k][name].keys()
-            ])
-            for k in self.K
-        ]
-
         self.mapp = mapp
 
         self.signals = [
@@ -79,6 +71,18 @@ class ConsBijConstraint():
     def register_watched(self, to_watch) -> None:
         for var in self.vset:
             to_watch[-var].append(self)
+        
+    def _is_norm_valid(self, k) -> bool:
+
+        return all([ 
+            map(
+                lambda signal : len(self._get_signal_options(k, name, signal)) > 0,
+                self.norm_options[k][name].keys()
+            ) for name, _ in self.in_pair
+        ])
+
+    def _get_signal_options(self, k, name, signal):
+        return [v for v in self.norm_options[k][name][signal] if self.assignment[v] != -v]
 
     def propagate(self, lit: int = None) -> List[int]:
         propagated = []
@@ -91,11 +95,11 @@ class ConsBijConstraint():
                 name: defaultdict(lambda : set([]))
                 for name, _ in self.in_pair
             }
-            for k, (name, _) in product([k for k in self.K if self.valid_norms[k]], self.in_pair):
+            for k, (name, _) in product([k for k in self.K if self._is_norm_valid(k)], self.in_pair):
 
                 for signal in self.norm_options[k][name].keys():
 
-                    curr_options[name][signal].update([v for v in self.norm_options[k][name][signal] if self.assignment[v] != -v])
+                    curr_options[name][signal].update(self._get_signal_options(k, name, signal))
 
             for name, _ in self.in_pair:
                 for signal in curr_options[name].keys():
@@ -120,11 +124,8 @@ class ConsBijConstraint():
                     if var not in self.norm_options[k][name][signal]:
                         continue
 
-                    current_options = [v for v in self.norm_options[k][name][signal] if self.assignment[v] != -v and v != var]
-                    
-                    self.valid_norms[k] = self.valid_norms[k] and len(current_options) != 0
-
-                    if self.valid_norms[k]: opts.update(current_options)
+                    current_options = self._get_signal_options(k, name, signal)
+                    if self._is_norm_valid(k): opts.update(current_options)
             
                 if len(opts) == 1:
                     
@@ -134,18 +135,8 @@ class ConsBijConstraint():
                     # Builds LHS of implication about if (curr relevant assignment) -> p
                     #   TODO: think to improve by choosing smaller set
                     self.expl[p] = expl
-    
+
         return propagated        
-
-    def unassign(self, lit: int) -> List[int]:
-        var = abs(lit)
-
-        while len(self.to_undo[lit]) > 0:
-            i, k, signal = self.to_undo.pop()
-            self.possible_norms[i][k][signal].add(var)
-
-            if not self.valid_norms[i][k] and all(map(len, self.possible_norms[i][k].values())):
-                self.valid_norms[i][k] = True
 
     def justify(self, lit) -> List[int]:
         return self.expl[abs(lit)] # propagator will never negate a variable but just in case take abs
@@ -161,13 +152,13 @@ class ConsBijConstraint():
                     must have every signal
                         have at least 1 mapping
         """
-        st = any([
-            all([
-                any( map(lambda v : model[v], self.norm_options[k][name][signal]) )
+        st = any(map(
+            lambda k : all([
+                any( map(lambda var : model[var] is not None and model[var] > 0, self.norm_options[k][name][signal] ) )
                 for name, _ in self.in_pair for signal in self.norm_options[k][name].keys()
-            ])
-            for k in self.K
-        ])
+            ]),
+            self.K
+        ))
 
         if not st:
             self.fmod = [-lit for lit in model if abs(lit) in self.vset] 
@@ -296,7 +287,6 @@ class ConstraintEngine(Propagator):
                     if self.origin[l] is None:
                         self.origin[l] = cs
                         results.append(l)
-
         return results
 
 
@@ -306,8 +296,17 @@ class ConstraintEngine(Propagator):
     def check_model(self, model: List[int]) -> bool:
         st = True
 
+        model_ = defaultdict(lambda: None)
+        for lit in model:
+            model_[abs(lit)] = lit
+
+        curr = 0
+
         for cs in self.cons:
-            if cs.falsified_by(model):
+            print(curr, end = '\r')
+            curr += 1
+
+            if not cs.falsified_by(model_):
                 self.falsified = cs
                 st = False
                 break
@@ -332,12 +331,13 @@ def get_solver(
         classes:Dict[str, Dict[str, List[int]]],
         in_pair: List[Tuple[str, Circuit]],
         return_signal_mapping: bool = False,
+        return_engine: bool = False,
         debug: bool = False
     ) -> Solver:
 
     mapp = Assignment()
     bijconstraints = []
-    false_variables = []
+    false_variables = set([])
 
     all_posibilities = {
         name: {}
@@ -391,7 +391,7 @@ def get_solver(
 
                 wrong_rvars = all_posibilities[name].setdefault(signal, class_posibilities[name][signal]
                                                         ).symmetric_difference(class_posibilities[name][signal])
-                false_variables.extend( wrong_rvars )
+                false_variables.update( wrong_rvars )
                 all_posibilities[name][signal] = all_posibilities[name][signal].intersection(class_posibilities[name][signal])
 
     # internal consistency
@@ -404,7 +404,7 @@ def get_solver(
                 if var not in all_posibilities[oname][ mapp.get_inv_assignment(var)[i] ]
             ]
 
-            false_variables.extend( internally_inconsistent )
+            false_variables.update( internally_inconsistent )
             all_posibilities[name][lsignal] = all_posibilities[name][lsignal].difference(internally_inconsistent)
     
     formula = CNF()
@@ -424,6 +424,16 @@ def get_solver(
                 )
             )  
 
+    """
+    Figured out the massive error
+
+        the ConstraintEngine as written enforces every bijconstraint as in tries to ensure that every constraint is bijected
+            with each other.
+
+        TODO: fix this -- probably with entire new class
+    
+    """
+
     solver = Solver(name='cadical195', bootstrap_with=formula)
     engine = ConstraintEngine(bootstrap_with=bijconstraints)
 
@@ -434,4 +444,5 @@ def get_solver(
     res = [solver, [-var for var in false_variables]]
 
     if return_signal_mapping: res.append(mapp)
+    if return_engine: res.append(engine)
     return res
