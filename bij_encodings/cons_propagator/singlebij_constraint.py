@@ -30,15 +30,6 @@ class ConsBijConstraint():
 
         self.mapp = mapp
 
-        self.signals = [
-            reduce(
-                lambda acc, k : acc.union(self.norm_options[k][name].keys()),
-                self.K,
-                set([])
-            )
-            for name, _ in self.in_pair
-        ]
-
         self.vset = reduce(
             lambda acc, x : acc.union(x),
             chain( *[self.norm_options[k][name].values() for name, _ in self.in_pair for k in self.K] ),
@@ -75,15 +66,14 @@ class ConsBijConstraint():
     def propagate(self, lit: int = None) -> List[int]:
         propagated = []
         expl = [v for v in self.vset if self.assignment[v] == -v]
+        name = self.in_pair[0][0]
 
         if lit == None:
             
-            # check each signal to see if it has only 1 option left
-            curr_options = {
-                name: defaultdict(lambda : set([]))
-                for name, _ in self.in_pair
-            }
-            for k, (name, _) in product([k for k in self.K if self._is_norm_valid(k)], self.in_pair):
+            # check each signal (on left) to see if it has only 1 option left
+            curr_options = defaultdict(lambda : set([]))
+
+            for k in [k for k in self.K if self._is_norm_valid(k)]:
 
                 for signal in self.norm_options[k][name].keys():
 
@@ -103,26 +93,25 @@ class ConsBijConstraint():
 
         elif lit < 0:
             var = abs(lit)
-            l, r = self.mapp.get_inv_assignment(var)
+            signal, _ = self.mapp.get_inv_assignment(var)
 
-            for (name, _), signal in zip(self.in_pair, self.mapp.get_inv_assignment(var)):
-                opts = set([])
+            opts = set([])
 
-                for k in self.K:
-                    if var not in self.norm_options[k][name][signal]:
-                        continue
+            for k in self.K:
+                if var not in self.norm_options[k][name][signal]:
+                    continue
 
-                    current_options = self._get_signal_options(k, name, signal)
-                    if self._is_norm_valid(k): opts.update(current_options)
-            
-                if len(opts) == 1:
-                    
-                    p = next(iter(opts))
-                    propagated.append( p )
+                current_options = self._get_signal_options(k, name, signal)
+                if self._is_norm_valid(k): opts.update(current_options)
+        
+            if len(opts) == 1:
+                
+                p = next(iter(opts))
+                propagated.append( p )
 
-                    # Builds LHS of implication about if (curr relevant assignment) -> p
-                    #   TODO: think to improve by choosing smaller set
-                    self.expl[p] = expl
+                # Builds LHS of implication about if (curr relevant assignment) -> p
+                #   TODO: think to improve by choosing smaller set
+                self.expl[p] = expl
 
         return propagated        
 
