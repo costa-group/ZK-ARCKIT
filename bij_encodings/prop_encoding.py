@@ -36,46 +36,32 @@ class ConsBijConstraint():
 
         self.K = range(len(Options))
 
-        # TODO: get magic string out of there
-        (name1, _), (name2, _) = in_pair
+        self.in_pair = in_pair
 
-        # split by name and convert to mapping
-        self.possible_norms = [
-            [
-                { 
-                    key: set(map(
-                        lambda pair : mapp.get_assignment(key, pair) if name == in_pair[0][0] else mapp.get_assignment(pair, key),
-                        options[name][key]
-                    )) 
-                    for key in options[name].keys()
-                }
-                for options in Options
-            ]
-            for name, _ in in_pair
-        ]
+        self.norm_options = Options
 
         self.valid_norms = [
-            [
-                all(map(len, self.possible_norms[i][k].values())) # checks if every len is > 0, i.e. every signal has a potential match
-                for k in self.K
-            ]
-            for i in range(2)
+            all([
+                len(self.norm_options[k][name][signal])
+                for name, _ in in_pair for signal in self.norm_options[k][name].keys()
+            ])
+            for k in self.K
         ]
 
         self.mapp = mapp
 
         self.signals = [
             reduce(
-                lambda acc, k : acc.union(self.possible_norms[i][k].keys()),
+                lambda acc, k : acc.union(self.norm_options[k][name].keys()),
                 self.K,
                 set([])
             )
-            for i in range(2)
+            for name, _ in self.in_pair
         ]
 
         self.vset = reduce(
             lambda acc, x : acc.union(x),
-            chain( *[self.possible_norms[i][k].values() for i in range(2) for k in self.K] ),
+            chain( *[self.norm_options[k][name].values() for name, _ in self.in_pair for k in self.K] ),
             set([])
         )
 
@@ -94,26 +80,51 @@ class ConsBijConstraint():
         for var in self.vset:
             to_watch[-var].append(self)
 
-    def propagate(self, lit: int) -> List[int]:
+    def propagate(self, lit: int = None) -> List[int]:
         propagated = []
-        var = abs(lit)
-        l, r = self.mapp.get_inv_assignment(var)
+        expl = [v for v in self.vset if self.assignment[v] == -v]
 
-        # If lit > 0, then we don't do anything
-        if lit < 0:
+        if lit == None:
             
-            for i, signal in [(0, l), (1, r)]:
+
+            # check each signal to see if it has only 1 option left
+            curr_options = {
+                name: defaultdict(lambda : set([]))
+                for name, _ in self.in_pair
+            }
+            for k, (name, _) in product([k for k in self.K if self.valid_norms[k]], self.in_pair):
+
+                for signal in self.norm_options[k][name].keys():
+
+                    curr_options[name][signal].update([v for v in self.norm_options[k][name][signal] if self.assignment[v] != -v])
+
+            for name, _ in self.in_pair:
+                for signal in curr_options[name].keys():
+
+                    if len(curr_options[name][signal]) == 1:
+                        p = next(iter(curr_options[name][signal]))
+                        propagated.append( p )
+
+                        # Builds LHS of implication about if (curr relevant assignment) -> p
+                            #   TODO: think to improve by choosing smaller set
+                        self.expl[p] = expl
+
+        elif lit < 0:
+            var = abs(lit)
+            l, r = self.mapp.get_inv_assignment(var)
+
+            for (name, _), signal in zip(self.in_pair, self.mapp.get_inv_assignment(var)):
                 opts = set([])
 
                 for k in self.K:
-                    if var not in self.possible_norms[i][k][signal]:
+                    if var not in self.norm_options[k][name][signal]:
                         continue
 
-                    current_options = [v for v in self.possible_norms[i][k][signal] if self.assignment[v] != -v and v != var]
+                    current_options = [v for v in self.norm_options[k][name][signal] if self.assignment[v] != -v and v != var]
                     
-                    self.valid_norms[i][k] = self.valid_norms[i][k] and len(current_options) != 0
+                    self.valid_norms[k] = self.valid_norms[k] and len(current_options) != 0
 
-                    if self.valid_norms[i][k]: opts = opts.union(current_options)
+                    if self.valid_norms[k]: opts.update(current_options)
             
                 if len(opts) == 1:
                     
@@ -122,35 +133,9 @@ class ConsBijConstraint():
 
                     # Builds LHS of implication about if (curr relevant assignment) -> p
                     #   TODO: think to improve by choosing smaller set
-                    self.expl[p] = [-v for v in self.vset if self.assignment[v] is not None]
+                    self.expl[p] = expl
     
-        return propagated
-    
-    def propagated(self) -> List[int]:
-
-        propagated = []
-
-        # check each signal to see if it has only 1 option left
-        for i in range(2):
-
-            for signal in self.signals[i]:
-
-                opts = reduce(
-                    lambda acc, k : acc.union(  [v for v in self.possible_norms[i][k].get(signal, []) if self.assignment[v] != -v]  ) if self.valid_norms[i][k] else acc,
-                    self.K,
-                    set([])
-                )
-
-                if len(opts) == 1:
-                    p = next(iter(opts))
-                    propagated.append( p )
-
-                    # Builds LHS of implication about if (curr relevant assignment) -> p
-                        #   TODO: think to improve by choosing smaller set
-                    self.expl[p] = [-v for v in self.vset if self.assignment[v] is not None]
-        
-        return propagated
-        
+        return propagated        
 
     def unassign(self, lit: int) -> List[int]:
         var = abs(lit)
@@ -176,21 +161,16 @@ class ConsBijConstraint():
                     must have every signal
                         have at least 1 mapping
         """
-        st = all([
-            any([
-                all([
-                    any([
-                        self.assignment[var] == var for var in self.possible_norms[i][k][signal]
-                    ])
-                    for signal in self.possible_norms[i][k].keys()
-                ])
-                for k in self.K
+        st = any([
+            all([
+                any( map(lambda v : model[v], self.norm_options[k][name][signal]) )
+                for name, _ in self.in_pair for signal in self.norm_options[k][name].keys()
             ])
-            for i in range(2)    
+            for k in self.K
         ])
 
         if not st:
-            self.fmod = [lit for lit in model if abs(lit) in self.vset] 
+            self.fmod = [-lit for lit in model if abs(lit) in self.vset] 
         
         return st
 
@@ -449,7 +429,7 @@ def get_solver(
     solver = Solver(name='cadical195', bootstrap_with=formula)
     engine = ConstraintEngine(bootstrap_with=bijconstraints)
 
-    # TODO: figure out why it takes forever on even tiny instances
+    # TODO: Fix error causing formula to be UNSAT
     solver.connect_propagator(engine)
     engine.setup_observe(solver)
 
