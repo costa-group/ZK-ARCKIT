@@ -86,7 +86,6 @@ class ConsBijConstraint():
 
         if lit == None:
             
-
             # check each signal to see if it has only 1 option left
             curr_options = {
                 name: defaultdict(lambda : set([]))
@@ -103,6 +102,7 @@ class ConsBijConstraint():
 
                     if len(curr_options[name][signal]) == 1:
                         p = next(iter(curr_options[name][signal]))
+
                         propagated.append( p )
 
                         # Builds LHS of implication about if (curr relevant assignment) -> p
@@ -360,7 +360,7 @@ def get_solver(
 
         # no constraint logic so can flatten list
         Options = [
-            [ signal_options(left_normed[i], right_norm) for right_norm in right_normed[j] ]
+            [ signal_options(left_normed[i], right_norm, mapp) for right_norm in right_normed[j] ]
             for i, j in comparison
         ]
 
@@ -389,19 +389,22 @@ def get_solver(
         for name, _ in in_pair:
             for signal in class_posibilities[name].keys():
 
-                wrong_rsignals = all_posibilities[name].setdefault(signal, class_posibilities[name][signal]
+                wrong_rvars = all_posibilities[name].setdefault(signal, class_posibilities[name][signal]
                                                         ).symmetric_difference(class_posibilities[name][signal])
-
-                false_variables.extend( [mapp.get_assignment(*( (signal, pair) if name == in_pair[0][0] else (pair, signal) )) for pair in wrong_rsignals ] )
+                false_variables.extend( wrong_rvars )
                 all_posibilities[name][signal] = all_posibilities[name][signal].intersection(class_posibilities[name][signal])
+
     # internal consistency
     for (name, _), (oname, _) in zip(in_pair, in_pair[::-1]):
         for lsignal in all_posibilities[name].keys():
+            i = name == in_pair[0][0]
 
-            internally_inconsistent = [rsignal for rsignal in all_posibilities[name][lsignal] 
-                                      if lsignal not in all_posibilities[oname][rsignal]]
-            
-            false_variables.extend( [mapp.get_assignment(*( (lsignal, pair) if name == in_pair[0][0] else (pair, lsignal) )) for pair in internally_inconsistent ] )
+            internally_inconsistent = [
+                var for var in all_posibilities[name][lsignal]
+                if var not in all_posibilities[oname][ mapp.get_inv_assignment(var)[i] ]
+            ]
+
+            false_variables.extend( internally_inconsistent )
             all_posibilities[name][lsignal] = all_posibilities[name][lsignal].difference(internally_inconsistent)
     
     formula = CNF()
@@ -409,18 +412,13 @@ def get_solver(
     for name, _ in in_pair:
         for signal in all_posibilities[name].keys():
 
-            lits = [ 
-                mapp.get_assignment(signal, pair) if name == in_pair[0][0] else mapp.get_assignment(pair, signal)
-                for pair in all_posibilities[name][signal]
-            ]
-
             if len(all_posibilities[name][signal]) == 0:
                 # TODO: implement passing false through encoding
                 raise AssertionError("Found variable that cannot be mapped to") 
 
             formula.extend(
                 CardEnc.equals(
-                    lits,
+                    all_posibilities[name][signal],
                     bound = 1,
                     encoding=EncType.pairwise
                 )
