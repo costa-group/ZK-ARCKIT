@@ -1,4 +1,5 @@
 from functools import reduce
+from itertools import chain
 
 from r1cs_scripts.constraint import Constraint
 
@@ -12,7 +13,7 @@ def signal_options(C1: Constraint, C2: Constraint) -> dict:
 
 
     allkeys = [
-        set(d.A.keys()).union(d.B.keys()).union(d.C.keys()) 
+        set(chain(d.A.keys(), d.B.keys(), d.C.keys()))
         for d in [C1, C2] 
     ]
 
@@ -34,6 +35,8 @@ def signal_options(C1: Constraint, C2: Constraint) -> dict:
     for i in range(2):
         for j, dict_ in enumerate(dicts[i]):
             for key in dict_.keys():
+                if key == 0:
+                    continue
                 inv[i][j].setdefault(dict_[key], set([])).add(key)
                 app[i].setdefault(key, []).append( j )
 
@@ -43,8 +46,8 @@ def signal_options(C1: Constraint, C2: Constraint) -> dict:
                 lambda x, y : x.intersection(y), 
                 [ inv[1-i][j][dicts[i][j][key]] for j in app[i][key] ], 
                 allkeys[1-i]
-            ) if key != 0 else set([0]) ## ensures constant is always mapped to constant
-            for key in allkeys[i] 
+            ) 
+            for key in allkeys[i] if key != 0 ## ensures constant is always mapped to constant
         }
         for circ, i in [('S1', 0), ('S2', 1)]
     }
