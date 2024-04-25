@@ -26,30 +26,16 @@ from normalisation import r1cs_norm_choices, r1cs_norm
 
 constSignal = 0
 
-def circuit_equivalence(S1: Circuit, 
-                        S2: Circuit,
-                        timing: bool = False
-                        ) -> Tuple[bool, List[Tuple[int, int]]]:
-    """
-    Currently assumes A*B + C = 0, where each A, B, C are equivalent up to renaming/factor
-    """
-
-    start = time.time()
-
+def get_classes(S1: Circuit,
+                S2: Circuit,
+                in_pair):
+    
     N = S1.nConstraints
     K = S1.nWires
 
-    if K != S2.nWires:
-        return (False, f"Number of signals differs: {S1.nWires, S2.nWires} ")
-
-    if N != S2.nConstraints:
-        return (False, f"Number of constraints differs: {S1.nConstraints, S2.nConstraints} ")
-    
-    in_pair = [('S1', S1), ('S2', S2)]
-
     groups = {
-        "S1":{},
-        "S2":{}
+        name:{}
+        for name, _ in in_pair
     }
     # separate by constant/quadtratic term
 
@@ -107,6 +93,31 @@ def circuit_equivalence(S1: Circuit,
             hash_ = ':'.join(hashes)
 
             groups[name].setdefault(hash_, []).append(i)
+    
+    return groups
+
+def circuit_equivalence(S1: Circuit, 
+                        S2: Circuit,
+                        timing: bool = False
+                        ) -> Tuple[bool, List[Tuple[int, int]]]:
+    """
+    Currently assumes A*B + C = 0, where each A, B, C are equivalent up to renaming/factor
+    """
+
+    start = time.time()
+
+    N = S1.nConstraints
+    K = S1.nWires
+
+    if K != S2.nWires:
+        return (False, f"Number of signals differs: {S1.nWires, S2.nWires} ")
+
+    if N != S2.nConstraints:
+        return (False, f"Number of constraints differs: {S1.nConstraints, S2.nConstraints} ")
+    
+    in_pair = [('S1', S1), ('S2', S2)]
+
+    groups = get_classes(S1, S2, in_pair)
 
     # Early Exiting
     hash_time = time.time()
@@ -119,6 +130,7 @@ def circuit_equivalence(S1: Circuit,
         except KeyError as e:
             return (False, f"Circuit missing class {key} :: " + e)
     
+    if timing: print([len(class_) for class_ in groups["S1"].values()])
 
     # SAT
     """
@@ -174,7 +186,9 @@ def circuit_equivalence(S1: Circuit,
 
     """
 
-    formula, assumptions, mapp = bij_encodings.prop_encoding.encode(
+    # TODO: CLEANUP
+
+    solver, assumptions, mapp = bij_encodings.prop_encoding.get_solver(
         groups, in_pair, True
     )
     encoding_time = time.time()
@@ -185,12 +199,15 @@ def circuit_equivalence(S1: Circuit,
     # )
 
     # solver choice aribtrary might be better options -- straight ver_formula ~120s to solve
-    solver = Solver(name='g4', bootstrap_with=formula)
-    equal = solver.solve(assumptions=assumptions)
+    # solver = Solver(name='g4', bootstrap_with=formula)
+
+    equal = solver.solve(assumptions)
 
     solving_time = time.time()
     if timing: print(f"solving took: {solving_time - encoding_time}")
     if not equal:
+        print( list( map(lambda x : mapp.get_inv_assignment(abs(x)), solver.get_core()) ) )
+        # print( [mapp.get_inv_assignment(-x) for x in assumptions] )
         return False, "SAT solver determined final formula unsatisfiable"
     else:
         assignment = solver.get_model()
@@ -199,6 +216,9 @@ def circuit_equivalence(S1: Circuit,
             lambda x : mapp.get_inv_assignment(x),
             assignment
         )
+        # assignment = list(assignment)
+        # print(assignment)
+        # print([mapp.get_inv_assignment(-x) for x in assumptions])
         # assignment = list(assignment)
         # f = open("assignment.txt", "w")
         # f.writelines(map(lambda x : str(x) + '\n', assignment))
