@@ -38,6 +38,8 @@ def get_solver(
 
     for class_ in classes[in_pair[0][0]].keys():
 
+        size = len(classes[in_pair[0][0]][class_])
+
         left_normed = [
             r1cs_norm(in_pair[0][1].constraints[i])[0] for i in classes[in_pair[0][0]][class_]
         ]
@@ -46,30 +48,28 @@ def get_solver(
             r1cs_norm(in_pair[1][1].constraints[i]) for i in classes[in_pair[1][0]][class_]
         ]
 
-        comparison = product(
-            range(len(classes[in_pair[0][0]][class_])), range(len(classes[in_pair[0][0]][class_]))
-        )   
-
         # no constraint logic so can flatten list
         Options = [
-            [ signal_options(left_normed[i], right_norm, mapp) for right_norm in right_normed[j] ]
-            for i, j in comparison
+            [ signal_options(left_normed[i], right_norm, mapp) for j in range(size) for right_norm in right_normed[j] ]
+            for i in range(size)
         ]
 
         bijconstraints += [ConsBijConstraint(options, mapp, in_pair) for options in Options]
 
-        def extend_opset(opset_possibilities, opset):
+        Options = reduce(lambda acc, x : acc + x, Options, []) # flatten
+
+        def extend_options(opset_possibilities, options):
             # take union of all options
             for name, _ in in_pair:
-                for options in opset:
                     for signal in options[name].keys():
                         opset_possibilities[name][signal] = opset_possibilities[name].setdefault(signal, set([])
                                                                                     ).union(options[name][signal])
             
             return opset_possibilities
+        
         # union within classes
         class_posibilities = reduce(
-            extend_opset,
+            extend_options,
             Options,
             {
                 name: {}
