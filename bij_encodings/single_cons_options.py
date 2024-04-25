@@ -43,20 +43,24 @@ def signal_options(C1: Constraint, C2: Constraint, mapp: Assignment) -> dict:
 
     options = {
         name: {
-            key: reduce(
-                lambda x, y : x.intersection( # converts to mapping here
-                    map(lambda pair : mapp.get_assignment(key, pair) if not i else mapp.get_assignment(pair, key),
-                    y
-                )),
-                [ inv[1-i][j][dicts[i][j][key]] for j in app[i][key] ], 
-                set(map(lambda pair : mapp.get_assignment(key, pair) if not i else mapp.get_assignment(pair, key),
-                    allkeys[1-i]
-                ))
-            ) 
+            # mapping later to avoid adding variables being avaible to SAT solver
+            #   -- don't see how it was seeing these variables as they weren't in any constraint...
+            key: set(
+                map(
+                    lambda pair : mapp.get_assignment(*( (key, pair) if name == "S1" else (pair, key) )),
+                    reduce(
+                        lambda x, y : x.intersection(y),
+                        [ inv[1-i][j][dicts[i][j][key]] for j in app[i][key] ], 
+                        allkeys[1-i]
+                    ) 
+                )
+            )
+            
             for key in allkeys[i]
         }
         for name, i in [('S1', 0), ('S2', 1)]
     }
+
     # FINAL: for each circ -- for each signal - potential signals could map to
     #           intersection of potential mappings seen in each part         
     return options
