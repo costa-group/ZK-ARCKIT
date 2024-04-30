@@ -1,16 +1,17 @@
 """
 Idea is to use the simplest signal-only encoding (no constraint logic)
 And use Lazy Clause Generation with propagators (pysat.engine) to build the constraint logic as nogoods
+
+Builds the encoding f = IU-II \land CNF[ \bigwedge_{C \in S_1}( has_at_least_1_mapping(C) )]
+    this is a correct encoding -- see proof in pdf
+
 """
 
 from pysat.formula import CNF
 from pysat.card import CardEnc, EncType
 from pysat.solvers import Solver
-from pysat.engines import Propagator
 from typing import Tuple, Dict, List
-from itertools import product, chain
 from functools import reduce
-from collections import defaultdict
 
 from normalisation import r1cs_norm
 from r1cs_scripts.circuit_representation import Circuit
@@ -115,16 +116,6 @@ def get_solver(
                     encoding=EncType.pairwise
                 )
             )  
-
-    """
-    Figured out the massive error
-
-        the ConstraintEngine as written enforces every bijconstraint as in tries to ensure that every constraint is bijected
-            with each other.
-
-        TODO: fix this -- probably with entire new class
-    
-    """
 
     solver = Solver(name='cadical195', bootstrap_with=formula)
     engine = ConstraintEngine(bootstrap_with=bijconstraints)
