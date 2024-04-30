@@ -8,21 +8,14 @@ The idea is that we have two circuis S_1, S_2, which are equivalent up to renami
         then finally we build the SAT logic that will return the bijection
 """
 from typing import Tuple, List
-from math import log10
 
-import pysat
-from pysat.card import EncType, CardEnc
-from pysat.solvers import Solver
-from itertools import product
-from functools import reduce
 import time
 
 import bij_encodings.prop_encoding
 from r1cs_scripts.circuit_representation import Circuit
 from r1cs_scripts.constraint import Constraint
-from r1cs_scripts.modular_operations import divideP
 
-from normalisation import r1cs_norm_choices, r1cs_norm
+from normalisation import r1cs_norm
 
 constSignal = 0
 
