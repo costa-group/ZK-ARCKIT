@@ -14,6 +14,8 @@ import time
 import bij_encodings.prop_encoding
 from r1cs_scripts.circuit_representation import Circuit
 from r1cs_scripts.constraint import Constraint
+from bij_encodings.encoder import Encoder
+from bij_encodings.natural_encoding import NaturalEncoder
 
 from normalisation import r1cs_norm
 
@@ -91,6 +93,7 @@ def get_classes(S1: Circuit,
 
 def circuit_equivalence(S1: Circuit, 
                         S2: Circuit,
+                        encoder: Encoder = NaturalEncoder,
                         timing: bool = False
                         ) -> Tuple[bool, List[Tuple[int, int]]]:
     """
@@ -125,64 +128,8 @@ def circuit_equivalence(S1: Circuit,
     
     if timing: print([len(class_) for class_ in groups["S1"].values()])
 
-    # SAT
-    """
-    Want the SAT formula be satisfiable only if there exists a bijection between the variables in the two circuits.
-    At this point the 'equivalent' circuits are in the same groups so any variables in the left, may be the same in the right 
-        -- when normalised..
-
-    ################################################################################################
-
-    We have a bijection so for every signal in a constraint in S1
-        - it is matched with exactly 1 signal in an 'equivalent' constraint in S2
-        - and vice versa
-
-    When a class has a canonical form this is easy.
-    When a class has 2 canonical forms (i.e. a +/-)
-        - need to convert to CNF by double propagating
-    When a class has >2 canonical forms -- claim unlikely so break?
-
-    #################################################################################################
-
-    The above encoding (and hence) below implementation is wrong. Specifically it assumes that every constraint in a class is
-        equal to each other when this is not the case. Instead there should be a bijection between the constraints, and the 
-        constraint bijection implies the equals1 case.
-
-    -------------------------------------------------------------------------------------------------
-
-    Some options
-        encode the bijection between constraints into the formula, and add a -k term to each clause where the k clause
-            is the bijection from that constraint to the other. Will add ~79K variables and more clauses... (best option?)
-        
-        collect all options together within a class then do exactly 1 of these. << -- seems better
-        
-    Need to do some theoretical work to proove the correctness of an encoding I think
-
-    --------------------------------------------------------------------------------------------------
-
-    What do we actually need to encode into SAT. We want to be SATisfiable only if a bijection exists.
-
-        if a bijection exists : 
-            - within each class a signal is mapped to a signal in it's class <-- in both directions
-            - each signal is mapped at most once across classes <-- how to encode? (again both directions)
-        
-        Inverse :
-            - If the above two conditions are met, then each signal is mapped to exactly 1 signal in the other circuit
-            - This defines a bijection -- if choices are ensured to be equivalent
-
-    Implementation? 
-        array of sets, scan over all classes
-            within a class pickup options for mapping and intersect with previous (if not empty)
-                ^^ maybe for classes with multiple options there are just more options here?
-        
-        then at the end add the equals 1 term for each of the sets.
-
-    """
-
-    # TODO: CLEANUP
-
-    solver, assumptions, mapp = bij_encodings.prop_encoding.get_solver(
-        groups, in_pair, True
+    solver, assumptions, mapp = encoder().get_solver(
+        groups, in_pair, K**2, True
     )
     encoding_time = time.time()
     if timing: print(f"encoding took: {encoding_time - hash_time}")
