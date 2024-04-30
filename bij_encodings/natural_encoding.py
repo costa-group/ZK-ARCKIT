@@ -3,6 +3,7 @@
 from pysat.formula import CNF
 from pysat.card import CardEnc, EncType
 from typing import Tuple, Dict, List
+from pysat.solvers import Solver
 from itertools import product
 from functools import reduce
 
@@ -10,6 +11,23 @@ from normalisation import r1cs_norm
 from r1cs_scripts.circuit_representation import Circuit
 from bij_encodings.single_cons_options import signal_options
 from bij_encodings.assignment import Assignment
+
+def get_solver(
+        classes:Dict[str, Dict[str, List[int]]],
+        in_pair: List[Tuple[str, Circuit]],
+        offset: int,
+        return_signal_mapping: bool = False,
+        debug: bool = False
+) -> Solver:
+    
+    formula, assumptions, mapp = encode(classes, in_pair, offset, return_signal_mapping, debug)
+
+    solver = Solver(name = 'cadical195', bootstrap_with=formula)
+
+    res = [solver, assumptions]
+    if return_signal_mapping: res.append(mapp)
+
+    return res
 
 def encode(
         classes:Dict[str, Dict[str, List[int]]],
@@ -137,7 +155,7 @@ def encode(
             formula
         )
 
-    print("Done with Class Logic          ")
+    if debug: print("Done with Class Logic          ")
 
     i_counter = 0
 
@@ -181,6 +199,6 @@ def encode(
             product(negatives, negatives) # at most 1
         )
     
-    print('done')
+    if debug: print('done encoding file')
     
     return (formula, nonviable) if not return_signal_mapping else (formula, nonviable, mapp)
