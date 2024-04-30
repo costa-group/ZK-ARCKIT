@@ -120,7 +120,7 @@ def encode(
             ]
 
             if len(viable_options) == 0:
-                nonviable.append(ij)
+                nonviable.append(-ij)
                 return formula
 
             Product = {
