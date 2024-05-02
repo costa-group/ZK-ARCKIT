@@ -30,12 +30,12 @@ class Encoder():
 
         return res
 
-    def get_solver(
-        self,
-        classes: Dict[str, Dict[str, List[int]]],
-        in_pair: List[Tuple[str, Circuit]],
-        offset: int,
-        return_signal_mapping: bool = False,
-        debug: bool = False
-    ) -> Solver:
-            pass
+    def encode(
+            self,
+            classes: Dict[str, Dict[str, List[int]]],
+            in_pair: List[Tuple[str, Circuit]],
+            offset: int,
+            return_signal_mapping: bool = False,
+            debug: bool = False
+        ) -> CNF:
+        pass
