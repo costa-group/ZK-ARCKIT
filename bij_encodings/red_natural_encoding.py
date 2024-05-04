@@ -67,8 +67,8 @@ class ReducedNaturalEncoder(Encoder):
 
             ind = -1
             for i in range(size):
-                has_potential_pair = False
 
+                potential_pairings = []
                 for j in range(size):
                     for k in range(len(right_normed[j])):
                         ind += 1
@@ -80,19 +80,20 @@ class ReducedNaturalEncoder(Encoder):
                             )):
                             continue
 
-                        has_potential_pair = True
-
                         ijk = ckmapp.get_assignment(i, j, k)
                         clauses = map(
                             lambda x : list(x) + [-ijk],
                             itertools.chain(*[Options[ind][name].values() for name, _ in in_pair])
                         )
 
+                        potential_pairings.append(ijk)
                         formula.extend(clauses)
                 
-                if not has_potential_pair:
+                if not potential_pairings:
                     ## TODO: pass nonviable through encoding
                     raise AssertionError("Found constraint that cannot be mapped to") 
+            
+                formula.append(potential_pairings)
             
             def extend_options(opset_possibilities, options):
                 # take union of all options
@@ -134,8 +135,6 @@ class ReducedNaturalEncoder(Encoder):
 
                 false_variables.update( internally_inconsistent )
                 all_posibilities[name][lsignal] = all_posibilities[name][lsignal].difference(internally_inconsistent)
-        
-        formula = CNF()
 
         for name, _ in in_pair:
 
