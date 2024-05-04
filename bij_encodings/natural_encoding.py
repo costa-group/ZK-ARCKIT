@@ -16,12 +16,14 @@ class NaturalEncoder(Encoder):
 
     def encode(
             self,
-            classes:Dict[str, Dict[str, List[int]]],
+            classes: Dict[str, Dict[str, List[int]]],
             in_pair: List[Tuple[str, Circuit]],
             offset: int,
             return_signal_mapping: bool = False,
+            return_constraint_mapping = False, 
             debug: bool = False
         ) -> CNF:
+        pass
         
         mapp = Assignment()
         cmapp = Assignment(offset)
@@ -189,5 +191,9 @@ class NaturalEncoder(Encoder):
         # solvers don't like gaps in the variables so will set a default value -- we want this to be false.
         for i in range(mapp.curr, offset+1):
             nonviable.append(-i)
+
+        res = [formula, nonviable]
+        if return_signal_mapping: res.append(mapp)
+        if return_constraint_mapping: res.append(cmapp)
         
-        return (formula, nonviable) if not return_signal_mapping else (formula, nonviable, mapp)
+        return res

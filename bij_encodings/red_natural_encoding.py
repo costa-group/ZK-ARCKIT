@@ -28,6 +28,7 @@ class ReducedNaturalEncoder(Encoder):
             in_pair: List[Tuple[str, Circuit]],
             offset: int,
             return_signal_mapping: bool = False,
+            return_constraint_mapping = False, 
             debug: bool = False
         ) -> CNF:
 
@@ -164,6 +165,7 @@ class ReducedNaturalEncoder(Encoder):
         res = [formula, [-var for var in false_variables]]
 
         if return_signal_mapping: res.append(mapp)
+        if return_constraint_mapping: res.append(ckmapp)
         return res
                     
 

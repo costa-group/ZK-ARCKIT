@@ -29,6 +29,7 @@ class PropagatorEncoder(Encoder):
             in_pair: List[Tuple[str, Circuit]],
             offset: int,
             return_signal_mapping: bool = False,
+            return_constraint_mapping: bool = False,
             return_engine: bool = False,
             debug: bool = False
         ) -> Solver:
@@ -132,6 +133,7 @@ class PropagatorEncoder(Encoder):
         res = [solver, [-var for var in false_variables]]
 
         if return_signal_mapping: res.append(mapp)
+        if return_constraint_mapping: res.append(Assignment()) ## no constraint mapping
         if return_engine: res.append(engine)
         return res
 
@@ -141,6 +143,7 @@ class PropagatorEncoder(Encoder):
         in_pair: List[Tuple[str, Circuit]],
         offset: int,
         return_signal_mapping: bool = False,
+        return_constraint_mapping: bool = False,
         debug: bool = False
     ) -> Solver:
             raise NotImplementedError

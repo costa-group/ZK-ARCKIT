@@ -17,18 +17,16 @@ class Encoder():
             in_pair: List[Tuple[str, Circuit]],
             offset: int,
             return_signal_mapping: bool = False,
+            return_constraint_mapping = False, 
             return_engine: bool = False,
             debug: bool = False
     ) -> Solver:
         
-        formula, assumptions, mapp = self.encode(classes, in_pair, offset, return_signal_mapping, debug)
+        res = self.encode(classes, in_pair, offset, return_signal_mapping, return_constraint_mapping, debug)
 
-        solver = Solver(name = 'cadical195', bootstrap_with=formula)
+        solver = Solver(name = 'cadical195', bootstrap_with=res[0])
 
-        res = [solver, assumptions]
-        if return_signal_mapping: res.append(mapp)
-
-        return res
+        return [solver] + res[1:]
 
     def encode(
             self,
@@ -36,6 +34,7 @@ class Encoder():
             in_pair: List[Tuple[str, Circuit]],
             offset: int,
             return_signal_mapping: bool = False,
+            return_constraint_mapping = False, 
             debug: bool = False
         ) -> CNF:
         pass
