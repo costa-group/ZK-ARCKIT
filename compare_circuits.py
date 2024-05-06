@@ -8,45 +8,29 @@ The idea is that we have two circuis S_1, S_2, which are equivalent up to renami
         then finally we build the SAT logic that will return the bijection
 """
 from typing import Tuple, List
-from math import log10
 
-import pysat
-from pysat.card import EncType, CardEnc
-from pysat.solvers import Solver
-from itertools import product
-from functools import reduce
+import time
 
-import bij_encodings.natural_encoding
-import bij_encodings.signal_encoding
+import bij_encodings.prop_encoding
 from r1cs_scripts.circuit_representation import Circuit
 from r1cs_scripts.constraint import Constraint
-from r1cs_scripts.modular_operations import divideP
+from bij_encodings.encoder import Encoder
+from bij_encodings.natural_encoding import NaturalEncoder
 
-from normalisation import r1cs_norm_choices, r1cs_norm
+from normalisation import r1cs_norm
 
 constSignal = 0
 
-def circuit_equivalence(S1: Circuit, S2: Circuit) -> Tuple[bool, List[Tuple[int, int]]]:
-    """
-    Currently assumes A*B + C = 0, where each A, B, C are equivalent up to renaming/factor
-    """
-
-    pass
-
+def get_classes(S1: Circuit,
+                S2: Circuit,
+                in_pair):
+    
     N = S1.nConstraints
     K = S1.nWires
 
-    if K != S2.nWires:
-        return (False, f"Number of signals differs: {S1.nWires, S2.nWires} ")
-
-    if N != S2.nConstraints:
-        return (False, f"Number of constraints differs: {S1.nConstraints, S2.nConstraints} ")
-    
-    in_pair = [('S1', S1), ('S2', S2)]
-
     groups = {
-        "S1":{},
-        "S2":{}
+        name:{}
+        for name, _ in in_pair
     }
     # separate by constant/quadtratic term
 
@@ -104,8 +88,37 @@ def circuit_equivalence(S1: Circuit, S2: Circuit) -> Tuple[bool, List[Tuple[int,
             hash_ = ':'.join(hashes)
 
             groups[name].setdefault(hash_, []).append(i)
+    
+    return groups
+
+def circuit_equivalence(S1: Circuit, 
+                        S2: Circuit,
+                        encoder: Encoder = NaturalEncoder,
+                        timing: bool = False,
+                        debug: bool = False
+                        ) -> Tuple[bool, List[Tuple[int, int]]]:
+    """
+    Currently assumes A*B + C = 0, where each A, B, C are equivalent up to renaming/factor
+    """
+
+    start = time.time()
+
+    N = S1.nConstraints
+    K = S1.nWires
+
+    if K != S2.nWires:
+        return (False, f"Number of signals differs: {S1.nWires, S2.nWires} ")
+
+    if N != S2.nConstraints:
+        return (False, f"Number of constraints differs: {S1.nConstraints, S2.nConstraints} ")
+    
+    in_pair = [('S1', S1), ('S2', S2)]
+
+    groups = get_classes(S1, S2, in_pair)
 
     # Early Exiting
+    hash_time = time.time()
+    if timing: print(f"Hashing took: {hash_time - start}")
 
     for key in list(groups['S1'].keys()) + list(groups['S2'].keys()):
         try:
@@ -114,86 +127,39 @@ def circuit_equivalence(S1: Circuit, S2: Circuit) -> Tuple[bool, List[Tuple[int,
         except KeyError as e:
             return (False, f"Circuit missing class {key} :: " + e)
     
+    if timing: print([len(class_) for class_ in groups["S1"].values()])
 
-    # SAT
-    """
-    Want the SAT formula be satisfiable only if there exists a bijection between the variables in the two circuits.
-    At this point the 'equivalent' circuits are in the same groups so any variables in the left, may be the same in the right 
-        -- when normalised..
+    try:
+        solver, assumptions, mapp, cmapp = encoder().get_solver(
+            groups, in_pair, K**2, return_signal_mapping = True, return_constraint_mapping = True, debug = debug
+        )
+    except AssertionError as e:
+        return False, e
 
-    ################################################################################################
+    encoding_time = time.time()
+    if timing: print(f"encoding took: {encoding_time - hash_time}")
 
-    We have a bijection so for every signal in a constraint in S1
-        - it is matched with exactly 1 signal in an 'equivalent' constraint in S2
-        - and vice versa
+    equal = solver.solve(assumptions)
 
-    When a class has a canonical form this is easy.
-    When a class has 2 canonical forms (i.e. a +/-)
-        - need to convert to CNF by double propagating
-    When a class has >2 canonical forms -- claim unlikely so break?
+    solving_time = time.time()
+    if timing: print(f"solving took: {solving_time - encoding_time}")
 
-    #################################################################################################
-
-    The above encoding (and hence) below implementation is wrong. Specifically it assumes that every constraint in a class is
-        equal to each other when this is not the case. Instead there should be a bijection between the constraints, and the 
-        constraint bijection implies the equals1 case.
-
-    -------------------------------------------------------------------------------------------------
-
-    Some options
-        encode the bijection between constraints into the formula, and add a -k term to each clause where the k clause
-            is the bijection from that constraint to the other. Will add ~79K variables and more clauses... (best option?)
-        
-        collect all options together within a class then do exactly 1 of these. << -- seems better
-        
-    Need to do some theoretical work to proove the correctness of an encoding I think
-
-    --------------------------------------------------------------------------------------------------
-
-    What do we actually need to encode into SAT. We want to be SATisfiable only if a bijection exists.
-
-        if a bijection exists : 
-            - within each class a signal is mapped to a signal in it's class <-- in both directions
-            - each signal is mapped at most once across classes <-- how to encode? (again both directions)
-        
-        Inverse :
-            - If the above two conditions are met, then each signal is mapped to exactly 1 signal in the other circuit
-            - This defines a bijection -- if choices are ensured to be equivalent
-
-    Implementation? 
-        array of sets, scan over all classes
-            within a class pickup options for mapping and intersect with previous (if not empty)
-                ^^ maybe for classes with multiple options there are just more options here?
-        
-        then at the end add the equals 1 term for each of the sets.
-
-    """
-
-    # formula, _ = bij_encodings.signal_encoding.encode(
-    #     groups, in_pair, True
-    # )
-
-    formula, assumptions, mapp = bij_encodings.natural_encoding.encode(
-        groups, in_pair, K**2, True
-    )
-    
-    # solver choice aribtrary might be better options -- straight ver_formula ~120s to solve
-    solver = Solver(name='g4', bootstrap_with=formula)
-    equal = solver.solve(assumptions=assumptions)
     if not equal:
         return False, "SAT solver determined final formula unsatisfiable"
     else:
-        assignment = solver.get_model()
-        assignment = filter(lambda x : 0 < x < K ** 2, assignment) ## retains only the assignment choices
+
+        ## For testing
+        assignment = filter(lambda x : 0 < x < K**2, solver.get_model()) ## retains only the assignment choices
+        # cassignment = filter(lambda x : K**2 < x, solver.get_model()) ## retains only the assignment choices
         assignment = map(
             lambda x : mapp.get_inv_assignment(x),
             assignment
         )
+        # cassignment = map(
+        #     lambda x : cmapp.get_inv_assignment(x),
+        #     cassignment
+        # )
         # assignment = list(assignment)
-        # f = open("assignment.txt", "w")
-        # f.writelines(map(lambda x : str(x) + '\n', assignment))
-        # f.close()
-
-        # TODO: investigate whether mapping can be incorrect -- verifier was unsatisfiable
+        # cassignment = list(cassignment)
 
         return True, list(assignment)

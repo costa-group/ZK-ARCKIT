@@ -7,6 +7,9 @@
 !bij_encodings
 !bij_encodings/*.py
 
+!bij_encodings/cons_propagator
+!bij_encodings/cons_propagator/*.py
+
 README.md
 !.gitignore
 !questions.txt
