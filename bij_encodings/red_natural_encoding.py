@@ -1,8 +1,6 @@
 """
 Natural encoding but in the form of IU-II + at least 1 left
 encoding.
-
-TODO: investigate 26 mapping disagreements
 """
 
 from typing import Dict, List, Tuple
@@ -140,6 +138,7 @@ class ReducedNaturalEncoder(Encoder):
 
             signal_counter = 1
             for signal in all_posibilities[name].keys():
+
                 if debug: print(f"{name} {signal_counter}: {signal}, {len(all_posibilities[name][signal])}                  ", end='\r')
                 signal_counter += 1
 
