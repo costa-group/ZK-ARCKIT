@@ -137,13 +137,13 @@ class PropagatorEncoder(Encoder):
         if return_engine: res.append(engine)
         return res
 
-    def get_solver(
-        self,
-        classes: Dict[str, Dict[str, List[int]]],
-        in_pair: List[Tuple[str, Circuit]],
-        offset: int,
-        return_signal_mapping: bool = False,
-        return_constraint_mapping: bool = False,
-        debug: bool = False
-    ) -> Solver:
-            raise NotImplementedError
+    def encode(
+            self,
+            classes: Dict[str, Dict[str, List[int]]],
+            in_pair: List[Tuple[str, Circuit]],
+            offset: int,
+            return_signal_mapping: bool = False,
+            return_constraint_mapping = False, 
+            debug: bool = False
+        ) -> CNF:
+        raise NotImplementedError
