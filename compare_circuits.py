@@ -94,7 +94,8 @@ def get_classes(S1: Circuit,
 def circuit_equivalence(S1: Circuit, 
                         S2: Circuit,
                         encoder: Encoder = NaturalEncoder,
-                        timing: bool = False
+                        timing: bool = False,
+                        debug: bool = False
                         ) -> Tuple[bool, List[Tuple[int, int]]]:
     """
     Currently assumes A*B + C = 0, where each A, B, C are equivalent up to renaming/factor
@@ -128,42 +129,37 @@ def circuit_equivalence(S1: Circuit,
     
     if timing: print([len(class_) for class_ in groups["S1"].values()])
 
-    solver, assumptions, mapp = encoder().get_solver(
-        groups, in_pair, K**2, True
-    )
+    try:
+        solver, assumptions, mapp, cmapp = encoder().get_solver(
+            groups, in_pair, K**2, return_signal_mapping = True, return_constraint_mapping = True, debug = debug
+        )
+    except AssertionError as e:
+        return False, e
+
     encoding_time = time.time()
     if timing: print(f"encoding took: {encoding_time - hash_time}")
-
-    # formula, assumptions, mapp = bij_encodings.natural_encoding.encode(
-    #     groups, in_pair, K**2, True
-    # )
-
-    # solver choice aribtrary might be better options -- straight ver_formula ~120s to solve
-    # solver = Solver(name='g4', bootstrap_with=formula)
 
     equal = solver.solve(assumptions)
 
     solving_time = time.time()
     if timing: print(f"solving took: {solving_time - encoding_time}")
+
     if not equal:
-        print( list( map(lambda x : mapp.get_inv_assignment(abs(x)), solver.get_core()) ) )
-        # print( [mapp.get_inv_assignment(-x) for x in assumptions] )
         return False, "SAT solver determined final formula unsatisfiable"
     else:
-        assignment = solver.get_model()
-        assignment = filter(lambda x : 0 < x < K ** 2, assignment) ## retains only the assignment choices
+
+        ## For testing
+        assignment = filter(lambda x : 0 < x < K**2, solver.get_model()) ## retains only the assignment choices
+        # cassignment = filter(lambda x : K**2 < x, solver.get_model()) ## retains only the assignment choices
         assignment = map(
             lambda x : mapp.get_inv_assignment(x),
             assignment
         )
+        # cassignment = map(
+        #     lambda x : cmapp.get_inv_assignment(x),
+        #     cassignment
+        # )
         # assignment = list(assignment)
-        # print(assignment)
-        # print([mapp.get_inv_assignment(-x) for x in assumptions])
-        # assignment = list(assignment)
-        # f = open("assignment.txt", "w")
-        # f.writelines(map(lambda x : str(x) + '\n', assignment))
-        # f.close()
-
-        # TODO: investigate whether mapping can be incorrect -- verifier was unsatisfiable
+        # cassignment = list(cassignment)
 
         return True, list(assignment)
