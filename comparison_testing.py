@@ -10,9 +10,9 @@ from r1cs_scripts.modular_operations import multiplyP
 def shuffle_signals(circ: Circuit, seed = None) -> None:
     # modifies circ shuffling the signal labels in the circuit
 
-    np.random.seed(seed)
+    RNG = np.random.default_rng(seed)
     mapping = list(range(1, circ.nWires))
-    np.random.shuffle( mapping )
+    RNG.shuffle( mapping )
     mapping = [0] + mapping
 
     for cons in circ.constraints:
@@ -23,8 +23,8 @@ def shuffle_signals(circ: Circuit, seed = None) -> None:
     return mapping
 
 def rand_const_factor(circ: Circuit, high = 2**10 - 1, seed = None) -> None:
-    np.random.seed(seed)
-    coefs = np.random.randint(low=1, high = high, size=circ.nConstraints)
+    RNG = np.random.default_rng(seed)
+    coefs = RNG.integers(low=1, high = high, size=circ.nConstraints)
 
     for i, coef in enumerate(coefs):
         cons = circ.constraints[i]
@@ -54,11 +54,17 @@ if __name__ == '__main__':
     print(circ.nConstraints, circ.nWires)
     start = time.time()
 
+    from bij_encodings.natural_encoding import NaturalEncoder
+    from bij_encodings.red_natural_encoding import ReducedNaturalEncoder
+    from bij_encodings.prop_encoding import PropagatorEncoder
+
     # takes forever...
     for _ in range(10**0):
-        bool, mapp = circuit_equivalence(circ, circ_shuffled, timing=True)
+        bool, mapp = circuit_equivalence(circ, circ_shuffled, ReducedNaturalEncoder, timing=True)
         print(bool)
-        if bool: print("Number of mapping disagreements: ", len( [map for map in mapp if map[1] != mapping[map[0]]]))
+        if bool: 
+            print("Number of mapping disagreements: ", len( [map for map in mapp if map[1] != mapping[map[0]]]))
+            print([( map, (map[0], mapping[map[0]])) for map in mapp if map[1] != mapping[map[0]]])
         else: print(mapp)
 
         # NOTE: correctly returns true fir circ, circ_shuffled but mappings don't agree
