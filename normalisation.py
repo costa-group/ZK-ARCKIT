@@ -64,7 +64,7 @@ def divisionNorm(cons : List[int], p: int,
         return nonZeroNorm(cons, p, select)
     
     # restrict to distinct choices for cons
-    ucons = np.unique(cons)
+    ucons = list(set(cons))
 
     if early_exit and sum(ucons) % p != 0:
         choice = nonZeroNorm(ucons, p, select=True)
@@ -85,7 +85,7 @@ def divisionNorm(cons : List[int], p: int,
         
         k_ = min(zip(lenA_k, K))[1]
 
-        return [i for (i, _, k) in A if k == k_] 
+        return [i for (i, _, k) in A if k == k_]
     
     I = range(len(ucons))
     I_ = find_next_indexset(I)
