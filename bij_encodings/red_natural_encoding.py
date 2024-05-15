@@ -1,6 +1,8 @@
 """
 Natural encoding but in the form of IU-II + at least 1 left
 encoding.
+
+#TODO: investigate Unsatisfiable -- comes from constraint shuffling.
 """
 
 from typing import Dict, List, Tuple
@@ -78,7 +80,7 @@ class ReducedNaturalEncoder(Encoder):
                             )):
                             continue
 
-                        ijk = ckmapp.get_assignment(i, j, k)
+                        ijk = ckmapp.get_assignment(classes[in_pair[0][0]][class_][i], classes[in_pair[0][0]][class_][j], k)
                         clauses = map(
                             lambda x : list(x) + [-ijk],
                             itertools.chain(*[Options[ind][name].values() for name, _ in in_pair])
