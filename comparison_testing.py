@@ -7,7 +7,7 @@ import r1cs_scripts.read_r1cs
 from compare_circuits import circuit_equivalence
 from r1cs_scripts.modular_operations import multiplyP
 
-def shuffle_signals(circ: Circuit, seed = None) -> None:
+def shuffle_signals(circ: Circuit, seed = None) -> List[int]:
     # modifies circ shuffling the signal labels in the circuit
 
     RNG = np.random.default_rng(seed)
@@ -22,6 +22,18 @@ def shuffle_signals(circ: Circuit, seed = None) -> None:
     
     return mapping
 
+def shuffle_constraints(circ: Circuit, seed = None) -> None:
+    
+    RNG = np.random.default_rng(seed)
+    mapping = list(range(0,circ.nConstraints))
+    RNG.shuffle( mapping )
+
+    circ.constraints = [
+        circ.constraints[i] for i in mapping
+    ]
+
+    return mapping
+
 def rand_const_factor(circ: Circuit, high = 2**10 - 1, seed = None) -> None:
     RNG = np.random.default_rng(seed)
     coefs = RNG.integers(low=1, high = high, size=circ.nConstraints)
@@ -32,21 +44,23 @@ def rand_const_factor(circ: Circuit, high = 2**10 - 1, seed = None) -> None:
             for key in dict.keys():
                 dict[key] = multiplyP(dict[key], coef, circ.prime_number)
 
-def get_circuits(file, seeds = [None, None]):
+def get_circuits(file, seed = None):
     circ, circ_shuffled = Circuit(), Circuit()
 
     r1cs_scripts.read_r1cs.parse_r1cs(file, circ)
     r1cs_scripts.read_r1cs.parse_r1cs(file, circ_shuffled)
 
-    seed1, seed2 = seeds
+    RNG = np.random.default_rng(seed = seed)
+    seed1, seed2, seed3 = RNG.integers(0, 10**6, size = 3)
     rand_const_factor(circ_shuffled, seed1)
     mapping = shuffle_signals(circ_shuffled, seed2)
+    cmapping = shuffle_constraints(circ_shuffled, seed3)
 
     return circ, circ_shuffled, mapping
 
 if __name__ == '__main__':
 
-    circ, circ_shuffled, mapping = get_circuits("SudokuO1.r1cs", [42, 35566])
+    circ, circ_shuffled, mapping = get_circuits("SudokuO1.r1cs", 42)
 
     # NOTE: seems can verify equivalence if there is no scalar overflow in multiplyP
 
