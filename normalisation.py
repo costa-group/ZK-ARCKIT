@@ -85,7 +85,7 @@ def divisionNorm(cons : List[int], p: int,
         
         k_ = min(zip(lenA_k, K))[1]
 
-        return [i for (i, _, k) in A if k == k_]
+        return [i for (i, _, k) in A if k == k_] 
     
     I = range(len(ucons))
     I_ = find_next_indexset(I)
@@ -164,8 +164,3 @@ def r1cs_norm(C: Constraint) -> List[Constraint]:
     return [
         normalise_with_choices(a, b, c) for (a, b), c in choices
     ]
-
-
-
-
-    # then normalise the remaining terms

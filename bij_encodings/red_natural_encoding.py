@@ -1,8 +1,6 @@
 """
 Natural encoding but in the form of IU-II + at least 1 left
 encoding.
-
-#TODO: investigate Unsatisfiable -- comes from constraint shuffling.
 """
 
 from typing import Dict, List, Tuple

@@ -88,7 +88,7 @@ def get_classes(S1: Circuit,
             hash_ = ':'.join(hashes)
 
             groups[name].setdefault(hash_, []).append(i)
-    
+
     return groups
 
 def circuit_equivalence(S1: Circuit, 
@@ -145,6 +145,12 @@ def circuit_equivalence(S1: Circuit,
     if timing: print(f"solving took: {solving_time - encoding_time}")
 
     if not equal:
+        # print(solver.get_core())
+        # core = solver.get_core()
+        # score = filter(lambda x : 0 < abs(x) < K**2, core)
+        # ccore = filter(lambda x : K**2 < abs(x), core)
+        # print('core_signals', [mapp.get_inv_assignment(abs(x)) for x in score])
+        # print('core_cons', [cmapp.get_inv_assignment(abs(x)) for x in ccore])
         return False, "SAT solver determined final formula unsatisfiable"
     else:
 
