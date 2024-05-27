@@ -10,6 +10,9 @@
 !bij_encodings/cons_propagator
 !bij_encodings/cons_propagator/*.py
 
+!structural_analysis
+!structural_analysis/*.py
+
 README.md
 !.gitignore
 !questions.txt
