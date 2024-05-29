@@ -46,7 +46,7 @@ constraint forall( i in index_set(classes) where has_index(i+1, classes) ) (
 
 % checks that bijection is correct (i.e. if the coefs agree)
 constraint forall (i in CONSTRAINTS, X in circuit1[i, ..] where X.1 != 0) (
-  exists ( j in VARSET ) ( %% exists typically low domain size -- check with larger examples
+  let { var VARSET : j } in ( %% exists typically low domain size -- check with larger examples
     signal_bijection[X.1] == circuit2[constraint_bijection[i], j].1 /\ 
     X.2 == circuit2[constraint_bijection[i], j].2 /\ 
     X.3 == circuit2[constraint_bijection[i], j].3 /\ 
