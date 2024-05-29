@@ -55,14 +55,14 @@ def get_classes(S1: Circuit,
         """
         returns a sorted list of the normalised constraints in sorted order
         """
-        def to_string(circ):
-            AB = f"{list(circ.A.values())}*{list(circ.B.values())}" if len(circ.A) * len(circ.B) > 0 else ""
-            C = f"{list(circ.C.values())}"
+        def to_string(cons):
+            AB = f"{list(cons.A.values())}*{list(cons.B.values())}" if len(cons.A) * len(cons.B) > 0 else ""
+            C = f"{list(cons.C.values())}"
 
             return f"{AB}+{C}"
         
-        def return_sorted_coefs(circ):
-            return sorted( list(circ.A.values()) + list(circ.B.values()) + list(circ.C.values()))
+        def return_sorted_coefs(cons):
+            return sorted( list(cons.A.values()) + list(cons.B.values()) + list(cons.C.values()))
 
         norms = r1cs_norm(C)
         if len(norms) > 1: norms = sorted(norms, key = return_sorted_coefs) ## need canonical order for returned normed constraints
