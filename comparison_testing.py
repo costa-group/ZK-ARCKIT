@@ -44,7 +44,13 @@ def rand_const_factor(circ: Circuit, high = 2**10 - 1, seed = None) -> None:
             for key in dict.keys():
                 dict[key] = multiplyP(dict[key], coef, circ.prime_number)
 
-def get_circuits(file, seed = None):
+def get_circuits(file, seed = None, 
+            return_mapping: bool = True,
+            return_cmapping: bool = False,
+            const_factor : bool = True, 
+            shuffle_sig : bool = True, 
+            shuffle_const: bool = True
+    ):
     circ, circ_shuffled = Circuit(), Circuit()
 
     r1cs_scripts.read_r1cs.parse_r1cs(file, circ)
@@ -52,11 +58,17 @@ def get_circuits(file, seed = None):
 
     RNG = np.random.default_rng(seed = seed)
     seed1, seed2, seed3 = RNG.integers(0, 10**6, size = 3)
-    rand_const_factor(circ_shuffled, seed1)
-    mapping = shuffle_signals(circ_shuffled, seed2)
-    cmapping = shuffle_constraints(circ_shuffled, seed3)
+    if const_factor: rand_const_factor(circ_shuffled, seed1)
+    if shuffle_sig: mapping = shuffle_signals(circ_shuffled, seed2)
+    else: mapping = list(range(circ.nWires))
+    if shuffle_const: cmapping = shuffle_constraints(circ_shuffled, seed3)
+    else: cmapping = list(range(circ.nConstraints))
 
-    return circ, circ_shuffled, mapping
+    res = [circ, circ_shuffled]
+    if return_mapping: res.append(mapping)
+    if return_cmapping: res.append(cmapping)
+
+    return res
 
 if __name__ == '__main__':
 
