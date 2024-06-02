@@ -59,11 +59,12 @@ def get_circuits(file, seed = None,
 
     RNG = np.random.default_rng(seed = seed)
     seed1, seed2, seed3 = RNG.integers(0, 10**6, size = 3)
-    if const_factor: rand_const_factor(circ_shuffled, seed1)
-    if shuffle_sig: mapping = shuffle_signals(circ_shuffled, seed2)
+    if const_factor: rand_const_factor(circ_shuffled, seed = seed1)
+    if shuffle_sig: mapping = shuffle_signals(circ_shuffled, seed = seed2)
     else: mapping = list(range(circ.nWires))
-    if shuffle_const: cmapping = shuffle_constraints(circ_shuffled, seed3)
+    if shuffle_const: cmapping = shuffle_constraints(circ_shuffled, seed = seed3)
     else: cmapping = list(range(circ.nConstraints))
+    
 
     res = [circ, circ_shuffled]
     if return_mapping: res.append(mapping)
