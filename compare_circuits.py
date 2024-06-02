@@ -21,18 +21,7 @@ from normalisation import r1cs_norm
 
 constSignal = 0
 
-def get_classes(S1: Circuit,
-                S2: Circuit,
-                in_pair):
-    
-    N = S1.nConstraints
-    K = S1.nWires
-
-    groups = {
-        name:{}
-        for name, _ in in_pair
-    }
-    # separate by constant/quadtratic term
+def hash_constraint(cons: Constraint):
 
     def constant_quadratic_split(C: Constraint) -> str:
         """
@@ -74,20 +63,35 @@ def get_classes(S1: Circuit,
         # TODO: is there are significant performance dip for having long hashes?
         #   given that usually the list is not more than 4 this seems unlikely.. but something to think about
         return str(list(norms))
+    
+    hashes = [
+        constant_quadratic_split(cons),
+        length_split(cons),
+        norm_split(cons)
+    ]
+
+    return ':'.join(hashes)
+
+
+def get_classes(S1: Circuit,
+                S2: Circuit,
+                in_pair):
+    
+    N = S1.nConstraints
+    K = S1.nWires
+
+    groups = {
+        name:{}
+        for name, _ in in_pair
+    }
+    # separate by constant/quadtratic term
         
 
     # python loops are really slow... ~22s for 818 simple const 10^4 times..
     for i in range(N):
         for name, circ in in_pair:
-            hashes = [
-                constant_quadratic_split(circ.constraints[i]),
-                length_split(circ.constraints[i]),
-                norm_split(circ.constraints[i])
-            ]
-
-            hash_ = ':'.join(hashes)
-
-            groups[name].setdefault(hash_, []).append(i)
+            
+            groups[name].setdefault(hash_constraint( circ.constraints[i] ), []).append(i)
 
     return groups
 
