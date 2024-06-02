@@ -51,7 +51,7 @@ def hash_constraint(cons: Constraint):
             return f"{AB}+{C}"
         
         def return_sorted_coefs(cons):
-            return sorted( list(cons.A.values()) + list(cons.B.values()) + list(cons.C.values()))
+            return list(cons.A.values()) + list(cons.B.values()) + list(cons.C.values())
 
         norms = r1cs_norm(C)
         if len(norms) > 1: norms = sorted(norms, key = return_sorted_coefs) ## need canonical order for returned normed constraints
