@@ -37,6 +37,7 @@ def shuffle_constraints(circ: Circuit, seed = None) -> None:
 def rand_const_factor(circ: Circuit, high = 2**10 - 1, seed = None) -> None:
     RNG = np.random.default_rng(seed)
     coefs = RNG.integers(low=1, high = high, size=circ.nConstraints)
+    coefs = list(map(int, coefs))
 
     for i, coef in enumerate(coefs):
         cons = circ.constraints[i]
