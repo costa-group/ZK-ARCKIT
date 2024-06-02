@@ -28,9 +28,10 @@ def shuffle_constraints(circ: Circuit, seed = None) -> None:
     mapping = list(range(0,circ.nConstraints))
     RNG.shuffle( mapping )
 
-    circ.constraints = [
-        circ.constraints[i] for i in mapping
-    ]
+    temp = [None] * circ.nConstraints
+    for i, j in enumerate(mapping):
+        temp[j] = circ.constraints[i]
+    circ.constraints = temp
 
     return mapping
 
@@ -64,7 +65,6 @@ def get_circuits(file, seed = None,
     else: mapping = list(range(circ.nWires))
     if shuffle_const: cmapping = shuffle_constraints(circ_shuffled, seed = seed3)
     else: cmapping = list(range(circ.nConstraints))
-    
 
     res = [circ, circ_shuffled]
     if return_mapping: res.append(mapping)
