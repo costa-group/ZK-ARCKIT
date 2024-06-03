@@ -4,6 +4,7 @@ include "all_different.mzn";
 
 int: nSignals;
 int: nConstraints;
+int: nNorms;
 
 set of int: SIGNALS = 1..nSignals-1;
 set of int: CONSTRAINTS = 1..nConstraints;
@@ -16,20 +17,25 @@ int: maxvars;
 %%   tuple is (sig, coef in A, coef in B, coef in C)
 %   If larger examples prove to have limited high maxvars maybe split these ?
 set of int: VARSET = 1..maxvars;
+set of int: NORMSET = 1..nNorms;
 
 array[CONSTRAINTS, VARSET] of tuple(0..nSignals, int, int, int): circuit1;
-array[CONSTRAINTS, VARSET] of tuple(0..nSignals, int, int, int): circuit2;
+array[NORMSET, VARSET] of tuple(0..nSignals, int, int, int): circuit2;
 
 %% Two constraints rely on preprocessed information
 %% these drastically reduce the domain of the signal and constraint bijections
 
 array[SIGNALS] of set of SIGNALS: signal_restrictions;
-array [_] of 1..nConstraints+1: classes;
+
+int: nClasses;
+
+array [1..nClasses] of 1..nConstraints+1: classes;
+array [1..nClasses] of 1..nNorms+1: norm_classes;
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% VARS %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 array [SIGNALS] of var SIGNALS: signal_bijection;
-array [CONSTRAINTS] of var CONSTRAINTS: constraint_bijection;
+array [CONSTRAINTS] of var NORMSET: constraint_bijection;
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% CONSTRAINTS %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -41,7 +47,7 @@ constraint alldifferent(constraint_bijection);
 constraint forall( i in SIGNALS ) (signal_bijection[i] in signal_restrictions[i]);
 
 constraint forall( i in index_set(classes) where has_index(i+1, classes) ) (
-  forall(cons in classes[i]..classes[i+1]-1)(classes[i] <= constraint_bijection[cons] /\ constraint_bijection[cons] <= classes[i+1]-1)
+  forall(cons in classes[i]..classes[i+1]-1)(norm_classes[i] <= constraint_bijection[cons] /\ constraint_bijection[cons] <= norm_classes[i+1]-1)
 );
 
 % checks that bijection is correct (i.e. if the coefs agree)
