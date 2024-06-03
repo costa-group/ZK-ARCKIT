@@ -13,9 +13,12 @@
 !structural_analysis
 !structural_analysis/*.py
 
+!structural_analysis/graph_clustering
+!structural_analysis/graph_clustering/*.py
+
 !minizinc
 !minizinc/*.mzn
 
-README.md
+!README.md
 !.gitignore
 !questions.txt
