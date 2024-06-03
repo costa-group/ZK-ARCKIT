@@ -6,11 +6,12 @@ import pydot
 from typing import List
 from itertools import chain
 
+from structural_analysis.graph import Graph
 from r1cs_scripts.constraint import Constraint
 
-def negone_to_signal( cons: List[Constraint]) -> "Graph":
+def negone_to_signal( cons: List[Constraint]) -> Graph:
 
-    graph = pydot.Dot(graph_type = 'digraph', strict=True)
+    graph = Graph(set([]), set([]), 'digraph')
     p = cons[0].p
 
     for con in cons:
@@ -23,12 +24,10 @@ def negone_to_signal( cons: List[Constraint]) -> "Graph":
 
                 if l == r or l == 0: continue
 
-                graph.add_edge(
-                    pydot.Edge(l, r)
-                )
+                graph.add_edge(l, r)
     return graph
 
-def abc_signal_graph( cons: List[Constraint] ) -> "Graph":
+def shared_constraint_graph( cons: List[Constraint] ) -> "Graph":
     
     graph = pydot.Dot(graph_type = 'digraph')
 
@@ -40,11 +39,6 @@ def abc_signal_graph( cons: List[Constraint] ) -> "Graph":
             for l in chain(con.A.keys(), con.B.keys(), con.C.keys()):
                 if l == r or l == 0: continue
                 
-                graph.add_edge(
-                    pydot.Edge(l, r)
-                )
+                graph.add_edge(l, r)
     
     return graph
-
-def write_png(graph: "Graph", location: str):
-    graph.write_png(location)
