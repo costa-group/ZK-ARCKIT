@@ -62,7 +62,7 @@ def hash_constraint(cons: Constraint):
 
         # TODO: is there are significant performance dip for having long hashes?
         #   given that usually the list is not more than 4 this seems unlikely.. but something to think about
-        return str(list(norms))
+        return str(norms)
     
     hashes = [
         constant_quadratic_split(cons),
