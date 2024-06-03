@@ -5,22 +5,29 @@
 import sys
 import itertools
 import functools
+from typing import Dict
 
 from r1cs_scripts.circuit_representation import Circuit
 from r1cs_scripts.constraint import Constraint
 from bij_encodings.assignment import Assignment
 from bij_encodings.IU_II import intra_union_inter_intersection
-from compare_circuits import get_classes
+from compare_circuits import get_classes, hash_constraint
 from normalisation import r1cs_norm
 
 def _classes_string(classes) -> str:
 
     splits = [1]
+    norm_splits = [1]
+
     sum = 1
+    norm_sum = 1
     for key in classes["S1"].keys():
         sum += len(classes["S1"][key])
+        norm_sum += len(classes["S1"][key]) * (key.count("'") // 2) # ' around each potential norms
+
         splits.append(sum)
-    return f"classes = {splits};\n\n"
+        norm_splits.append(norm_sum)
+    return f"nNorms = {norm_sum - 1};\n\nclasses = {splits};\nnorm_classes = {norm_splits};\n\n"
 
 def _signal_info_string(classes, in_pair) -> str:
 
@@ -39,35 +46,39 @@ def _signal_info_string(classes, in_pair) -> str:
 
     return "".join(res)
 
-def _constraint_info_string(circ: Constraint, circ2: Constraint, classes) -> str:
+def _constraint_info_string(circ: Circuit, circ2: Circuit, classes: Dict[str, Dict[str, int]]) -> str:
     res = []
 
-    num_map = Assignment(assignees = 1) # fixes problems with extreme ints too large for minzinc
-
-    c1cons = list(map(lambda x : r1cs_norm(circ.constraints[x])[0], itertools.chain.from_iterable([ classes["S1"][key] for key in classes["S1"].keys() ])))
-    c2cons = list(map(lambda x : r1cs_norm(circ2.constraints[x])[0], itertools.chain.from_iterable([ classes["S2"][key] for key in classes["S1"].keys() ])))
+    mapp = Assignment(assignees=1)
 
     def getvars(con: Constraint) -> set:
         return set(con.A.keys()).union(con.B.keys()).union(con.C.keys()).difference(set([0]))
-    
-    maxvars = max(map(len, map(getvars, c1cons)))
+
+    maxvars = max(map(lambda con : len(getvars(con)), circ.constraints))
+    assert maxvars == max(map(lambda con : len(getvars(con)), circ2.constraints)), "Different maxvars hence not equivalent"
+
     res.append(f"maxvars = {maxvars};\n\n")
 
-    for i, cons in enumerate([c1cons, c2cons]):
+    c1cons = list(map(lambda x : r1cs_norm(circ.constraints[x])[0], itertools.chain.from_iterable([classes["S1"][key] for key in classes["S1"].keys()])))
+    c2cons = map(lambda x : r1cs_norm(circ2.constraints[x]), itertools.chain.from_iterable([classes["S2"][key] for key in classes["S1"].keys()]))
+    
+    c2cons = list(itertools.chain.from_iterable(c2cons)) # flatten
 
-        res.append(f"circuit{i+1} = array2d(1..nConstraints, 1..maxvars,\n")
-        res.append("   [\n")
+    print(len(c1cons), len(c2cons))
+
+    for i, cons in enumerate([c1cons, c2cons]):
+        res.append(f"circuit{i+1} = array2d(1.." + ("nConstraints" if i == 0 else "nNorm") + ", 1..maxvars,\n    [\n")
         for j, con in enumerate(cons):
-            vars_ = getvars(con)
+            vars = getvars(con)
 
             res.append(",".join(
                 map(str,
                     [(sig, # TODO: clean
-                    num_map.get_assignment(con.A[sig]) if sig in con.A.keys() else 0,
-                    num_map.get_assignment(con.B[sig]) if sig in con.B.keys() else 0,
-                    num_map.get_assignment(con.C[sig]) if sig in con.C.keys() else 0)
-                    for sig in vars_ if sig != 0] + 
-                    [(0, 0, 0, 0)] * (maxvars - len(vars_))
+                    mapp.get_assignment(con.A[sig]) if sig in con.A.keys() else 0,
+                    mapp.get_assignment(con.B[sig]) if sig in con.B.keys() else 0,
+                    mapp.get_assignment(con.C[sig]) if sig in con.C.keys() else 0)
+                    for sig in vars if sig != 0] + 
+                    [(0, 0, 0, 0)] * (maxvars - len(vars))
                 )
             ) +  (j != len(cons)-1) * "," + "\n")
         res.append("]);\n\n")
