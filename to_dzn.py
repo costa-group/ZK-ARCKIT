@@ -27,7 +27,7 @@ def _classes_string(classes) -> str:
 
         splits.append(sum)
         norm_splits.append(norm_sum)
-    return f"nNorms = {norm_sum - 1};\n\nclasses = {splits};\nnorm_classes = {norm_splits};\n\n"
+    return f"nNorms = {norm_sum - 1};\nnClasses = {len(splits)};\n\nclasses = {splits};\nnorm_classes = {norm_splits};\n\n"
 
 def _signal_info_string(classes, in_pair) -> str:
 
@@ -67,7 +67,7 @@ def _constraint_info_string(circ: Circuit, circ2: Circuit, classes: Dict[str, Di
     print(len(c1cons), len(c2cons))
 
     for i, cons in enumerate([c1cons, c2cons]):
-        res.append(f"circuit{i+1} = array2d(1.." + ("nConstraints" if i == 0 else "nNorm") + ", 1..maxvars,\n    [\n")
+        res.append(f"circuit{i+1} = array2d(1.." + ("nConstraints" if i == 0 else "nNorms") + ", 1..maxvars,\n    [\n")
         for j, con in enumerate(cons):
             vars = getvars(con)
 
