@@ -16,15 +16,12 @@ def negone_to_signal( cons: List[Constraint]) -> "Graph":
     for con in cons:
 
         for r in con.C.keys():
-
             
-            if con.C[r] != p-1:
-                continue
+            if con.C[r] != p-1 or r == 0: continue
             
             for l in chain(con.A.keys(), con.B.keys(), con.C.keys()):
 
-                if l == r:
-                    continue
+                if l == r or l == 0: continue
 
                 graph.add_edge(
                     pydot.Edge(l, r)
@@ -38,10 +35,10 @@ def abc_signal_graph( cons: List[Constraint] ) -> "Graph":
     for con in cons:
 
         for r in con.C.keys():
+            if r == 0: continue
             
             for l in chain(con.A.keys(), con.B.keys(), con.C.keys()):
-                if l == r:
-                    continue
+                if l == r or l == 0: continue
                 
                 graph.add_edge(
                     pydot.Edge(l, r)
