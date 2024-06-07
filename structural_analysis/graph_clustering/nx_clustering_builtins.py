@@ -11,10 +11,12 @@ def induce_on_partitions(G: nx.Graph, partitions: List["Node"]):
     return G_
 
 
-def Louvain(G: nx.Graph):
+def Louvain(G: nx.Graph, graph: bool = False, seed=None):
+    partitions = nx.community.louvain_communities(G, seed=seed)
+    if graph: return induce_on_partitions(G, partitions)
+    else: return partitions
 
-    return induce_on_partitions(G, nx.community.louvain_communities(G))
-
-def Label_propagation(G: nx.Graph, seed=None):
-
-    return induce_on_partitions(G, nx.community.asyn_lpa_communities(G, seed=seed))
+def Label_propagation(G: nx.Graph, graph: bool = False, seed=None):
+    partitions = nx.community.asyn_lpa_communities(G, seed=seed)
+    if graph: return induce_on_partitions(G, partitions)
+    else: return partitions
