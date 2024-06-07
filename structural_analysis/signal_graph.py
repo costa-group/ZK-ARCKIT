@@ -2,16 +2,15 @@
 Idea is to have a directed graph showing edge ab implies a circuit where signal a in A*B and b in C of a constraint
 """
 
-import pydot
+import networkx as nx
 from typing import List
 from itertools import chain
 
-from structural_analysis.graph import Graph
 from r1cs_scripts.constraint import Constraint
 
-def negone_to_signal( cons: List[Constraint]) -> Graph:
+def negone_to_signal( cons: List[Constraint]) -> nx.DiGraph:
 
-    graph = Graph(set([]), set([]), 'digraph')
+    graph = nx.DiGraph()
     p = cons[0].p
 
     for con in cons:
@@ -27,9 +26,9 @@ def negone_to_signal( cons: List[Constraint]) -> Graph:
                 graph.add_edge(l, r)
     return graph
 
-def shared_constraint_graph( cons: List[Constraint] ) -> "Graph":
+def shared_constraint_graph( cons: List[Constraint] ) -> nx.Graph:
     
-    graph = pydot.Dot(graph_type = 'digraph')
+    graph = nx.Graph()
 
     for con in cons:
 

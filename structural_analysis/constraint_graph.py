@@ -1,19 +1,16 @@
 
-
-import pydot
 from typing import List
+import networkx as nx
 
 from r1cs_scripts.circuit_representation import Circuit
 from r1cs_scripts.constraint import Constraint
-from structural_analysis.graph import Graph
 
 def getvars(con: Constraint) -> set:
     return set(con.A.keys()).union(con.B.keys()).union(con.C.keys()).difference(set([0]))
 
-def shared_signal_graph(cons: List[Circuit]) -> Graph:
+def shared_signal_graph(cons: List[Circuit]) -> nx.Graph:
 
-    graph = Graph(set([]), set([]), graph_type='graph')
-
+    graph = nx.Graph()
     for i, con in enumerate( cons ):
 
         vars = getvars(con)
