@@ -4,7 +4,7 @@ from typing import List
 
 from r1cs_scripts.circuit_representation import Circuit
 import r1cs_scripts.read_r1cs
-from compare_circuits import circuit_equivalence
+from comparison.compare_circuits import circuit_equivalence
 from r1cs_scripts.modular_operations import multiplyP
 
 def shuffle_signals(circ: Circuit, seed = None) -> List[int]:
@@ -73,8 +73,7 @@ def get_circuits(file, seed = None,
     return res
 
 if __name__ == '__main__':
-
-    circ, circ_shuffled, mapping = get_circuits("SudokuO1.r1cs", 42)
+    circ, circ_shuffled, mapping = get_circuits("r1cs_files/Reveal.r1cs", 42)
 
     # NOTE: seems can verify equivalence if there is no scalar overflow in multiplyP
 

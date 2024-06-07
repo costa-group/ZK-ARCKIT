@@ -19,6 +19,9 @@
 !minizinc
 !minizinc/*.mzn
 
+!comparison
+!comparison/*.py
+
 !README.md
 !.gitignore
 !questions.txt
