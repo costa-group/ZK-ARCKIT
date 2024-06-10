@@ -2,6 +2,7 @@ import networkx as nx
 from typing import Callable, Iterable
 
 def _get_next_edges(G: nx.graph, etol: float) -> Iterable["edge"]:
+    # floating point errors in python mean we need some error tolerance
 
     data = nx.edge_betweenness_centrality(G, k = None)
 
@@ -19,9 +20,8 @@ def stepped_girvan_newman(G: nx.Graph, cluster_limit: Callable[[nx.Graph],int] =
     G_ = G.copy()
 
     while len(partitions) < limit:
-        # print(len(partitions), G.number_of_nodes()**(0.5))
 
-        edges_with_max_prop = _get_next_edges(G_)
+        edges_with_max_prop = _get_next_edges(G_, etol=10**(-5)) # etol chosen heuristically -- empirical data shows differences of ~10**-8
 
         G_.remove_edges_from(edges_with_max_prop)
 
