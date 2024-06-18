@@ -31,7 +31,7 @@ class ReducedNaturalEncoder(Encoder):
         ) -> CNF:
 
         mapp = Assignment()
-        ckmapp = Assignment(offset)
+        ckmapp = Assignment(offset, assignees=3)
 
         false_variables = set([])
 
