@@ -6,16 +6,18 @@ class Assignment():
             self.inv_assignment = [None]
             self.curr = 1 + offset
             self.offset = offset
+            self.assignees = assignees
         
         def get_assignment(self, *args) -> int:
             ## assignment i, j is from S1 to S2
+            assert len(args) == self.assignees, "Incorrect num of arguments"
+
             curr = self.assignment
 
             for arg in args[:-1]:
                 curr = curr.setdefault(arg, {})
             
             res = curr.setdefault(args[-1], None)
-
 
             if res == None:
                 # set value
