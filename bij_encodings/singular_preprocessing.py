@@ -35,8 +35,8 @@ def singular_class_propagator(
 
         l, r = mapp.get_inv_assignment(ij)
 
-        if signal_bijection["S1"].setdefault(l, r) != r: raise AssertionError("Contradicting Assumptions")
-        if signal_bijection["S2"].setdefault(r, l) != l: raise AssertionError("Contradicting Assumptions")
+        if signal_bijection["S1"].setdefault(l, ij) != ij: raise AssertionError("Contradicting Assumptions")
+        if signal_bijection["S2"].setdefault(r, ij) != ij: raise AssertionError("Contradicting Assumptions")
 
 
     # get 1st norm of l, norms of r.
@@ -146,8 +146,8 @@ def singular_class_preprocessing(
 
         for bij in filter( lambda x : 0 < x < len(mapp.assignment), assumptions ):
             l, r = mapp.get_inv_assignment(bij)
-            known_signal_mapping[in_pair[0][0]][l] = r
-            known_signal_mapping[in_pair[1][0]][r] = l
+            known_signal_mapping[in_pair[0][0]][l] = bij
+            known_signal_mapping[in_pair[1][0]][r] = bij
 
     singular_classes = filter(lambda key: len( classes[in_pair[0][0]][key] ) == 1, classes[in_pair[0][0]].keys())
 
