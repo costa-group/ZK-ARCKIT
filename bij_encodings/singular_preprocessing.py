@@ -32,11 +32,12 @@ def singular_class_propagator(
 
         l, r = mapp.get_inv_assignment(ij)
 
-        signal_bijection["S1"].setdefault(l, set([])).add(ij)
-        signal_bijection["S2"].setdefault(r, set([])).add(ij)
+        for k, name in [(l, "S1"), (r, "S2")]:
 
-        if len(signal_bijection["S1"][l]) > 1: raise AssertionError("Contradicting Assumptions")
-        if len(signal_bijection["S2"][r]) > 1: raise AssertionError("Contradicting Assumptions")
+            if ij in signal_bijection[name].setdefault(k, set([])) or signal_bijection[name][k] == set([]):
+                signal_bijection[name][k] = set([ij])
+            else:
+                raise AssertionError("Contradicting Assumptions")
 
 
     # get 1st norm of l, norms of r.
