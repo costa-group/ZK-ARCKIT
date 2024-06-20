@@ -35,7 +35,7 @@ class ReducedNaturalEncoder(Encoder):
             signal_info: Dict[str, Dict[int, int]] = None
         ) -> CNF:
 
-        if ckmapp is None: ckmapp =  Assignment(offset, assignees=3)
+        if ckmapp is None: ckmapp =  Assignment(assignees=3, link=mapp)
         if signal_info is None: signal_info = {
             name: {}
             for name, _ in in_pair
@@ -46,7 +46,7 @@ class ReducedNaturalEncoder(Encoder):
         class_counter = 1
         for class_ in keyset:
 
-            if debug: print(f"Starting Class {class_counter} or {len(classes[in_pair[0][0]])}                             ", end= '\r')
+            if debug: print(f"Starting Class {class_counter} or {len(classes[in_pair[0][0]])+1}                             ", end= '\r')
             class_counter += 1
 
             size = len(classes[in_pair[0][0]][class_])
@@ -79,7 +79,7 @@ class ReducedNaturalEncoder(Encoder):
 
                 potential_pairings = []
                 for j in range(size):
-                    if debug: print(f"Starting Class {class_counter} or {len(classes[in_pair[0][0]])} : pair {i}, {j} of {size}                ", end= '\r')
+                    if debug: print(f"Starting Class {class_counter} or {len(classes[in_pair[0][0]])+1} : pair {i}, {j} of {size}                ", end= '\r')
                     for k in range(len(right_normed[j])):
 
                         options = signal_options(left_normed[i], right_normed[j][k], mapp, assumptions, signal_info) 
@@ -142,6 +142,9 @@ class ReducedNaturalEncoder(Encoder):
             signal_counter = 1
             for signal in signal_info[name].keys():
 
+                if len(signal_info[name][signal]) == 1:
+                    continue
+
                 if debug: print(f"{name} {signal_counter}: {signal}, {len(signal_info[name][signal])}                  ", end='\r')
                 signal_counter += 1
 
@@ -157,13 +160,6 @@ class ReducedNaturalEncoder(Encoder):
                         encoding=EncType.pairwise
                     )
                 )
-        
-        if debug: print("Negating non-existent variables", end = '\r')
-
-        # TODO: smarter offset values to avoid this as it can explode
-        #       causes search problems where solver is looking through variables that don't matter
-        for i in range(mapp.curr, offset+1):
-            assumptions.add(-i)
 
         res = [formula, assumptions]
 
