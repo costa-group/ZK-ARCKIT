@@ -3,7 +3,11 @@ Natural encoding but in the form of IU-II + at least 1 left
 encoding.
 """
 
-from typing import Dict, List, Tuple
+#TODO: update to be able to follow from the single-cons class preprocessor
+#           classes will only have constraints that are yet to be processed into the formula
+#           signal_options can process the known information and give accurate signal information.
+
+from typing import Dict, List, Tuple, Set
 from pysat.formula import CNF
 from pysat.card import CardEnc, EncType
 import itertools
@@ -27,15 +31,15 @@ class ReducedNaturalEncoder(Encoder):
             offset: int,
             return_signal_mapping: bool = False,
             return_constraint_mapping = False, 
-            debug: bool = False
+            debug: bool = False,
+            formula: CNF = CNF(),
+            mapp: Assignment = Assignment(),
+            ckmapp: Assignment = None,
+            assumptions: Set[int] = set([]),
+            signal_info: Dict[str, Dict[int, int]] = None
         ) -> CNF:
 
-        mapp = Assignment()
-        ckmapp = Assignment(offset, assignees=3)
-
-        false_variables = set([])
-
-        formula = CNF()
+        if ckmapp is None: ckmapp =  Assignment(offset, assignees=3)
 
         all_posibilities = {
             name: {}
@@ -59,7 +63,7 @@ class ReducedNaturalEncoder(Encoder):
             ]
 
             Options = [
-                signal_options(left_normed[i], right_norm, mapp) 
+                signal_options(left_normed[i], right_norm, mapp, signal_info) 
                 for i, j in product(range(size), range(size)) for right_norm in right_normed[j]
             ]
 
@@ -118,7 +122,7 @@ class ReducedNaturalEncoder(Encoder):
 
                     wrong_rvars = all_posibilities[name].setdefault(signal, class_posibilities[name][signal]
                                                             ).symmetric_difference(class_posibilities[name][signal])
-                    false_variables.update( wrong_rvars )
+                    assumptions.update(map(lambda x : -x, wrong_rvars))
                     all_posibilities[name][signal] = all_posibilities[name][signal].intersection(class_posibilities[name][signal])
 
         # internal consistency
@@ -131,7 +135,7 @@ class ReducedNaturalEncoder(Encoder):
                     if var not in all_posibilities[oname][ mapp.get_inv_assignment(var)[i] ]
                 ]
 
-                false_variables.update( internally_inconsistent )
+                assumptions.update(map(lambda x : -x, internally_inconsistent))
                 all_posibilities[name][lsignal] = all_posibilities[name][lsignal].difference(internally_inconsistent)
 
         for name, _ in in_pair:
@@ -157,10 +161,12 @@ class ReducedNaturalEncoder(Encoder):
         
         if debug: print("Negating non-existent variables", end = '\r')
 
+        # TODO: smarter offset values to avoid this as it can explode
+        #       causes search problems where solver is looking through variables that don't matter
         for i in range(mapp.curr, offset+1):
-            false_variables.add(i)
+            assumptions.add(-i)
 
-        res = [formula, [-var for var in false_variables]]
+        res = [formula, assumptions]
 
         if return_signal_mapping: res.append(mapp)
         if return_constraint_mapping: res.append(ckmapp)

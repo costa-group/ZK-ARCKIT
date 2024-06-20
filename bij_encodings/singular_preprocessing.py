@@ -189,4 +189,4 @@ def singular_class_preprocessing(
             known_signal_mapping
         )
     else:
-        return known_signal_mapping, new_classes
+        return new_classes, known_signal_mapping
