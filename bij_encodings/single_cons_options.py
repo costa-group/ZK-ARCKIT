@@ -1,11 +1,12 @@
 from functools import reduce
 from itertools import chain
-from typing import Dict
+from typing import Dict, Set
 
 from r1cs_scripts.constraint import Constraint
 from bij_encodings.assignment import Assignment
 
 def signal_options(C1: Constraint, C2: Constraint, mapp: Assignment, 
+                   assumptions: Set[int] = None,
                    signal_bijection: Dict[str, Dict[int, int]] = None) -> dict:
     ## Assume input constraints are in a comparable canonical form
 
@@ -68,6 +69,7 @@ def signal_options(C1: Constraint, C2: Constraint, mapp: Assignment,
             for key in options[name].keys():
                 if key in signal_bijection[name].keys():
 
+                    assumptions.update(map(lambda x : -x, options[name][key].difference(signal_bijection[name][key])))
                     options[name][key] = options[name][key].intersection(signal_bijection[name][key])
 
     # FINAL: for each circ -- for each signal - potential signals could map to

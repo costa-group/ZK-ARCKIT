@@ -56,7 +56,7 @@ def singular_class_propagator(
     # IU-II to get info about signals
     for k, rcon in enumerate(rcons):
         
-        options = signal_options(lcon, rcon, mapp, signal_bijection)
+        options = signal_options(lcon, rcon, mapp, assumptions, signal_bijection)
 
         if any([len(options[name][key]) == 0 for name, _ in in_pair for key in options[name].keys()]):
             # logic inconsistent -- i.e. signal without consistent matching pair
