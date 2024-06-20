@@ -3,10 +3,6 @@ Natural encoding but in the form of IU-II + at least 1 left
 encoding.
 """
 
-#TODO: update to be able to follow from the single-cons class preprocessor
-#           classes will only have constraints that are yet to be processed into the formula
-#           signal_options can process the known information and give accurate signal information.
-
 from typing import Dict, List, Tuple, Set
 from pysat.formula import CNF
 from pysat.card import CardEnc, EncType
@@ -40,16 +36,17 @@ class ReducedNaturalEncoder(Encoder):
         ) -> CNF:
 
         if ckmapp is None: ckmapp =  Assignment(offset, assignees=3)
-
-        all_posibilities = {
+        if signal_info is None: signal_info = {
             name: {}
             for name, _ in in_pair
         }
 
-        class_counter = 1
-        for class_ in classes[in_pair[0][0]].keys():
+        keyset = sorted(classes[in_pair[0][0]].keys(), key = lambda k : len(classes[in_pair[0][0]][k]))
 
-            if debug: print(f"Starting Class {class_counter} or {len(classes[in_pair[0][0]])}", end= '\r')
+        class_counter = 1
+        for class_ in keyset:
+
+            if debug: print(f"Starting Class {class_counter} or {len(classes[in_pair[0][0]])}                             ", end= '\r')
             class_counter += 1
 
             size = len(classes[in_pair[0][0]][class_])
@@ -62,41 +59,12 @@ class ReducedNaturalEncoder(Encoder):
                 r1cs_norm(in_pair[1][1].constraints[i]) for i in classes[in_pair[1][0]][class_]
             ]
 
-            Options = [
-                signal_options(left_normed[i], right_norm, mapp, signal_info) 
-                for i, j in product(range(size), range(size)) for right_norm in right_normed[j]
-            ]
+            # Handles Signal Union Intra-Class
+            class_posibilities = {
+                name: {}
+                for name, _ in in_pair
+            }
 
-            ind = -1
-            for i in range(size):
-
-                potential_pairings = []
-                for j in range(size):
-                    for k in range(len(right_normed[j])):
-                        ind += 1
-
-                        # is pairing non-viable
-                        if not all(map(
-                                lambda x : len(x) > 0,
-                                itertools.chain(*[Options[ind][name].values() for name, _ in in_pair])
-                            )):
-                            continue
-
-                        ijk = ckmapp.get_assignment(classes[in_pair[0][0]][class_][i], classes[in_pair[1][0]][class_][j], k)
-                        clauses = map(
-                            lambda x : list(x) + [-ijk],
-                            itertools.chain(*[Options[ind][name].values() for name, _ in in_pair])
-                        )
-
-                        potential_pairings.append(ijk)
-                        formula.extend(clauses)
-                
-                if not potential_pairings:
-                    ## TODO: pass nonviable through encoding
-                    raise AssertionError("Found constraint that cannot be mapped to") 
-            
-                formula.append(potential_pairings)
-            
             def extend_options(opset_possibilities, options):
                 # take union of all options
                 for name, _ in in_pair:
@@ -105,55 +73,86 @@ class ReducedNaturalEncoder(Encoder):
                                                                                         ).union(options[name][signal])
                 
                 return opset_possibilities
+
+            ind = -1
+            for i in range(size):
+
+                potential_pairings = []
+                for j in range(size):
+                    if debug: print(f"Starting Class {class_counter} or {len(classes[in_pair[0][0]])} : pair {i}, {j} of {size}                ", end= '\r')
+                    for k in range(len(right_normed[j])):
+
+                        options = signal_options(left_normed[i], right_normed[j][k], mapp, assumptions, signal_info) 
+                        
+                        ind += 1
+
+                        # is pairing non-viable
+                        if any(map(
+                                lambda x : len(x) == 0,
+                                itertools.chain(*[options[name].values() for name, _ in in_pair])
+                            )):
+                            continue
+
+                        # if pairing is viable, add clauses to formula and update signal info
+                        class_posibilities = extend_options(class_posibilities, options)    
+                        
+                        ijk = ckmapp.get_assignment(classes[in_pair[0][0]][class_][i], classes[in_pair[1][0]][class_][j], k)
+
+                            # signal clauses
+                        clauses = map(
+                            lambda x : list(x) + [-ijk],
+                            itertools.chain(*[options[name].values() for name, _ in in_pair])
+                        )
+
+                            # constraint clauses
+                        potential_pairings.append(ijk)
+                        formula.extend(clauses)
+                
+                if not potential_pairings:
+                    ## TODO: pass nonviable through encoding
+                    raise AssertionError("Found constraint that cannot be mapped to") 
             
-            # union within classes
-            class_posibilities = reduce(
-                extend_options,
-                Options,
-                {
-                    name: {}
-                    for name, _ in in_pair
-                }
-            )
+                formula.append(potential_pairings)
 
             # intersection accross classes
+
             for name, _ in in_pair:
                 for signal in class_posibilities[name].keys():
 
-                    wrong_rvars = all_posibilities[name].setdefault(signal, class_posibilities[name][signal]
+                    wrong_rvars = signal_info[name].setdefault(signal, class_posibilities[name][signal]
                                                             ).symmetric_difference(class_posibilities[name][signal])
                     assumptions.update(map(lambda x : -x, wrong_rvars))
-                    all_posibilities[name][signal] = all_posibilities[name][signal].intersection(class_posibilities[name][signal])
+                    signal_info[name][signal] = signal_info[name][signal].intersection(class_posibilities[name][signal])
 
         # internal consistency
         for (name, _), (oname, _) in zip(in_pair, in_pair[::-1]):
-            for lsignal in all_posibilities[name].keys():
+            for lsignal in signal_info[name].keys():
                 i = name == in_pair[0][0]
 
                 internally_inconsistent = [
-                    var for var in all_posibilities[name][lsignal]
-                    if var not in all_posibilities[oname][ mapp.get_inv_assignment(var)[i] ]
+                    var for var in signal_info[name][lsignal]
+                    if var not in signal_info[oname][ mapp.get_inv_assignment(var)[i] ]
                 ]
 
                 assumptions.update(map(lambda x : -x, internally_inconsistent))
-                all_posibilities[name][lsignal] = all_posibilities[name][lsignal].difference(internally_inconsistent)
+                signal_info[name][lsignal] = signal_info[name][lsignal].difference(internally_inconsistent)
 
         for name, _ in in_pair:
 
             signal_counter = 1
-            for signal in all_posibilities[name].keys():
+            for signal in signal_info[name].keys():
 
-                if debug: print(f"{name} {signal_counter}: {signal}, {len(all_posibilities[name][signal])}                  ", end='\r')
+                if debug: print(f"{name} {signal_counter}: {signal}, {len(signal_info[name][signal])}                  ", end='\r')
                 signal_counter += 1
 
 
-                if len(all_posibilities[name][signal]) == 0:
+                if len(signal_info[name][signal]) == 0:
                     # TODO: implement passing false through encoding
                     raise AssertionError("Found variable that cannot be mapped to") 
 
                 formula.extend(
                     CardEnc.equals(
-                        all_posibilities[name][signal],
+                        signal_info[name][signal],
                         bound = 1,
                         encoding=EncType.pairwise
                     )
