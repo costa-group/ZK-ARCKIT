@@ -67,8 +67,8 @@ def signal_options(C1: Constraint, C2: Constraint, mapp: Assignment,
         for name in ['S1', 'S2']:
             for key in options[name].keys():
                 if key in signal_bijection[name].keys():
-                    
-                    options[name][key] = options[name][key].intersection([signal_bijection[name][key]])
+
+                    options[name][key] = options[name][key].intersection(signal_bijection[name][key])
 
     # FINAL: for each circ -- for each signal - potential signals could map to
     #           intersection of potential mappings seen in each part         

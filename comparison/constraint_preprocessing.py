@@ -37,10 +37,9 @@ def hash_constraint(cons: Constraint, known_signal_bijection: Dict[int, int] = N
 
                 curr = sorted(
                     map(
-                        lambda tup : (mapp.get_assignment(*([tup[0], known_signal_bijection[name][tup[0]]] if name == "S1" else
-                                                        [known_signal_bijection[name][tup[0]], tup[0]])), tup[1]),
+                        lambda tup : (list(known_signal_bijection[name][tup[0]])[0], tup[1]),
                         filter(
-                            lambda tup : tup[0] in known_signal_bijection[name].keys(),
+                            lambda tup : tup[0] in known_signal_bijection[name].keys() and len(known_signal_bijection[name][tup[0]]) == 1,
                             dict_.items()
                         )
                     )

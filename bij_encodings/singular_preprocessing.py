@@ -14,9 +14,6 @@ from comparison.constraint_preprocessing import hash_constraint
 from bij_encodings.assignment import Assignment
 from bij_encodings.single_cons_options import signal_options
 
-# TODO: update signal_bijection to map to a set of potential values
-# TODO: update signal_bijection to be ints of mapp values rather than true mapping
-
 def singular_class_propagator(
         in_pair: List[Tuple[str, Circuit]], 
         l_cons_index: int, r_cons_index: int,
@@ -35,8 +32,11 @@ def singular_class_propagator(
 
         l, r = mapp.get_inv_assignment(ij)
 
-        if signal_bijection["S1"].setdefault(l, ij) != ij: raise AssertionError("Contradicting Assumptions")
-        if signal_bijection["S2"].setdefault(r, ij) != ij: raise AssertionError("Contradicting Assumptions")
+        signal_bijection["S1"].setdefault(l, set([])).add(ij)
+        signal_bijection["S2"].setdefault(r, set([])).add(ij)
+
+        if len(signal_bijection["S1"][l]) > 1: raise AssertionError("Contradicting Assumptions")
+        if len(signal_bijection["S2"][r]) > 1: raise AssertionError("Contradicting Assumptions")
 
 
     # get 1st norm of l, norms of r.
@@ -64,7 +64,7 @@ def singular_class_propagator(
         possible_k.append(cmapp.get_assignment(l_cons_index, r_cons_index, k))
         logic = []
         for name, _ in in_pair:
-            logic.extend(options[name].values())
+            logic.extend(map(lambda tup: (name, tup[0], tup[1]),options[name].items()))
 
             for key in options[name].keys():
                 forced_signals[name][key] = forced_signals[name].setdefault(key, set([])).union(options[name][key])
@@ -81,20 +81,22 @@ def singular_class_propagator(
         # logic is now forced
         assumptions.update(possible_k)
 
-        # each op is an different signal's options
-        for op in filter(lambda x : len(x) == 1, k_logic[0]): 
+        # each op is a different signal's options
+        for name, k, op in filter(lambda tup : len(tup[2]) == 1, k_logic[0]): 
             assume_signal_bijection(list(op)[0])
 
-        for op in filter(lambda x : len(x) > 1, k_logic[0]):
+        for name, k, op in filter(lambda tup : len(tup[2]) > 1, k_logic[0]):
 
-            # constraint bijection logic
+            signal_bijection[name].setdefault(k, set([])).update(op)
+
             formula.extend(
                 CardEnc.equals(
-                    lits = possible_k,
+                    lits = op,
                     bound = 1,
                     encoding = EncType.pairwise
                 )
             )
+            
 
     if len(possible_k) > 1:
             # NOTE: untested
@@ -133,8 +135,8 @@ def singular_class_preprocessing(
         cmapp: Assignment,
         assumptions: Set[int],
         formula: CNF,
-        known_signal_mapping: Dict[str, Dict[int, int]] = None
-    ) -> Tuple[ Dict[str, Dict[int, int]], Dict[str, Dict[str, int]] ]:
+        known_signal_mapping: Dict[str, Dict[int, Set[int]]] = None
+    ) -> Tuple[ Dict[str, Dict[str, int]], Dict[str, Dict[int, Set[int]]] ]:
     
     
     if known_signal_mapping is None:
@@ -146,8 +148,8 @@ def singular_class_preprocessing(
 
         for bij in filter( lambda x : 0 < x < len(mapp.assignment), assumptions ):
             l, r = mapp.get_inv_assignment(bij)
-            known_signal_mapping[in_pair[0][0]][l] = bij
-            known_signal_mapping[in_pair[1][0]][r] = bij
+            known_signal_mapping[in_pair[0][0]].setdefault(l, set([])).add(bij)
+            known_signal_mapping[in_pair[1][0]].setdefault(r, set([])).add(bij)
 
     singular_classes = filter(lambda key: len( classes[in_pair[0][0]][key] ) == 1, classes[in_pair[0][0]].keys())
 
