@@ -16,9 +16,16 @@ def is_signal_equivalence_constraint(con: Constraint) -> bool:
         return len(con.A) + len(con.B) == 0 and len(con.C) == 2 and sorted(r1cs_norm(con)[0].C.values()) == [1, con.p - 1]
 
 def naive_all_removal(cons: List[Constraint]) -> nx.Graph:
-    # TODO: fix dissapearing constraints
 
-    return shared_signal_graph([con for con in cons if not is_signal_equivalence_constraint(con)])
+    #TODO: why did this version not drop constraints?
+
+    g = shared_signal_graph(cons)
+
+    to_remove = [i for i, con in enumerate(cons) if is_signal_equivalence_constraint(con)]
+
+    g.remove_nodes_from(to_remove)
+
+    return list(nx.connected_components(g)) + [[i] for i in to_remove]
 
 def naive_removal_clustering(cons: List[Constraint]) -> List[List[int]]:
 
