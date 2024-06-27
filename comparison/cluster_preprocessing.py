@@ -3,33 +3,82 @@ import networkx as nx
 from typing import List, Tuple
 from collections import defaultdict
 
+from bij_encodings.assignment import Assignment
 from r1cs_scripts.circuit_representation import Circuit
 from comparison.constraint_preprocessing import hash_constraint
 # from structural_analysis.graph_clustering.HCS_clustering import HCS
 # from structural_analysis.graph_clustering.nx_clustering_builtins import Louvain, Label_propagation
 from structural_analysis.constraint_graph import shared_signal_graph
 from structural_analysis.graph_clustering.stepped_girvan_newman import stepped_girvan_newman
+from structural_analysis.graph_clustering.signal_equivalence_clustering import naive_removal_clustering
 
-def circuit_clusters(in_pair: List[Tuple[str, Circuit]], seed = None):
+def circuit_clusters(in_pair: List[Tuple[str, Circuit]]) -> List[List[int]]:
     
     results = {}
 
     for name, circ in in_pair:
 
-        G = shared_signal_graph(circ.constraints)
-
-        # stepped girvan_newman is pseudo-deterministic (technically can fail due to extreme floating-point errors)
-        results[name] = stepped_girvan_newman(G, seed = seed)
+        results[name] = naive_removal_clustering(circ.constraints)
     
     return results
 
-def constraint_classes(in_pair: List[Tuple[str, Circuit]], seed = None):
+def groups_from_clusters(in_pair: List[Tuple[str, Circuit]]):
+
+    clusters = circuit_clusters(in_pair)
+
+    # NOTE: clusters not necessarily in the same order
+    hashed_clusters = {
+        name: []
+        for name, _ in in_pair
+    }
+
+    # give internal hash to each cluster
+    for name, circ in in_pair:
+        for cluster in clusters[name]:
+
+            hashes = {}
+
+            for consi in cluster:
+                hash_ = hash_constraint(circ.constraints[consi])
+
+                hashes.setdefault(hash_, []).append(consi)
+            
+            hashed_clusters[name].append(hashes)
+
+    def hash_cluster(hashed_cluster, hmapp: Assignment) -> str:
+
+        sizes = {hmapp.get_assignment(hash_): len(constraints) for hash_, constraints in hashed_cluster.items()}
+        return ":".join(map(str,sorted(sizes.items())))
+    
+    cluster_groups = {
+        name: {}
+        for name, _ in in_pair
+    }
+
+    hashmapp = Assignment(assignees=1)
+
+    # group clusters by internal hashes -- step skipped for time done logically in next step
+    # prepend constraint hash in group with group hash to build new groups
+    for name, _ in in_pair:
+        for i in range(len(clusters[name])):
+            chash_ = hash_cluster(hashed_clusters[name][i], hashmapp)
+
+            for hash_, consi_list in hashed_clusters[name][i].items():
+                cluster_groups[name].setdefault(chash_ + hash_, []).extend(consi_list)
+
+    return cluster_groups
+
+
+def constraint_cluster_classes(in_pair: List[Tuple[str, Circuit]]):
+    """
+    Very basic usage of clusters splitting internal hashes by cluster size
+    """
     
     # We don't know which of the size-N clusters is equivalent to the other, so the constraint classes will
 
     # So initially group all classes with the same size, then split them by hash as before.
 
-    clusters = circuit_clusters(in_pair, seed = seed)
+    clusters = circuit_clusters(in_pair)
 
     groups = {}
     
