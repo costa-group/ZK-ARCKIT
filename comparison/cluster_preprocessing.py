@@ -1,6 +1,6 @@
 import numpy as np
 import networkx as nx
-from typing import List, Tuple
+from typing import List, Tuple, Dict, Set
 from collections import defaultdict
 
 from bij_encodings.assignment import Assignment
@@ -22,9 +22,11 @@ def circuit_clusters(in_pair: List[Tuple[str, Circuit]]) -> List[List[int]]:
     
     return results
 
-def groups_from_clusters(in_pair: List[Tuple[str, Circuit]]):
-
-    clusters = circuit_clusters(in_pair)
+def groups_from_clusters(
+        in_pair: List[Tuple[str, Circuit]], 
+        clusters: Dict[str, List[List[int]]],
+        known_signal_mapping: Dict[str, Dict[int, Set[int]]] = None,
+        mapp: Assignment = None):
 
     # NOTE: clusters not necessarily in the same order
     hashed_clusters = {
@@ -39,7 +41,7 @@ def groups_from_clusters(in_pair: List[Tuple[str, Circuit]]):
             hashes = {}
 
             for consi in cluster:
-                hash_ = hash_constraint(circ.constraints[consi])
+                hash_ = hash_constraint(circ.constraints[consi], known_signal_mapping, mapp, name)
 
                 hashes.setdefault(hash_, []).append(consi)
             
@@ -56,6 +58,7 @@ def groups_from_clusters(in_pair: List[Tuple[str, Circuit]]):
     }
 
     hashmapp = Assignment(assignees=1)
+    cluster_hashmapp = Assignment(assignees=1)
 
     # group clusters by internal hashes -- step skipped for time done logically in next step
     # prepend constraint hash in group with group hash to build new groups
@@ -64,7 +67,9 @@ def groups_from_clusters(in_pair: List[Tuple[str, Circuit]]):
             chash_ = hash_cluster(hashed_clusters[name][i], hashmapp)
 
             for hash_, consi_list in hashed_clusters[name][i].items():
-                cluster_groups[name].setdefault(chash_ + hash_, []).extend(consi_list)
+                cluster_groups[name].setdefault(
+                    f"{cluster_hashmapp.get_assignment(chash_)}:{hash_}", # makes cluster data smaller 
+                    []).extend(consi_list)
 
     return cluster_groups
 

@@ -11,6 +11,7 @@ from r1cs_scripts.circuit_representation import Circuit
 from r1cs_scripts.constraint import Constraint
 from normalisation import r1cs_norm
 from comparison.constraint_preprocessing import hash_constraint
+from comparison.cluster_preprocessing import groups_from_clusters
 from bij_encodings.assignment import Assignment
 from bij_encodings.single_cons_options import signal_options
 
@@ -18,7 +19,7 @@ def singular_class_propagator(
         in_pair: List[Tuple[str, Circuit]], 
         l_cons_index: int, r_cons_index: int,
         mapp: Assignment, cmapp: Assignment,
-        signal_bijection: Dict[str, Dict[int, int]],
+        signal_bijection: Dict[str, Dict[int, Set[int]]],
         assumptions: Set[int],
         formula: CNF
 ):
@@ -130,16 +131,18 @@ def singular_class_propagator(
                     )
 
 def singular_class_preprocessing(
-        in_pair: List[Tuple[str, Circuit]], 
+        in_pair: List[Tuple[str, Circuit]],
         classes: Dict[str, Dict[str, int]],
-        mapp: Assignment,
-        cmapp: Assignment,
-        assumptions: Set[int],
-        formula: CNF,
+        clusters: Dict[str, List[List[int]]] = None,
+        mapp: Assignment = Assignment(),
+        cmapp: Assignment = None,
+        assumptions: Set[int] = set([]),
+        formula: CNF = CNF(),
         known_signal_mapping: Dict[str, Dict[int, Set[int]]] = None
     ) -> Tuple[ Dict[str, Dict[str, int]], Dict[str, Dict[int, Set[int]]] ]:
     
-    
+    if cmapp is None:
+        cmapp = Assignment(assignees=3, link = mapp)
     if known_signal_mapping is None:
 
         known_signal_mapping = {
@@ -166,28 +169,54 @@ def singular_class_preprocessing(
             formula
         )
 
-    nonsingular_classes = filter(lambda key: len( classes[in_pair[0][0]][key] ) > 1, classes[in_pair[0][0]].keys())
+    if clusters is None:
+        nonsingular_classes = filter(lambda key: len( classes[in_pair[0][0]][key] ) > 1, classes[in_pair[0][0]].keys())
 
-    new_classes = {
-        name: defaultdict(lambda : [])
-        for name, _ in in_pair
-    }
+        # same new_classes as before
+        new_classes = {
+            name: defaultdict(lambda : [])
+            for name, _ in in_pair
+        }
 
-    # Redo the classes with known_signal informations
-    for class_key in nonsingular_classes:
-        
-        # hashing with new info
-        for name, circ in in_pair:
+        # Redo the classes with known_signal informations
+        for class_key in nonsingular_classes:
             
-            for i in classes[name][class_key]:
+            # hashing with new info
+            for name, circ in in_pair:
+                
+                for i in classes[name][class_key]:
 
-                hash_ = hash_constraint(circ.constraints[i], known_signal_mapping, mapp, name)
+                    hash_ = hash_constraint(circ.constraints[i], known_signal_mapping, mapp, name)
 
-                new_classes[name][hash_].append(i)
+                    new_classes[name][hash_].append(i)
+    else:
+        #TODO: think of way to improve this
+        new_classes = groups_from_clusters(in_pair, clusters, known_signal_mapping, mapp)
+
+        keys_to_delete = []
+
+        for key in new_classes[in_pair[0][0]].keys():
+            if len(new_classes[in_pair[0][0]][key]) > 1:
+                continue
+
+            consi = new_classes[in_pair[0][0]][key][0]
+
+            def getvars(con: Constraint) -> set:
+                return set(con.A.keys()).union(con.B.keys()).union(con.C.keys()).difference(set([0]))
+
+            if any([signal not in known_signal_mapping[in_pair[0][0]].keys() for signal in getvars(in_pair[0][1].constraints[consi])]):
+                continue
+
+            keys_to_delete.append(key)
+        
+        for key in keys_to_delete:
+            for name, _ in in_pair:
+                del new_classes[name][key]
+                
 
     if any(len(class_) == 1 for class_ in new_classes[in_pair[0][0]].values()):
         return singular_class_preprocessing(
-            in_pair, new_classes,
+            in_pair, new_classes, clusters,
             mapp, cmapp, assumptions, formula,
             known_signal_mapping
         )
