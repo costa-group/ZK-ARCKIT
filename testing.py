@@ -76,7 +76,7 @@ def get_absmax_lit(clauses):
     return max(map(max, map(lambda x : map(abs, x), clauses)))
     
 if __name__ == '__main__':
-    filename = "r1cs_files/RevealO0.r1cs"
+    filename = "r1cs_files/RevealOO.r1cs"
 
     circ, circs, mapp, cmapp = get_circuits(filename, seed = 42, 
         const_factor=True, shuffle_sig=True, shuffle_const=True,
