@@ -10,7 +10,6 @@ def induce_on_partitions(G: nx.Graph, partitions: List["Node"]):
 
     return G_
 
-
 def Louvain(G: nx.Graph, graph: bool = False, seed=None):
     partitions = nx.community.louvain_communities(G, seed=seed)
     if graph: return induce_on_partitions(G, partitions)

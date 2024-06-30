@@ -1,4 +1,3 @@
-import itertools
 import networkx as nx
 
 def HCS_recursion(G: nx.Graph) -> nx.Graph:
