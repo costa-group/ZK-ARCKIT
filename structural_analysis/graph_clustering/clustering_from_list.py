@@ -24,7 +24,7 @@ def cluster_from_list(cons: List[Constraint], to_ignore: List[int] = None, ignor
 
     for i, con in enumerate(cons):
 
-        if (use_function and ignore_func(con)) or (i in to_ignore):
+        if (use_function and ignore_func(con)) or (not use_function and i in to_ignore):
             removed_clusters.append([i])
             continue
 
