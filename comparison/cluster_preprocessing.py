@@ -1,10 +1,11 @@
 import numpy as np
 import networkx as nx
-from typing import List, Tuple, Dict, Set
+from typing import List, Tuple, Dict, Set, Callable
 from collections import defaultdict
 
 from bij_encodings.assignment import Assignment
 from r1cs_scripts.circuit_representation import Circuit
+from r1cs_scripts.constraint import Constraint
 from comparison.constraint_preprocessing import hash_constraint
 # from structural_analysis.graph_clustering.HCS_clustering import HCS
 # from structural_analysis.graph_clustering.nx_clustering_builtins import Louvain, Label_propagation
@@ -12,13 +13,13 @@ from structural_analysis.constraint_graph import shared_signal_graph
 from structural_analysis.graph_clustering.stepped_girvan_newman import stepped_girvan_newman
 from structural_analysis.graph_clustering.signal_equivalence_clustering import naive_removal_clustering
 
-def circuit_clusters(in_pair: List[Tuple[str, Circuit]]) -> List[List[int]]:
+def circuit_clusters(in_pair: List[Tuple[str, Circuit]], clustering_algorithm: Callable[[List[Constraint]], List[List[int]]] = naive_removal_clustering) -> List[List[int]]:
     
     results = {}
 
     for name, circ in in_pair:
 
-        results[name] = naive_removal_clustering(circ.constraints)
+        results[name] = clustering_algorithm(circ.constraints)
     
     return results
 
