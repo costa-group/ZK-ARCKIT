@@ -13,13 +13,16 @@ from structural_analysis.constraint_graph import shared_signal_graph
 from structural_analysis.graph_clustering.stepped_girvan_newman import stepped_girvan_newman
 from structural_analysis.graph_clustering.signal_equivalence_clustering import naive_removal_clustering
 
-def circuit_clusters(in_pair: List[Tuple[str, Circuit]], clustering_algorithm: Callable[[List[Constraint]], List[List[int]]] = naive_removal_clustering) -> List[List[int]]:
+def circuit_clusters(
+        in_pair: List[Tuple[str, Circuit]], 
+        clustering_algorithm: Callable[[List[Constraint]], List[List[int]]] = naive_removal_clustering,
+        **kwargs) -> List[List[int]]:
     
     results = {}
 
     for name, circ in in_pair:
 
-        results[name] = clustering_algorithm(circ.constraints)
+        results[name] = clustering_algorithm(circ.constraints, **kwargs)
     
     return results
 
