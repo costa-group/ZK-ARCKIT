@@ -23,20 +23,48 @@ def _signal_data_from_cons_list(cons: List[Constraint]):
 
     return degree_to_signal, signal_to_cons
 
+class Average():
+    "Enum for averages"
+    mean = 0
+    median = 1
+    mode = 2
 
-def twice_average_degree(cons: List[Constraint]) -> List[List[int]]:
+def twice_average_degree(cons: List[Constraint], avg_type: int = Average.mode, and_up: bool = True) -> List[List[int]]:
     
     degree_to_signal, signal_to_cons = _signal_data_from_cons_list(cons)
 
-    mode_num_signals = max(degree_to_signal.keys(), key = lambda k : len(degree_to_signal[k]))
+    match avg_type:
+        case Average.mean:
+            avg_num_signals = sum(k * len(val) for k, val in degree_to_signal.items()) // sum(len(val) for val in degree_to_signal.values())
+        
+        case Average.median:
+            total_num = sum(len(val) for val in degree_to_signal.values())
+            median = total_num // 2
+            count = 0
+            for k, val in degree_to_signal.items():
+                count += len(val)
+                if count > median:
+                    avg_num_signals = k
+                    break
+        
+        case Average.mode:
+            avg_num_signals = max(degree_to_signal.keys(), key = lambda k : len(degree_to_signal[k]))
 
+        case _:
+            raise ValueError("Invalid Avg Type")
+    
     to_remove = set([])
 
-    signalset = reduce(
-        lambda acc, degree : acc.union(degree_to_signal[degree]),
-        filter(lambda k : k >= 2 * mode_num_signals, degree_to_signal.keys()),
-        set([])
-    )
+    if and_up:
+
+        signalset = reduce(
+            lambda acc, degree : acc.union(degree_to_signal[degree]),
+            filter(lambda k : k >= 2 * avg_num_signals, degree_to_signal.keys()),
+            set([])
+        )
+    else:
+
+        signalset = degree_to_signal[2 * avg_num_signals]
 
     coniset = reduce(
         lambda acc, signal : acc.union(signal_to_cons[signal]),
