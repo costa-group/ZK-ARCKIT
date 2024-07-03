@@ -35,7 +35,10 @@ class UnionFind():
         for repr in parents[1:]:
             self.parent[repr] = parents[0]
 
-def cluster_from_list(cons: List[Constraint], to_ignore: List[int] = None, ignore_func: Callable[[Constraint], bool] = None) -> List[List[int]]:
+def cluster_from_list(cons: List[Constraint], 
+                      to_ignore: List[int] = None, 
+                      ignore_func: Callable[[Constraint], bool] = None,
+                      calculate_adjacency: bool = True) -> List[List[int]]:
 
     assert to_ignore is not None or ignore_func is not None, "no removal method given"
     use_function = ignore_func is not None
@@ -75,5 +78,39 @@ def cluster_from_list(cons: List[Constraint], to_ignore: List[int] = None, ignor
 
     for i in clusters.parent.keys():
         cluster_lists.setdefault(clusters.find(i), []).append(i)
-                
-    return list(cluster_lists.values()), removed_clusters
+
+    ## Calculating Adjacency Information
+
+    # For a given constraint
+        # each signal either does/doesn't have an associated cluster.
+        # for signals that don't have an associated cluster -- add the set of all signals (for current constraint) to that set.
+        # For a constraint with no unknown signals it provides a direct adjacency
+        # After all signals the signals with sets provide cliques connected through it.
+
+    adjacency_information = {}
+    unclustered_signals = {}
+
+    # TODO: doesn't seem super efficient...
+    if calculate_adjacency:
+        for coni in removed_clusters:
+            seen_clusters = set([])
+            seen_unclustered_signals = []
+
+            for signal in getvars(cons[coni]):
+                if signal_to_cluster.setdefault(signal, None) is not None:
+                    seen_clusters.add(clusters.find(signal_to_cluster[signal]))
+                else:
+                    seen_unclustered_signals.append(signal)
+            
+            for signal in seen_unclustered_signals:
+                unclustered_signals.setdefault(signal, set([])).update(seen_clusters)
+            
+            if seen_unclustered_signals == []:
+                for cluster in seen_clusters:
+                    adjacency_information.setdefault(cluster, set([])).update(seen_clusters.difference([cluster]))
+
+        for signal in unclustered_signals.keys():
+            for cluster in unclustered_signals[signal]:
+                adjacency_information.setdefault(cluster, set([])).update(unclustered_signals[signal].difference([cluster]))
+
+    return cluster_lists, adjacency_information, removed_clusters
