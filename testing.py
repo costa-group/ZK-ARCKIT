@@ -1,7 +1,6 @@
 from typing import List, Dict, Iterable
 from pysat.formula import CNF
 from pysat.card import CardEnc, EncType
-from pysat.pb import PBEnc
 from pysat.solvers import Solver
 import pysat as ps
 import time 
@@ -18,6 +17,9 @@ from bij_encodings.singular_preprocessing import singular_class_preprocessing
 from bij_encodings.assignment import Assignment
 from bij_encodings.red_natural_encoding import ReducedNaturalEncoder
 from bij_encodings.red_pseudoboolean_encoding import ReducedPseudobooleanEncoder
+from structural_analysis.graph_clustering.degree_clustering import twice_average_degree, ratio_of_signals
+from structural_analysis.graph_clustering.signal_equivalence_clustering import naive_removal_clustering, is_signal_equivalence_constraint
+from structural_analysis.graph_clustering.clustering_from_list import cluster_from_list
 import itertools
 
 # REVEAL TEST TIMES (with singular preprocessing)
@@ -50,7 +52,12 @@ import itertools
 # PSEUDOBOOLEAN TESTING
     # filename   :: clausenumber -- max_lit_number
     # PoseidonO0 ::   557K / 86K -- 754.8K / 758.8K
-    # Revealo0   ::   699K / 142K -- 1392.8K / 1400.2K
+    # RevealO0   ::   699K / 142K -- 1392.8K / 1400.2K
+
+# ADJACENCY TESTING
+    # filename :: total #constraints -- maxclass #constraints -- preprocess time
+    # RevealO1 :: 4381 / 3183 --  1280 / 1280   -- 51s/48s
+    # MoveO1   :: 4398 / 3189 --  1280 / 1280   -- 185s/201s
 
 
 # Encoding hits a memory issue since we still have 20K constraints
@@ -74,9 +81,12 @@ def count_ints(lints : Iterable[int]) -> Dict[int, int]:
 
 def get_absmax_lit(clauses):
     return max(map(max, map(lambda x : map(abs, x), clauses)))
+
+def getvars(con: Constraint) -> set:
+    return set(con.A.keys()).union(con.B.keys()).union(con.C.keys()).difference(set([0]))
     
 if __name__ == '__main__':
-    filename = "r1cs_files/RevealOO.r1cs"
+    filename = "r1cs_files/MoveO1.r1cs"
 
     circ, circs, mapp, cmapp = get_circuits(filename, seed = 42, 
         const_factor=True, shuffle_sig=True, shuffle_const=True,
@@ -84,26 +94,11 @@ if __name__ == '__main__':
 
     in_pair = [("S1", circ), ("S2", circs)]
 
-    # n = 5
-
-    # g = CNF()
-
-    # f = PBEnc.atmost(list(range(1,n+1)), encoding=1)
-    # # g = CardEnc.atmost(list(range(1, n+1)), encoding=EncType.pairwise)
-
-    # print(len(f.clauses), get_absmax_lit(f.clauses))
-    # # print(len(g.clauses), get_absmax_lit(g.clauses))
-
-    # g.extend(list(map(lambda y: list(map(lambda x : x,y)), f)))
-
-    # solver = Solver(name = 'cadical195', bootstrap_with=g)
-
-    from normalisation import r1cs_norm
-    from structural_analysis.graph_clustering.signal_equivalence_clustering import naive_all_removal, is_signal_equivalence_constraint, naive_removal_clustering
+    # NOTE: clustering working fine, removing the same constraints
 
     start = time.time()
 
-    clusters = circuit_clusters(in_pair)
+    clusters = circuit_clusters(in_pair, twice_average_degree, calculate_adjacency = True)
     classes = groups_from_clusters(in_pair, clusters)
 
     post_classes = time.time()
@@ -111,6 +106,7 @@ if __name__ == '__main__':
     print("grouping time: ",post_classes - start)
 
     print("total num of constraint: ",sum(list(map(len, classes["S1"].values()))))
+    print("num_of_classes", count_ints(map(len, classes["S1"].values())))
 
     mapp = Assignment()
     cmapp = Assignment(assignees = 3, link = mapp)
@@ -130,25 +126,27 @@ if __name__ == '__main__':
 
     print("new total num of constraint: ",sum(list(map(len, new_classes["S1"].values()))))
 
-    formula, assumptions = ReducedPseudobooleanEncoder().encode(
-        new_classes, in_pair, 0, False, False, True, formula, mapp, cmapp, assumptions, known_info
-    )
+    if len(new_classes["S1"].values()) > 0: print("num_of_classes", count_ints(map(len, new_classes["S1"].values())))
 
-    solver = Solver(name='cadical195', bootstrap_with=formula)
+    # formula, assumptions = ReducedPseudobooleanEncoder().encode(
+    #     new_classes, in_pair, 0, False, False, True, formula, mapp, cmapp, assumptions, known_info
+    # )
 
-    encoding = time.time()
+    # solver = Solver(name='cadical195', bootstrap_with=formula)
 
-    print(len(formula.clauses), get_absmax_lit(formula.clauses), "                                                           ")
+    # encoding = time.time()
 
-    print("encoding time: ",encoding - post_new_classes)
+    # print(len(formula.clauses), get_absmax_lit(formula.clauses), "                                                           ")
 
-    result = solver.solve(assumptions)
+    # print("encoding time: ",encoding - post_new_classes)
 
-    solving = time.time()
+    # result = solver.solve(assumptions)
 
-    print("solving time: ",solving - encoding)
+    # solving = time.time()
 
-    print(result)
+    # print("solving time: ",solving - encoding)
+
+    # print(result)
 
 
 
