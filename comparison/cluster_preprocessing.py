@@ -15,32 +15,38 @@ from structural_analysis.graph_clustering.signal_equivalence_clustering import n
 
 def circuit_clusters(
         in_pair: List[Tuple[str, Circuit]], 
-        clustering_algorithm: Callable[[List[Constraint]], List[List[int]]] = naive_removal_clustering,
+        clustering_algorithm: Callable[[List[Constraint]], Tuple[Dict[int, List[int]], Dict[int, List[int]], List[int]]] = naive_removal_clustering,
         **kwargs) -> List[List[int]]:
     
     results = {}
 
     for name, circ in in_pair:
 
-        results[name] = clustering_algorithm(circ.constraints, **kwargs)
+        clusters, adjacency, removed = clustering_algorithm(circ.constraints, **kwargs)
+
+        results[name] = {
+            "clusters": clusters,
+            "adjacency": adjacency,
+            "removed": removed
+        }
     
     return results
 
 def groups_from_clusters(
         in_pair: List[Tuple[str, Circuit]], 
-        clusters: Dict[str, List[List[int]]],
+        clusters: Dict[str, Tuple[Dict[int, List[int]], Dict[int, List[int]], List[int]]],
         known_signal_mapping: Dict[str, Dict[int, Set[int]]] = None,
         mapp: Assignment = None):
 
     # NOTE: clusters not necessarily in the same order
-    hashed_clusters = {
-        name: []
+    internally_hashed_clusters = {
+        name: {}
         for name, _ in in_pair
     }
 
     # give internal hash to each cluster
     for name, circ in in_pair:
-        for cluster in clusters[name]:
+        for key, cluster in clusters[name]["clusters"].items():
 
             hashes = {}
 
@@ -49,31 +55,61 @@ def groups_from_clusters(
 
                 hashes.setdefault(hash_, []).append(consi)
             
-            hashed_clusters[name].append(hashes)
+            internally_hashed_clusters[name][key] = hashes
 
     def hash_cluster(hashed_cluster, hmapp: Assignment) -> str:
 
         sizes = {hmapp.get_assignment(hash_): len(constraints) for hash_, constraints in hashed_cluster.items()}
         return ":".join(map(str,sorted(sizes.items())))
     
+    hashmapp = Assignment(assignees=1)
+    cluster_hashmapp = Assignment(assignees=1)
+
+    hashed_clusters = {
+        name: {
+            key: cluster_hashmapp.get_assignment(hash_cluster(internal_cluster_hash, hashmapp))
+            for key, internal_cluster_hash in internally_hashed_clusters[name].items()
+        }
+        for name, _ in in_pair
+    }
+
+    if clusters[in_pair[0][0]]["adjacency"] != {}:
+
+        re_cluster_hashmapp = Assignment(assignees=1)
+
+        hashed_clusters = {
+            name: {
+                # sorting is important to remain order agnostic
+                key: re_cluster_hashmapp.get_assignment(f"{hashed_clusters[name][key]}:{sorted([hashed_clusters[name][adj] for adj in clusters[name]['adjacency'].setdefault(key, [])])}")
+                for key in clusters[name]["clusters"].keys()
+            }
+            for name, _ in in_pair
+        }
+
     cluster_groups = {
         name: {}
         for name, _ in in_pair
     }
 
-    hashmapp = Assignment(assignees=1)
-    cluster_hashmapp = Assignment(assignees=1)
+    re_constraint_hashmapp = Assignment(assignees=1)
 
     # group clusters by internal hashes -- step skipped for time done logically in next step
     # prepend constraint hash in group with group hash to build new groups
-    for name, _ in in_pair:
-        for i in range(len(clusters[name])):
-            chash_ = hash_cluster(hashed_clusters[name][i], hashmapp)
+    for name, circ in in_pair:
+        for key in clusters[name]["clusters"].keys():
+            chash_ = hashed_clusters[name][key]
 
-            for hash_, consi_list in hashed_clusters[name][i].items():
+            for hash_, consi_list in internally_hashed_clusters[name][key].items():
+ 
                 cluster_groups[name].setdefault(
-                    f"{cluster_hashmapp.get_assignment(chash_)}:{hash_}", # makes cluster data smaller 
+                    f"{chash_}:{re_constraint_hashmapp.get_assignment(hash_)}", # makes cluster data smaller 
                     []).extend(consi_list)
+
+        for consi in clusters[name]["removed"]:
+
+            cluster_groups[name].setdefault(
+                f"*{re_constraint_hashmapp.get_assignment(hash_constraint(circ.constraints[consi], known_signal_mapping, mapp, name))}",
+                []).append(consi)
 
     return cluster_groups
 
