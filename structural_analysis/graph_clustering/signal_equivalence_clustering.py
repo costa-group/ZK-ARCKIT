@@ -26,9 +26,9 @@ def naive_all_removal(cons: List[Constraint]) -> nx.Graph:
 
     g.remove_nodes_from(to_remove)
 
-    return list(nx.connected_components(g)) + [[i] for i in to_remove]
+    return list(nx.connected_components(g)), [[i] for i in to_remove]
 
-def naive_removal_clustering(cons: List[Constraint]) -> List[List[int]]:
+def naive_removal_clustering(cons: List[Constraint], **kwargs) -> List[List[int]]:
 
-    return cluster_from_list(cons, ignore_func=is_signal_equivalence_constraint)
+    return cluster_from_list(cons, ignore_func=is_signal_equivalence_constraint, **kwargs)
 

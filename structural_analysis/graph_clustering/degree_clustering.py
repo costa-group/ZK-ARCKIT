@@ -29,7 +29,7 @@ class Average():
     median = 1
     mode = 2
 
-def twice_average_degree(cons: List[Constraint], avg_type: int = Average.mode, and_up: bool = True) -> List[List[int]]:
+def twice_average_degree(cons: List[Constraint], avg_type: int = Average.mode, and_up: bool = True, **kwargs) -> List[List[int]]:
     
     degree_to_signal, signal_to_cons = _signal_data_from_cons_list(cons)
 
@@ -72,11 +72,11 @@ def twice_average_degree(cons: List[Constraint], avg_type: int = Average.mode, a
         set([])
     )
 
-    return cluster_from_list(cons, to_ignore=coniset)
+    return cluster_from_list(cons, to_ignore=coniset, **kwargs)
 
 # NOT SURE IF ONLY USING DARKFOREST CIRCUITS IS THE BEST IDEA FOR THIS BUT TESTING SHOWS 0.36 signal ratio
 
-def ratio_of_signals(cons: List[Constraint], nSignals = None, signal_ratio=0.36) -> List[List[int]]:
+def ratio_of_signals(cons: List[Constraint], nSignals = None, signal_ratio=0.36, **kwargs) -> List[List[int]]:
     assert 0 < signal_ratio < 1, "Invalid ratio"
 
     # doable but not recommended just pass nWires
@@ -104,4 +104,4 @@ def ratio_of_signals(cons: List[Constraint], nSignals = None, signal_ratio=0.36)
         set([])
     )
 
-    return cluster_from_list(cons, to_ignore=coniset)
+    return cluster_from_list(cons, to_ignore=coniset, **kwargs)
