@@ -11,9 +11,15 @@ def shuffle_signals(circ: Circuit, seed = None) -> List[int]:
     # modifies circ shuffling the signal labels in the circuit
 
     RNG = np.random.default_rng(seed)
-    mapping = list(range(1, circ.nWires))
-    RNG.shuffle( mapping )
-    mapping = [0] + mapping
+
+    outputs = list(range(1, circ.nPubOut+1))
+    inputs = list(range(circ.nPubOut+1, circ.nPubOut + circ.nPrvIn + circ.nPubIn + 1))
+    rest = list(range(circ.nPubOut + circ.nPrvIn + circ.nPubIn + 1, circ.nWires))
+
+    RNG.shuffle( outputs )
+    RNG.shuffle( inputs )
+    RNG.shuffle( rest )
+    mapping = [0] + outputs + inputs + rest
 
     for cons in circ.constraints:
         cons.A = {mapping[key]: cons.A[key] for key in cons.A.keys()}
