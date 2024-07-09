@@ -89,11 +89,11 @@ def singular_class_propagator(
 
         for name, k, op in filter(lambda tup : len(tup[2]) > 1, k_logic[0]):
 
-            signal_bijection[name].setdefault(k, set([])).update(op)
+            signal_bijection[name][k] = set(op)
 
             formula.extend(
                 CardEnc.equals(
-                    lits = op,
+                    lits = signal_bijection[name][k],
                     bound = 1,
                     encoding = EncType.pairwise
                 )
@@ -101,6 +101,7 @@ def singular_class_propagator(
             
 
     if len(possible_k) > 1:
+            raise NotImplementedError
             # NOTE: untested
 
             # adds formula for 
