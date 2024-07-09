@@ -80,6 +80,9 @@ def distances_to_static_preprocessing(
                 name = in_pair[ind][0]
                 oname = in_pair[1-ind][0]
 
+                # TODO: test heuristic -- this stops a memory problem -- maybe think of other fixes
+                if len(log[name][distance]) > in_pair[ind][1].nWires * 0.01: continue
+
                 for signal in log[name][distance]:
                     mapped_values = set(map(lambda x : mapp.get_assignment(signal, x) if name == in_pair[0][0] else
                                                        mapp.get_assignment(x, signal), log[oname][distance]))
