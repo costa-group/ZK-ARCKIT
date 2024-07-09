@@ -41,7 +41,7 @@ import itertools
     # naive clustering ~12s 
     # better clustering ~13s --> 10x as many singular classes
 
-# REVEAL SOLVING w/ CLUSTERING w/ SINGULAR PREPROCESSING
+# REVEAL SOLVING O0 w/ CLUSTERING w/ SINGULAR PREPROCESSING
     # grouping ~11s
     # tot constraints: 44K
     # sing preprocessing ~110s
@@ -54,10 +54,11 @@ import itertools
     # PoseidonO0 ::   557K / 86K -- 754.8K / 758.8K
     # RevealO0   ::   699K / 142K -- 1392.8K / 1400.2K
 
-# ADJACENCY TESTING
-    # filename :: total #constraints -- maxclass #constraints -- preprocess time
-    # RevealO1 :: 4381 / 3183 --  1280 / 1280   -- 51s/48s
-    # MoveO1   :: 4398 / 3189 --  1280 / 1280   -- 185s/201s
+# ADJACENCY TESTING -- using twice_average_degree
+    # filename   :: total #constraints -- maxclass #constraints -- preprocess time
+    # RevealO1   :: 4381 / 3183 --  1280 / 1280   -- 51s/48s
+    # MoveO1     :: 4398 / 3189 --  1280 / 1280   -- 185s/201s
+    # BiomebaseO1:: 3901 / 3250 --  768  / 768    -- 48s/51s
 
 
 # Encoding hits a memory issue since we still have 20K constraints
@@ -86,7 +87,7 @@ def getvars(con: Constraint) -> set:
     return set(con.A.keys()).union(con.B.keys()).union(con.C.keys()).difference(set([0]))
     
 if __name__ == '__main__':
-    filename = "r1cs_files/MoveO1.r1cs"
+    filename = "r1cs_files/BiomebaseO1.r1cs"
 
     circ, circs, mapp, cmapp = get_circuits(filename, seed = 42, 
         const_factor=True, shuffle_sig=True, shuffle_const=True,
@@ -100,6 +101,9 @@ if __name__ == '__main__':
 
     clusters = circuit_clusters(in_pair, twice_average_degree, calculate_adjacency = True)
     classes = groups_from_clusters(in_pair, clusters)
+
+    # clusters = None
+    # classes = constraint_classes(in_pair)
 
     post_classes = time.time()
 
@@ -128,25 +132,25 @@ if __name__ == '__main__':
 
     if len(new_classes["S1"].values()) > 0: print("num_of_classes", count_ints(map(len, new_classes["S1"].values())))
 
-    # formula, assumptions = ReducedPseudobooleanEncoder().encode(
-    #     new_classes, in_pair, 0, False, False, True, formula, mapp, cmapp, assumptions, known_info
-    # )
+    formula, assumptions = ReducedPseudobooleanEncoder().encode(
+        new_classes, in_pair, 0, False, False, True, formula, mapp, cmapp, assumptions, known_info
+    )
 
-    # solver = Solver(name='cadical195', bootstrap_with=formula)
+    solver = Solver(name='cadical195', bootstrap_with=formula)
 
-    # encoding = time.time()
+    encoding = time.time()
 
-    # print(len(formula.clauses), get_absmax_lit(formula.clauses), "                                                           ")
+    print(len(formula.clauses), get_absmax_lit(formula.clauses), "                                                           ")
 
-    # print("encoding time: ",encoding - post_new_classes)
+    print("encoding time: ",encoding - post_new_classes)
 
-    # result = solver.solve(assumptions)
+    result = solver.solve(assumptions)
 
-    # solving = time.time()
+    solving = time.time()
 
-    # print("solving time: ",solving - encoding)
+    print("solving time: ",solving - encoding)
 
-    # print(result)
+    print(result)
 
 
 
