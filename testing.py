@@ -20,6 +20,7 @@ from bij_encodings.red_pseudoboolean_encoding import ReducedPseudobooleanEncoder
 from structural_analysis.graph_clustering.degree_clustering import twice_average_degree, ratio_of_signals
 from structural_analysis.graph_clustering.signal_equivalence_clustering import naive_removal_clustering, is_signal_equivalence_constraint
 from structural_analysis.graph_clustering.clustering_from_list import cluster_from_list
+from comparison.static_distance_preprocessing import distances_to_static_preprocessing
 import itertools
 
 # REVEAL TEST TIMES (with singular preprocessing)
@@ -87,7 +88,7 @@ def getvars(con: Constraint) -> set:
     return set(con.A.keys()).union(con.B.keys()).union(con.C.keys()).difference(set([0]))
     
 if __name__ == '__main__':
-    filename = "r1cs_files/BiomebaseO1.r1cs"
+    filename = "r1cs_files/RevealO1.r1cs"
 
     circ, circs, mapp, cmapp = get_circuits(filename, seed = 42, 
         const_factor=True, shuffle_sig=True, shuffle_const=True,
@@ -95,12 +96,22 @@ if __name__ == '__main__':
 
     in_pair = [("S1", circ), ("S2", circs)]
 
-    # NOTE: clustering working fine, removing the same constraints
+     # # NOTE: clustering working fine, removing the same constraints
 
     start = time.time()
 
+    mapp = Assignment()
+    assumptions = set([])
+    known_signal_info = None
+
+    # TODO: look into why it's worse with more info? singular preprocessing performs .. worse? Doesn't seem possible
+    #       strictly better starting number of constraints leads to worse post-preprocessing clusters ???
+    known_signal_info = distances_to_static_preprocessing(in_pair, assumptions, mapp)
+    
+    print("distances calc time: ", time.time() - start)
+
     clusters = circuit_clusters(in_pair, twice_average_degree, calculate_adjacency = True)
-    classes = groups_from_clusters(in_pair, clusters)
+    classes = groups_from_clusters(in_pair, clusters, known_signal_info, mapp)
 
     # clusters = None
     # classes = constraint_classes(in_pair)
@@ -112,16 +123,16 @@ if __name__ == '__main__':
     print("total num of constraint: ",sum(list(map(len, classes["S1"].values()))))
     print("num_of_classes", count_ints(map(len, classes["S1"].values())))
 
-    mapp = Assignment()
+    # mapp = Assignment()
     cmapp = Assignment(assignees = 3, link = mapp)
-    assumptions = set([])
+    # assumptions = set([])
     formula = CNF()
 
     # TODO: let singular_class_preprocessing utilise clustering info
     # new_classes, known_info = classes, None
     new_classes, known_info = singular_class_preprocessing(
         in_pair, classes, clusters,
-        mapp, cmapp, assumptions, formula
+        mapp, cmapp, assumptions, formula, known_signal_info
     )
 
     post_new_classes = time.time()
