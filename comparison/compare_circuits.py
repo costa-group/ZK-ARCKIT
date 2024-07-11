@@ -14,11 +14,11 @@ import time
 from comparison.constraint_preprocessing import constraint_classes
 from r1cs_scripts.circuit_representation import Circuit
 from bij_encodings.encoder import Encoder
-from bij_encodings.natural_encoding import NaturalEncoder
+from bij_encodings.red_pseudoboolean_encoding import ReducedPseudobooleanEncoder
 
 def circuit_equivalence(S1: Circuit, 
                         S2: Circuit,
-                        encoder: Encoder = NaturalEncoder,
+                        encoder: Encoder = ReducedPseudobooleanEncoder,
                         timing: bool = False,
                         debug: bool = False
                         ) -> Tuple[bool, List[Tuple[int, int]]]:
