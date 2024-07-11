@@ -42,19 +42,6 @@ class ReducedEncoder(Encoder):
                 { name: classes[name][class_] for name, _ in in_pair },
                 in_pair, mapp, ckmapp, formula, assumptions, signal_info
             )
-
-        # internal consistency
-        for (name, _), (oname, _) in zip(in_pair, in_pair[::-1]):
-            for lsignal in signal_info[name].keys():
-                i = name == in_pair[0][0]
-
-                internally_inconsistent = [
-                    var for var in signal_info[name][lsignal]
-                    if var not in signal_info[oname][ mapp.get_inv_assignment(var)[i] ]
-                ]
-
-                assumptions.update(map(lambda x : -x, internally_inconsistent))
-                signal_info[name][lsignal] = signal_info[name][lsignal].difference(internally_inconsistent)
         
         signal_encoding(in_pair, mapp, formula, assumptions, signal_info)
 

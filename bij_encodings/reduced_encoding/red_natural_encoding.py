@@ -12,6 +12,26 @@ from bij_encodings.assignment import Assignment
 from bij_encodings.reduced_encoding.red_class_encoder import reduced_encoding_class
 from r1cs_scripts.circuit_representation import Circuit
 
+def internal_consistency(
+    in_pair: List[Tuple[str, Circuit]],
+    mapp: Assignment,
+    formula: CNF,
+    assumptions: Set[int],
+    signal_info: Dict[str, Dict[int, Set[int]]]
+) -> None:
+    # internal consistency
+    for (name, _), (oname, _) in zip(in_pair, in_pair[::-1]):
+        for lsignal in signal_info[name].keys():
+            i = name == in_pair[0][0]
+
+            internally_inconsistent = [
+                var for var in signal_info[name][lsignal]
+                if var not in signal_info[oname][ mapp.get_inv_assignment(var)[i] ]
+            ]
+
+            assumptions.update(map(lambda x : -x, internally_inconsistent))
+            signal_info[name][lsignal] = signal_info[name][lsignal].difference(internally_inconsistent)
+
 def natural_signal_encoder(
     in_pair: List[Tuple[str, Circuit]],
     mapp: Assignment,
@@ -19,6 +39,9 @@ def natural_signal_encoder(
     assumptions: Set[int],
     signal_info: Dict[str, Dict[int, Set[int]]]
 ) -> None:
+
+    internal_consistency(in_pair, mapp, formula, assumptions, signal_info)
+
     for name, _ in in_pair:
 
         for signal in signal_info[name].keys():

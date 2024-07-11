@@ -5,7 +5,7 @@ from pysat.pb import PBEnc, EncType
 
 from bij_encodings.assignment import Assignment
 from bij_encodings.reduced_encoding.reduced_encoder import ReducedEncoder
-from bij_encodings.reduced_encoding.red_class_encoder import reduced_encoding_class
+from bij_encodings.reduced_encoding.red_natural_encoding import internal_consistency
 from r1cs_scripts.circuit_representation import Circuit
 
 def pseudoboolean_signal_encoder(
@@ -15,6 +15,8 @@ def pseudoboolean_signal_encoder(
     assumptions: Set[int],
     signal_info: Dict[str, Dict[int, Set[int]]]
 ) -> None:
+    
+    internal_consistency(in_pair, mapp, formula, assumptions, signal_info)
 
     sign = lambda x: -1 if x < 0 else 1
 
