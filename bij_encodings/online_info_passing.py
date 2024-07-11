@@ -43,6 +43,8 @@ class OnlineInfoPassEncoder(Encoder):
             for name, _ in in_pair
         }
             
+        if debug: classes_encoded = []
+            
         priorityq = [
             (len(classes[in_pair[0][0]][key]), i, {name: classes[name][key] for name, _ in in_pair})
             for i, key in enumerate(classes[in_pair[0][0]].keys())
@@ -80,11 +82,14 @@ class OnlineInfoPassEncoder(Encoder):
                     continue
         
             if debug: print(f"Encoding class {class_ind} of size {length}                           ", end="\r")
+            if debug: classes_encoded.append(length)
 
             class_encoding(
                 class_, in_pair, mapp, ckmapp, formula, assumptions, signal_info
-            )
-
+            )  
+        
+        if debug: print("Total Cons Encoded: ", sum(classes_encoded), "                                                             ")
+        if debug: print("Classes Encoded: ", count_ints(classes_encoded))
         signal_encoding(in_pair, mapp, formula, assumptions, signal_info)
 
         res = [formula, assumptions]
