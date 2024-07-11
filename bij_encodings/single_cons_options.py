@@ -45,9 +45,9 @@ def signal_options(C1: Constraint, C2: Constraint, mapp: Assignment,
                 app[i].setdefault(key, []).append( j )
 
     # TODO: update so it's not in two steps
-    def get_options_set(name, i, key, no_update):
+    def get_options_set(name, i, key, update):
         return set(map(
-                    lambda pair : mapp.get_assignment(*( (key, pair) if name == "S1" else (pair, key) ), no_update = no_update),
+                    lambda pair : mapp.get_assignment(*( (key, pair) if name == "S1" else (pair, key) ), update = update),
                     reduce(
                         lambda x, y : x.intersection(y),
                         [ inv[1-i][j][dicts[i][j][key]] for j in app[i][key] ], 
