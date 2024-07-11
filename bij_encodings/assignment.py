@@ -15,7 +15,7 @@ class Assignment():
                 self.inv_assignment = link.inv_assignment
                 self.curr = link.curr
         
-        def get_assignment(self, *args) -> int:
+        def get_assignment(self, *args, update: bool = True) -> int:
             ## assignment i, j is from S1 to S2
             assert len(args) == self.assignees, "Incorrect num of arguments"
 
@@ -27,6 +27,9 @@ class Assignment():
             res = curr.setdefault(args[-1], None)
 
             if res == None:
+                if not update: 
+                    del curr[args[-1]]
+                    return None
                 # set value
                 curr[args[-1]] = self.curr.val
                 self.inv_assignment.append(args)

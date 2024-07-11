@@ -44,34 +44,29 @@ def signal_options(C1: Constraint, C2: Constraint, mapp: Assignment,
                 inv[i][j].setdefault(dict_[key], set([])).add(key)
                 app[i].setdefault(key, []).append( j )
 
-    options = {
-        name: {
-            # mapping later to avoid adding variables being avaible to SAT solver
-            #   -- don't see how it was seeing these variables as they weren't in any constraint...
-            key: set(
-                map(
-                    lambda pair : mapp.get_assignment(*( (key, pair) if name == "S1" else (pair, key) )),
+    # TODO: update so it's not in two steps
+    def get_options_set(name, i, key, no_update):
+        return set(map(
+                    lambda pair : mapp.get_assignment(*( (key, pair) if name == "S1" else (pair, key) ), no_update = no_update),
                     reduce(
                         lambda x, y : x.intersection(y),
                         [ inv[1-i][j][dicts[i][j][key]] for j in app[i][key] ], 
                         allkeys[1-i]
                     ) 
+                ))
+
+    options = {
+        name: {
+            key: 
+                get_options_set(name, i, key, update = True)
+                if signal_bijection is None or key not in signal_bijection[name].keys() else
+                signal_bijection[name][key].intersection(
+                    get_options_set(name, i, key, update = False)
                 )
-            )
             
             for key in allkeys[i]
         }
         for name, i in [('S1', 0), ('S2', 1)]
     }
-
-    if signal_bijection is not None:
-        for name in ['S1', 'S2']:
-            for key in options[name].keys():
-                if key in signal_bijection[name].keys():
-
-                    assumptions.update(map(lambda x : -x, options[name][key].difference(signal_bijection[name][key])))
-                    options[name][key] = options[name][key].intersection(signal_bijection[name][key])
-
-    # FINAL: for each circ -- for each signal - potential signals could map to
-    #           intersection of potential mappings seen in each part         
+   
     return options
