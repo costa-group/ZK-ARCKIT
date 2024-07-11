@@ -6,17 +6,11 @@ encoding.
 from typing import Dict, List, Tuple, Set
 from pysat.formula import CNF
 from pysat.card import CardEnc, EncType
-import itertools
-from itertools import product
-from functools import reduce
-
-from pysat.solvers import Solver
 
 from bij_encodings.encoder import Encoder
 from bij_encodings.assignment import Assignment
+from bij_encodings.red_class_encoder import reduced_encoding_class
 from r1cs_scripts.circuit_representation import Circuit
-from normalisation import r1cs_norm
-from bij_encodings.single_cons_options import signal_options
 
 class ReducedNaturalEncoder(Encoder):
 
@@ -49,80 +43,10 @@ class ReducedNaturalEncoder(Encoder):
             if debug: print(f"Starting Class {class_counter} or {len(classes[in_pair[0][0]])+1}                             ", end= '\r')
             class_counter += 1
 
-            size = len(classes[in_pair[0][0]][class_])
-
-            left_normed = [
-                r1cs_norm(in_pair[0][1].constraints[i])[0] for i in classes[in_pair[0][0]][class_]
-            ]
-
-            right_normed = [
-                r1cs_norm(in_pair[1][1].constraints[i]) for i in classes[in_pair[1][0]][class_]
-            ]
-
-            # Handles Signal Union Intra-Class
-            class_posibilities = {
-                name: {}
-                for name, _ in in_pair
-            }
-
-            def extend_options(opset_possibilities, options):
-                # take union of all options
-                for name, _ in in_pair:
-                        for signal in options[name].keys():
-                            opset_possibilities[name][signal] = opset_possibilities[name].setdefault(signal, set([])
-                                                                                        ).union(options[name][signal])
-                
-                return opset_possibilities
-
-            ind = -1
-            for i in range(size):
-
-                potential_pairings = []
-                for j in range(size):
-                    if debug: print(f"Starting Class {class_counter} or {len(classes[in_pair[0][0]])+1} : pair {i}, {j} of {size}                ", end= '\r')
-                    for k in range(len(right_normed[j])):
-
-                        options = signal_options(left_normed[i], right_normed[j][k], mapp, assumptions, signal_info) 
-                        
-                        ind += 1
-
-                        # is pairing non-viable
-                        if any(map(
-                                lambda x : len(x) == 0,
-                                itertools.chain(*[options[name].values() for name, _ in in_pair])
-                            )):
-                            continue
-
-                        # if pairing is viable, add clauses to formula and update signal info
-                        class_posibilities = extend_options(class_posibilities, options)    
-                        
-                        ijk = ckmapp.get_assignment(classes[in_pair[0][0]][class_][i], classes[in_pair[1][0]][class_][j], k)
-
-                            # signal clauses
-                        clauses = map(
-                            lambda x : list(x) + [-ijk],
-                            itertools.chain(*[options[name].values() for name, _ in in_pair])
-                        )
-
-                            # constraint clauses
-                        potential_pairings.append(ijk)
-                        formula.extend(clauses)
-                
-                if not potential_pairings:
-                    ## TODO: pass nonviable through encoding
-                    raise AssertionError("Found constraint that cannot be mapped to") 
-            
-                formula.append(potential_pairings)
-
-            # intersection accross classes
-
-            for name, _ in in_pair:
-                for signal in class_posibilities[name].keys():
-
-                    wrong_rvars = signal_info[name].setdefault(signal, class_posibilities[name][signal]
-                                                            ).symmetric_difference(class_posibilities[name][signal])
-                    assumptions.update(map(lambda x : -x, wrong_rvars))
-                    signal_info[name][signal] = signal_info[name][signal].intersection(class_posibilities[name][signal])
+            reduced_encoding_class(
+                { name: classes[name][class_] for name, _ in in_pair },
+                in_pair, mapp, ckmapp, formula, assumptions, signal_info
+            )
 
         # internal consistency
         for (name, _), (oname, _) in zip(in_pair, in_pair[::-1]):
