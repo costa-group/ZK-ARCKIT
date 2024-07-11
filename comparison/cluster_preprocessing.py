@@ -51,7 +51,7 @@ def groups_from_clusters(
             hashes = {}
 
             for consi in cluster:
-                hash_ = hash_constraint(circ.constraints[consi], known_signal_mapping, mapp, name)
+                hash_ = hash_constraint(circ.constraints[consi], name, mapp, known_signal_mapping)
 
                 hashes.setdefault(hash_, []).append(consi)
             
@@ -108,7 +108,7 @@ def groups_from_clusters(
         for consi in clusters[name]["removed"]:
 
             cluster_groups[name].setdefault(
-                f"*{re_constraint_hashmapp.get_assignment(hash_constraint(circ.constraints[consi], known_signal_mapping, mapp, name))}",
+                f"*{re_constraint_hashmapp.get_assignment(hash_constraint(circ.constraints[consi], name, mapp, known_signal_mapping))}",
                 []).append(consi)
 
     return cluster_groups

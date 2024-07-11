@@ -1,4 +1,4 @@
-from typing import List, Tuple, Dict
+from typing import List, Tuple, Dict, Set
 
 from r1cs_scripts.circuit_representation import Circuit
 from r1cs_scripts.constraint import Constraint
@@ -8,23 +8,10 @@ from bij_encodings.assignment import Assignment
 
 constSignal = 0
 
-def hash_constraint(cons: Constraint, known_signal_bijection: Dict[int, int] = None, mapp: Assignment = None, name: str = None):
-
-    def constant_quadratic_split(C: Constraint) -> str:
-        """
-        returns 4 length string
-            - first bit is has quad
-            - 2-4th are the const factor of A.B C has a constant factor
-        """
-        has_quad  =  str(int(len(C.A) * len(C.B) != 0))
-        const_pos = ''.join( [ str(1 if int(constSignal in D.keys()) else 0) for D in [C.A, C.B, C.C]] ) # maybe reduce hash len?
-
-        return has_quad + const_pos          
-
-    def known_split(norms: List[Constraint]) -> str:
+def known_split(norms: List[Constraint], name, mapp, signal_info) -> str:
         """
         """
-        if known_signal_bijection is None or mapp is None or name is None:
+        if signal_info is None or mapp is None or name is None:
             return ""
         
         parts = []
@@ -37,9 +24,9 @@ def hash_constraint(cons: Constraint, known_signal_bijection: Dict[int, int] = N
 
                 curr = sorted(
                     map(
-                        lambda tup : (list(known_signal_bijection[name][tup[0]])[0], tup[1]),
+                        lambda tup : (list(signal_info[name][tup[0]])[0], tup[1]),
                         filter(
-                            lambda tup : tup[0] in known_signal_bijection[name].keys() and len(known_signal_bijection[name][tup[0]]) == 1,
+                            lambda tup : tup[0] in signal_info[name].keys() and len(signal_info[name][tup[0]]) == 1,
                             dict_.items()
                         )
                     )
@@ -49,7 +36,20 @@ def hash_constraint(cons: Constraint, known_signal_bijection: Dict[int, int] = N
             
             parts.append(f"{sects[0]}*{sects[1]}+{sects[2]}")
 
-        return str(parts)
+        return str(sorted(parts))
+
+def hash_constraint(cons: Constraint, name: str = None, mapp: Assignment = None, signal_info: Dict[str, Dict[int, Set[int]]] = None):
+
+    def constant_quadratic_split(C: Constraint) -> str:
+        """
+        returns 4 length string
+            - first bit is has quad
+            - 2-4th are the const factor of A.B C has a constant factor
+        """
+        has_quad  =  str(int(len(C.A) * len(C.B) != 0))
+        const_pos = ''.join( [ str(1 if int(constSignal in D.keys()) else 0) for D in [C.A, C.B, C.C]] ) # maybe reduce hash len?
+
+        return has_quad + const_pos          
     
     def norm_split(norms: List[Constraint]) -> str:
         """
@@ -78,8 +78,8 @@ def hash_constraint(cons: Constraint, known_signal_bijection: Dict[int, int] = N
     
     hashes = [
         constant_quadratic_split(cons),
-        known_split(norms),
-        norm_split(norms)
+        known_split(norms, name, mapp, signal_info),
+        norm_split(norms,)
     ]
 
     return ':'.join(hashes)

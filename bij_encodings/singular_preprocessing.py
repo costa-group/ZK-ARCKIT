@@ -187,7 +187,7 @@ def singular_class_preprocessing(
                 
                 for i in classes[name][class_key]:
 
-                    hash_ = hash_constraint(circ.constraints[i], known_signal_mapping, mapp, name)
+                    hash_ = hash_constraint(circ.constraints[i], name, mapp, known_signal_mapping)
 
                     new_classes[name][hash_].append(i)
     else:
