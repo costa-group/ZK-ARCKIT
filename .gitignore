@@ -7,6 +7,9 @@
 !bij_encodings
 !bij_encodings/*.py
 
+!bij_encodings/reduced_encoding
+!bij_encodings/reduced_encoding/*.py
+
 !bij_encodings/cons_propagator
 !bij_encodings/cons_propagator/*.py
 
