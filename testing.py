@@ -15,8 +15,10 @@ from r1cs_scripts.circuit_representation import Circuit
 from r1cs_scripts.read_r1cs import parse_r1cs
 from bij_encodings.singular_preprocessing import singular_class_preprocessing
 from bij_encodings.assignment import Assignment
+from bij_encodings.reduced_encoding.red_class_encoder import reduced_encoding_class
 from bij_encodings.reduced_encoding.red_natural_encoding import ReducedNaturalEncoder
-from bij_encodings.reduced_encoding.red_pseudoboolean_encoding import ReducedPseudobooleanEncoder
+from bij_encodings.reduced_encoding.red_pseudoboolean_encoding import ReducedPseudobooleanEncoder, pseudoboolean_signal_encoder
+from bij_encodings.online_info_passing import OnlineInfoPassEncoder
 from structural_analysis.graph_clustering.degree_clustering import twice_average_degree, ratio_of_signals
 from structural_analysis.graph_clustering.signal_equivalence_clustering import naive_removal_clustering, is_signal_equivalence_constraint
 from structural_analysis.graph_clustering.clustering_from_list import cluster_from_list
@@ -61,6 +63,19 @@ import itertools
     # MoveO1     :: 4398 / 3189 --  1280 / 1280   -- 185s/201s
     # BiomebaseO1:: 3901 / 3250 --  768  / 768    -- 48s/51s
 
+# ONLINE PUSH TESTING -- using best clustering
+    # filename    ::
+    # RevealO1    :: 22s   / 1280
+    # RevealO0    :: 29.5s / 905
+    # PoseidonO1  :: 0.1s  / 1
+    # PoseidonO0  :: 0.2s  / 15
+    # MoveO1      :: 27.9s / 1280
+    # MoveO0      :: 34s   / 993
+    # BiomebaseO1 :: 15s   / 768
+    # BiomebaseO0 :: 29.8  / 893
+
+# TODO: investigate some error/misdjudgement with applying the knowledge
+
 
 # Encoding hits a memory issue since we still have 20K constraints
 
@@ -88,7 +103,7 @@ def getvars(con: Constraint) -> set:
     return set(con.A.keys()).union(con.B.keys()).union(con.C.keys()).difference(set([0]))
     
 if __name__ == '__main__':
-    filename = "r1cs_files/PoseidonO1.r1cs"
+    filename = "r1cs_files/BiomebaseO0.r1cs"
 
     circ, circs, mapp, cmapp = get_circuits(filename, seed = 42, 
         const_factor=True, shuffle_sig=True, shuffle_const=True,
@@ -108,7 +123,7 @@ if __name__ == '__main__':
     #       strictly better starting number of constraints leads to worse post-preprocessing clusters ???
     # known_signal_info = distances_to_static_preprocessing(in_pair, assumptions, mapp)
     
-    print("distances calc time: ", time.time() - start)
+    # print("distances calc time: ", time.time() - start)
 
     clusters = circuit_clusters(in_pair, naive_removal_clustering, calculate_adjacency = True)
     classes = groups_from_clusters(in_pair, clusters, known_signal_info, mapp)
@@ -137,21 +152,26 @@ if __name__ == '__main__':
 
     post_new_classes = time.time()
 
-    print("singular preprocessing time: ",post_new_classes - post_classes)
+    # print("singular preprocessing time: ",post_new_classes - post_classes)
 
-    print("new total num of constraint: ",sum(list(map(len, new_classes["S1"].values()))))
+    # print("new total num of constraint: ",sum(list(map(len, new_classes["S1"].values()))))
 
-    if len(new_classes["S1"].values()) > 0: print("num_of_classes", count_ints(map(len, new_classes["S1"].values())))
+    # if len(new_classes["S1"].values()) > 0: print("num_of_classes", count_ints(map(len, new_classes["S1"].values())))
 
-    formula, assumptions = ReducedPseudobooleanEncoder().encode(
-        new_classes, in_pair, False, False, True, formula, mapp, cmapp, assumptions, known_info
+    formula, assumptions = OnlineInfoPassEncoder().encode(
+        new_classes, in_pair, reduced_encoding_class, pseudoboolean_signal_encoder, False, False, True,
+        formula, mapp, cmapp, assumptions, known_info
     )
+
+    # formula, assumptions = ReducedPseudobooleanEncoder().encode(
+    #     new_classes, in_pair, False, False, True, formula, mapp, cmapp, assumptions, known_info
+    # )
 
     solver = Solver(name='cadical195', bootstrap_with=formula)
 
     encoding = time.time()
 
-    print(len(formula.clauses), get_absmax_lit(formula.clauses), "                                                           ")
+    print(len(formula.clauses), get_absmax_lit(formula.clauses), "                                                                                                              ")
 
     print("encoding time: ",encoding - post_new_classes)
 
