@@ -16,7 +16,6 @@ class Encoder():
             self,
             classes:Dict[str, Dict[str, List[int]]],
             in_pair: List[Tuple[str, Circuit]],
-            offset: int,
             return_signal_mapping: bool = False,
             return_constraint_mapping = False, 
             return_engine: bool = False,
@@ -31,7 +30,7 @@ class Encoder():
         Very basic default
         """
         
-        res = self.encode(classes, in_pair, offset, return_signal_mapping, return_constraint_mapping, debug, 
+        res = self.encode(classes, in_pair, return_signal_mapping, return_constraint_mapping, debug, 
                           formula, mapp, ckmapp, assumptions, signal_info)
 
         solver = Solver(name = 'cadical195', bootstrap_with=res[0])
@@ -42,7 +41,6 @@ class Encoder():
             self,
             classes: Dict[str, Dict[str, List[int]]],
             in_pair: List[Tuple[str, Circuit]],
-            offset: int,
             return_signal_mapping: bool = False,
             return_constraint_mapping = False, 
             debug: bool = False,
