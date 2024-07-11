@@ -3,9 +3,9 @@ from typing import Dict, List, Tuple, Set
 from pysat.formula import CNF
 from pysat.pb import PBEnc, EncType
 
-from bij_encodings.reduced_encoder import ReducedEncoder
 from bij_encodings.assignment import Assignment
-from bij_encodings.red_class_encoder import reduced_encoding_class
+from bij_encodings.reduced_encoding.reduced_encoder import ReducedEncoder
+from bij_encodings.reduced_encoding.red_class_encoder import reduced_encoding_class
 from r1cs_scripts.circuit_representation import Circuit
 
 def pseudoboolean_signal_encoder(

@@ -5,7 +5,7 @@ from pysat.card import CardEnc, EncType
 
 from bij_encodings.encoder import Encoder
 from bij_encodings.assignment import Assignment
-from bij_encodings.red_class_encoder import reduced_encoding_class
+from bij_encodings.reduced_encoding.red_class_encoder import reduced_encoding_class
 from r1cs_scripts.circuit_representation import Circuit
 
 class ReducedEncoder(Encoder):

@@ -15,8 +15,8 @@ from r1cs_scripts.circuit_representation import Circuit
 from r1cs_scripts.read_r1cs import parse_r1cs
 from bij_encodings.singular_preprocessing import singular_class_preprocessing
 from bij_encodings.assignment import Assignment
-from bij_encodings.red_natural_encoding import ReducedNaturalEncoder
-from bij_encodings.red_pseudoboolean_encoding import ReducedPseudobooleanEncoder
+from bij_encodings.reduced_encoding.red_natural_encoding import ReducedNaturalEncoder
+from bij_encodings.reduced_encoding.red_pseudoboolean_encoding import ReducedPseudobooleanEncoder
 from structural_analysis.graph_clustering.degree_clustering import twice_average_degree, ratio_of_signals
 from structural_analysis.graph_clustering.signal_equivalence_clustering import naive_removal_clustering, is_signal_equivalence_constraint
 from structural_analysis.graph_clustering.clustering_from_list import cluster_from_list
@@ -88,7 +88,7 @@ def getvars(con: Constraint) -> set:
     return set(con.A.keys()).union(con.B.keys()).union(con.C.keys()).difference(set([0]))
     
 if __name__ == '__main__':
-    filename = "r1cs_files/RevealO1.r1cs"
+    filename = "r1cs_files/PoseidonO1.r1cs"
 
     circ, circs, mapp, cmapp = get_circuits(filename, seed = 42, 
         const_factor=True, shuffle_sig=True, shuffle_const=True,
@@ -106,11 +106,11 @@ if __name__ == '__main__':
 
     # TODO: look into why it's worse with more info? singular preprocessing performs .. worse? Doesn't seem possible
     #       strictly better starting number of constraints leads to worse post-preprocessing clusters ???
-    known_signal_info = distances_to_static_preprocessing(in_pair, assumptions, mapp)
+    # known_signal_info = distances_to_static_preprocessing(in_pair, assumptions, mapp)
     
     print("distances calc time: ", time.time() - start)
 
-    clusters = circuit_clusters(in_pair, twice_average_degree, calculate_adjacency = True)
+    clusters = circuit_clusters(in_pair, naive_removal_clustering, calculate_adjacency = True)
     classes = groups_from_clusters(in_pair, clusters, known_signal_info, mapp)
 
     # clusters = None
@@ -129,11 +129,11 @@ if __name__ == '__main__':
     formula = CNF()
 
     # TODO: let singular_class_preprocessing utilise clustering info
-    # new_classes, known_info = classes, None
-    new_classes, known_info = singular_class_preprocessing(
-        in_pair, classes, clusters,
-        mapp, cmapp, assumptions, formula, known_signal_info
-    )
+    new_classes, known_info = classes, None
+    # new_classes, known_info = singular_class_preprocessing(
+    #     in_pair, classes, clusters,
+    #     mapp, cmapp, assumptions, formula, known_signal_info
+    # )
 
     post_new_classes = time.time()
 
@@ -144,7 +144,7 @@ if __name__ == '__main__':
     if len(new_classes["S1"].values()) > 0: print("num_of_classes", count_ints(map(len, new_classes["S1"].values())))
 
     formula, assumptions = ReducedPseudobooleanEncoder().encode(
-        new_classes, in_pair, 0, False, False, True, formula, mapp, cmapp, assumptions, known_info
+        new_classes, in_pair, False, False, True, formula, mapp, cmapp, assumptions, known_info
     )
 
     solver = Solver(name='cadical195', bootstrap_with=formula)
@@ -160,6 +160,7 @@ if __name__ == '__main__':
     solving = time.time()
 
     print("solving time: ",solving - encoding)
+    print("max value:", mapp.curr.val)
 
     print(result)
 
