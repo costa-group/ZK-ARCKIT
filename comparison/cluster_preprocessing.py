@@ -46,11 +46,16 @@ def groups_from_clusters(
 
     # give internal hash to each cluster
     for name, circ in in_pair:
+
+        clusters[name]["coni_to_cluster"] = {}
+        
         for key, cluster in clusters[name]["clusters"].items():
 
             hashes = {}
 
             for consi in cluster:
+                clusters[name]["coni_to_cluster"].setdefault(consi, set([])).add(key)
+
                 hash_ = hash_constraint(circ.constraints[consi], name, mapp, known_signal_mapping)
 
                 hashes.setdefault(hash_, []).append(consi)
