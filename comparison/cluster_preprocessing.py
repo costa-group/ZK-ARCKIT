@@ -80,11 +80,16 @@ def groups_from_clusters(
         hashed_clusters = {
             name: {
                 # sorting is important to remain order agnostic
+
+                # TODO: maybe don't use setdefault
                 key: re_cluster_hashmapp.get_assignment(f"{hashed_clusters[name][key]}:{sorted([hashed_clusters[name][adj] for adj in clusters[name]['adjacency'].setdefault(key, [])])}")
                 for key in clusters[name]["clusters"].keys()
             }
             for name, _ in in_pair
         }
+
+    for name, _ in in_pair:
+        clusters[name]["clusters_to_hash"] = hashed_clusters[name]
 
     cluster_groups = {
         name: {}
@@ -93,9 +98,10 @@ def groups_from_clusters(
 
     re_constraint_hashmapp = Assignment(assignees=1)
 
-    # group clusters by internal hashes -- step skipped for time done logically in next step
     # prepend constraint hash in group with group hash to build new groups
     for name, circ in in_pair:
+        # group clusters by internal hashes -- step can be skipped but useful for later for time done logically in next step
+
         for key in clusters[name]["clusters"].keys():
             chash_ = hashed_clusters[name][key]
 

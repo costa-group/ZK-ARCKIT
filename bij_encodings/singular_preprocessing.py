@@ -2,7 +2,7 @@
 Preprocesses classes where there is only 1 constraint and propagates logic
 """
 
-from typing import List, Tuple, Dict, Set
+from typing import List, Tuple, Dict, Set, Iterable
 from collections import defaultdict
 from pysat.formula import CNF
 from pysat.card import CardEnc, EncType
@@ -10,7 +10,7 @@ from pysat.card import CardEnc, EncType
 from r1cs_scripts.circuit_representation import Circuit
 from r1cs_scripts.constraint import Constraint
 from normalisation import r1cs_norm
-from comparison.constraint_preprocessing import hash_constraint
+from comparison.constraint_preprocessing import hash_constraint, known_split
 from comparison.cluster_preprocessing import groups_from_clusters
 from bij_encodings.assignment import Assignment
 from bij_encodings.single_cons_options import signal_options
@@ -169,51 +169,23 @@ def singular_class_preprocessing(
             assumptions,
             formula
         )
+    
+    nonsingular_classes = filter(lambda key: len( classes[in_pair[0][0]][key] ) > 1, classes[in_pair[0][0]].keys())
 
     if clusters is None:
-        nonsingular_classes = filter(lambda key: len( classes[in_pair[0][0]][key] ) > 1, classes[in_pair[0][0]].keys())
-
-        # same new_classes as before
         new_classes = {
-            name: defaultdict(lambda : [])
-            for name, _ in in_pair
+            name: {} for
+            name, _  in in_pair
         }
 
-        # Redo the classes with known_signal informations
-        for class_key in nonsingular_classes:
-            
-            # hashing with new info
+        hash_mapp = Assignment(assignees=1)
+
+        for ind, key in enumerate(nonsingular_classes):
             for name, circ in in_pair:
-                
-                for i in classes[name][class_key]:
-
-                    hash_ = hash_constraint(circ.constraints[i], name, mapp, known_signal_mapping)
-
-                    new_classes[name][hash_].append(i)
+                for consi in classes[name][key]:
+                    new_classes[name].setdefault(f"{ind}:{hash_mapp.get_assignment(known_split(r1cs_norm(circ.constraints[consi]), name, mapp, known_signal_mapping))}", []).append(consi)
     else:
-        #TODO: think of way to improve this
-        new_classes = groups_from_clusters(in_pair, clusters, known_signal_mapping, mapp)
-
-        keys_to_delete = []
-
-        for key in new_classes[in_pair[0][0]].keys():
-            if len(new_classes[in_pair[0][0]][key]) > 1:
-                continue
-
-            consi = new_classes[in_pair[0][0]][key][0]
-
-            def getvars(con: Constraint) -> set:
-                return set(con.A.keys()).union(con.B.keys()).union(con.C.keys()).difference(set([0]))
-
-            if any([signal not in known_signal_mapping[in_pair[0][0]].keys() for signal in getvars(in_pair[0][1].constraints[consi])]):
-                continue
-
-            keys_to_delete.append(key)
-        
-        for key in keys_to_delete:
-            for name, _ in in_pair:
-                del new_classes[name][key]
-                
+        new_classes = recluster(in_pair, classes, nonsingular_classes, clusters, mapp, known_signal_mapping)
 
     if any(len(class_) == 1 for class_ in new_classes[in_pair[0][0]].values()):
         return singular_class_preprocessing(
@@ -223,3 +195,61 @@ def singular_class_preprocessing(
         )
     else:
         return new_classes, known_signal_mapping
+
+def recluster(
+        in_pair: List[Tuple[str, Circuit]],
+        classes: Dict[str, Dict[str, List[int]]],
+        keys_to_update: Iterable[str],
+        clusters: Dict[str, Dict[str, Dict[int, List[int]]]],
+        mapp: Assignment, signal_info: Dict[str, Dict[int, Set[int]]]
+) -> Dict[str, Dict[str, List[int]]]:
+    
+    # need the groups of cluster
+    hash_mapp = Assignment(assignees=1)
+    cluster_hash_mapp = Assignment(assignees=1)
+    re_cluster_hashmapp = Assignment(assignees=1)
+
+    # redo the known_split hash only for each internal constraint + adjacency?
+    clusters_to_hash = {name: {} for name, _ in in_pair}
+    constraint_to_hash = {name: {} for name, _ in in_pair}
+
+    for name, circ in in_pair:
+
+        # Clusters information
+        for cluster_ind, hash_ in clusters[name]["clusters_to_hash"].items():
+            known_split_cluster_hash = {}
+
+            for consi in clusters[name]["clusters"][cluster_ind]:
+                constraint_to_hash[name][consi] = hash_mapp.get_assignment(known_split(r1cs_norm(circ.constraints[consi]), name, mapp, signal_info))
+
+                known_split_cluster_hash[constraint_to_hash[name][consi]] = known_split_cluster_hash.setdefault(constraint_to_hash[name][consi], 0) + 1
+            
+            cluster_hash_ = f"{hash_}:{cluster_hash_mapp.get_assignment(str(sorted(known_split_cluster_hash.items())))}"
+            clusters_to_hash[name][cluster_ind] = cluster_hash_
+
+        # Adjacency information
+        if clusters[in_pair[0][0]]["adjacency"] != {}:
+            for cluster_ind in clusters[name]["clusters"].keys():
+
+                new_hash_ = re_cluster_hashmapp.get_assignment(f"{clusters_to_hash[name][cluster_ind]}:{sorted([clusters_to_hash[name][adj] for adj in clusters[name]['adjacency'].setdefault(cluster_ind, [])])}")
+
+                for consi in clusters[name]["clusters"][cluster_ind]:
+                    constraint_to_hash[name][consi] = f"{new_hash_}:{constraint_to_hash[name][consi]}"
+        
+        # Removed constraints information
+        for consi in clusters[name]["removed"]:
+            constraint_to_hash[name][consi] = f"*{hash_mapp.get_assignment(known_split(r1cs_norm(circ.constraints[consi]), name, mapp, signal_info))}"
+
+    # use this to further split the clusters that haven't yet been solved
+    new_classes = {
+        name: {}
+        for name, _ in in_pair
+    }
+    
+    for ind, key in enumerate(keys_to_update):
+        for name, _ in in_pair:
+            for consi in classes[name][key]:
+                new_classes[name].setdefault(f"{ind}:{constraint_to_hash[name][consi]}", []).append(consi)
+
+    # pass these back to the main function
+    return new_classes
