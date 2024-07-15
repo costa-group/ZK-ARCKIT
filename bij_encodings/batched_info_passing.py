@@ -28,7 +28,8 @@ class BatchedInfoPassEncoder(Encoder):
             mapp: Assignment = Assignment(),
             ckmapp: Assignment = None,
             assumptions: Set[int] = set([]),
-            signal_info: Dict[str, Dict[int, int]] = None
+            signal_info: Dict[str, Dict[int, int]] = None,
+            batching_multiplier: int = 1
         ) -> CNF:
 
         if ckmapp is None: ckmapp =  Assignment(assignees=3, link=mapp)
@@ -62,7 +63,7 @@ class BatchedInfoPassEncoder(Encoder):
             current_batch = map(
                 lambda key : {name: classes[name][key] for name, _ in in_pair},
                 filter(
-                    lambda key: len(classes[in_pair[0][0]][key]) == min_size,
+                    lambda key: len(classes[in_pair[0][0]][key]) <= batching_multiplier * min_size,
                     classes[in_pair[0][0]].keys()
                 )
             )
@@ -82,7 +83,7 @@ class BatchedInfoPassEncoder(Encoder):
             next_batches = map(
                 lambda key : {name: classes[name][key] for name, _ in in_pair},
                 filter(
-                    lambda key: len(classes[in_pair[0][0]][key]) != min_size,
+                    lambda key: len(classes[in_pair[0][0]][key]) > batching_multiplier * min_size,
                     classes[in_pair[0][0]].keys()
                 )
             )
