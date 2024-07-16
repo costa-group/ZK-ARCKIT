@@ -15,6 +15,7 @@ from comparison.cluster_preprocessing import groups_from_clusters
 from bij_encodings.assignment import Assignment
 from bij_encodings.single_cons_options import signal_options
 from bij_encodings.batched_info_passing import recluster
+from bij_encodings.reduced_encoding.red_class_encoder import reduced_encoding_class
 
 def singular_class_propagator(
         in_pair: List[Tuple[str, Circuit]], 
@@ -98,11 +99,10 @@ def singular_class_propagator(
                     bound = 1,
                     encoding = EncType.pairwise
                 )
-            )
-            
+            )   
 
     if len(possible_k) > 1:
-            raise NotImplementedError
+            # raise NotImplementedError(f"Found constraint pair {l_cons_index}, {r_cons_index} with possible {possible_k}")
             # NOTE: untested
 
             # adds formula for 
@@ -114,23 +114,11 @@ def singular_class_propagator(
                 )
             )
 
-            # TODO: check to see any forced signals add to assumption
-
             # logic for each individual constraint
             for i, logic in enumerate(k_logic):
-                formula.extend(map( lambda x : list(x) + [-possible_k[i]], logic))
+                formula.extend(map( lambda tup : list(tup[2]) + [-possible_k[i]], logic))
 
-            # TODO: add assumptions for generic clauses
-            # at most 1 bij for signals
-            for name, _ in in_pair:
-                for key in forced_signals[name].keys():
-                    formula.extend(
-                        CardEnc.atmost(
-                            lits = forced_signals[name][key],
-                            bound = 1,
-                            encoding = EncType.pairwise
-                        )
-                    )
+            # signal logic handled later by signal encoder
 
 def singular_class_preprocessing(
         in_pair: List[Tuple[str, Circuit]],
@@ -140,7 +128,9 @@ def singular_class_preprocessing(
         cmapp: Assignment = None,
         assumptions: Set[int] = set([]),
         formula: CNF = CNF(),
-        known_signal_mapping: Dict[str, Dict[int, Set[int]]] = None
+        known_signal_mapping: Dict[str, Dict[int, Set[int]]] = None,
+        debug: bool = False,
+        debug_value: int = None
     ) -> Tuple[ Dict[str, Dict[str, int]], Dict[str, Dict[int, Set[int]]] ]:
     
     if cmapp is None:
@@ -159,19 +149,34 @@ def singular_class_preprocessing(
 
     singular_classes = filter(lambda key: len( classes[in_pair[0][0]][key] ) == 1, classes[in_pair[0][0]].keys())
 
+    if debug: class_count = 1
+    if debug and debug_value is None: debug_value = 1
     for sclass_key in singular_classes:
-        i, j = classes[in_pair[0][0]][sclass_key][0], classes[in_pair[1][0]][sclass_key][0]
+        if debug:
+            print(f"Encoding class of size {class_count}                ", end='\r')
+            class_count += 1
 
-        singular_class_propagator(
+        reduced_encoding_class(
+            {name: classes[name][sclass_key] for name, _ in in_pair},
             in_pair,
-            i, j,
             mapp, cmapp,
-            known_signal_mapping,
-            assumptions,
-            formula
+            formula, assumptions, 
+            known_signal_mapping
         )
+
+        # i, j = classes[in_pair[0][0]][sclass_key][0], classes[in_pair[1][0]][sclass_key][0]
+
+        # singular_class_propagator(
+        #     in_pair,
+        #     i, j,
+        #     mapp, cmapp,
+        #     known_signal_mapping,
+        #     assumptions,
+        #     formula
+        # )
     
     nonsingular_class_keys = filter(lambda key: len( classes[in_pair[0][0]][key] ) > 1, classes[in_pair[0][0]].keys())
+    if debug: print(f"Reclustering, this is batch {debug_value}                            ", end='\r')
 
     if clusters is None:
         new_classes = {
@@ -187,14 +192,14 @@ def singular_class_preprocessing(
                     new_classes[name].setdefault(f"{ind}:{hash_mapp.get_assignment(known_split(r1cs_norm(circ.constraints[consi]), name, mapp, known_signal_mapping))}", []).append(consi)
     else:
         classes_to_update = map(lambda key: {name: classes[name][key] for name, _ in in_pair}, nonsingular_class_keys)
-
-        new_classes = recluster(in_pair, classes, classes_to_update, mapp, known_signal_mapping)
+        
+        new_classes = recluster(in_pair, classes_to_update, clusters, mapp, known_signal_mapping)
 
     if any(len(class_) == 1 for class_ in new_classes[in_pair[0][0]].values()):
         return singular_class_preprocessing(
             in_pair, new_classes, clusters,
             mapp, cmapp, assumptions, formula,
-            known_signal_mapping
+            known_signal_mapping, debug=debug, debug_value=debug_value+1
         )
     else:
         return new_classes, known_signal_mapping
