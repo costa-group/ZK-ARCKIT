@@ -33,7 +33,7 @@ def circuit_equivalence(
         S2: Circuit,
         info_preprocessing: Callable[["In_pair", Assignment], "Signal_Info"] = None,
         cons_clustering: Callable = None,
-        cons_grouping: Callable[["In_pair", "Clusters", "Signal_Info", Assignment], "Groups"] = None,
+        cons_grouping: Callable[["In_pair", "Clusters", "Signal_Info", Assignment], "Classes"] = None,
         cons_preprocessing: Callable = None,
         encoder: Encoder = ReducedPseudobooleanEncoder,
         debug: bool = False,
@@ -44,7 +44,9 @@ def circuit_equivalence(
     """
 
     test_data = {
-        "result": None
+        "result": None,
+        "timing": {},
+        "group_sizes": {}
     }
 
     start = time.time()
@@ -76,32 +78,37 @@ def circuit_equivalence(
         if cons_clustering is not None: clusters = circuit_clusters(in_pair, cons_clustering, calculate_adjacency = True)
         clustering_time = time.time()
 
-        groups = {name: {"1": circ.constraints} for name, circ in in_pair}
+        classes = {name: {"1": circ.constraints} for name, circ in in_pair}
 
-        if cons_grouping is not None: groups = cons_grouping(in_pair, clusters, signal_info, mapp)
+        if cons_grouping is not None: 
+            classes = cons_grouping(in_pair, clusters, signal_info, mapp)
+            test_data["group_sizes"]["initial_sizes"] = count_ints(map(len, classes["S1"].values()))
         grouping_time = time.time()
 
-        # groups early exit
-        for key in set(groups["S1"].keys()).union(groups["S2"].keys()):
+        # classes early exit
+        for key in set(classes["S1"].keys()).union(classes["S2"].keys()):
             for name, _ in in_pair:
-                if key not in groups[name].keys():
+                if key not in classes[name].keys():
                     raise AssertionError(f"Group with fingerprint {key} not in circuit {name}")
             
-            if len(groups["S1"][key]) != len(groups["S2"][key]):
-                raise AssertionError(f"Group with fingerorint {key} has size {len(groups['S1'][key])} in 'S1', and {len(groups['S2'][key])} in 'S2'")
+            if len(classes["S1"][key]) != len(classes["S2"][key]):
+                raise AssertionError(f"Group with fingerorint {key} has size {len(classes['S1'][key])} in 'S1', and {len(classes['S2'][key])} in 'S2'")
 
         if cons_preprocessing is not None: 
-            groups, signal_info = cons_preprocessing(
-                in_pair, groups, clusters, mapp, 
+            classes, signal_info = cons_preprocessing(
+                in_pair, classes, clusters, mapp, 
                 ckmapp, assumptions, formula, signal_info
             )
+            test_data["group_sizes"]["post_processing"] = count_ints(map(len, classes["S1"].values()))
         cons_preprocessing_time = time.time()
 
-        formula, assumptions = encoder().encode(
-            in_pair, groups, clusters, return_signal_mapping = False, return_constraint_mapping = False, debug = debug,
+        formula, assumptions, encoded_classes = encoder().encode(
+            in_pair, classes, clusters, return_signal_mapping = False, return_constraint_mapping = False, return_encoded_classes = True, debug = debug,
             formula = formula, mapp = mapp, ckmapp = ckmapp, assumptions = assumptions, signal_info = signal_info, 
             **encoder_kwargs
         )
+
+        test_data["group_sizes"]["encoded_classes"] = encoded_classes
 
         solver = Solver(name='cadical195', bootstrap_with=formula)
         encoding_time = time.time()
@@ -114,9 +121,8 @@ def circuit_equivalence(
         if result:
             test_data["result_explanation"] = ""
         else:
-            test_data["result_explanation"] = "Unsatisfiable"
-        
-        test_data["timing"] = {}
+            test_data["result_explanation"] = "Unsatisfiable Formula"
+    
         for time_title, time_bool, later_time, earlier_time in zip(
             ["info_preprocessing_time", "clustering_time", "grouping_time", "cons_preprocessing_time", "encoding_time", "solving_time"], 
             [info_preprocessing, cons_clustering, cons_grouping, cons_preprocessing, True, True],
