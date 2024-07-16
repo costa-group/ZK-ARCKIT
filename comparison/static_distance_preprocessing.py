@@ -11,7 +11,6 @@ def getvars(con: Constraint) -> set:
 
 def distances_to_static_preprocessing(
         in_pair: List[Tuple[str, Circuit]], 
-        assumptions: Set[int] = set([]),
         mapp: Assignment = Assignment(),
         known_signal_info: Dict[str, Dict[int, Set[int]]] = None,
     ):
@@ -23,11 +22,6 @@ def distances_to_static_preprocessing(
             name: {}
             for name, _ in in_pair
         }
-
-        for bij in filter( lambda x : 0 < x < len(mapp.assignment), assumptions ):
-            l, r = mapp.get_inv_assignment(bij)
-            known_signal_info[in_pair[0][0]].setdefault(l, set([])).add(bij)
-            known_signal_info[in_pair[1][0]].setdefault(r, set([])).add(bij)
 
     assert in_pair[0][1].nPubOut == in_pair[1][1].nPubOut and in_pair[0][1].nPubIn == in_pair[1][1].nPubIn and in_pair[0][1].nPrvIn == in_pair[1][1].nPrvIn, "different input/output numbers"
 
@@ -89,12 +83,6 @@ def distances_to_static_preprocessing(
 
                     known_signal_info[name][signal] = known_signal_info[name].setdefault(
                         signal, mapped_values).intersection(mapped_values)
-    
-    # TODO: make this redudant by having a standard check elsewhere (maybe once before adding assumptions in?)
-    for name, _ in in_pair:
-        for signal in known_signal_info[name].keys():
-            if len(known_signal_info[name][signal]) == 1:
-                assumptions.add(list(known_signal_info[name][signal])[0])
         
     return known_signal_info
 
