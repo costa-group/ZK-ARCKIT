@@ -19,8 +19,9 @@ class OnlineInfoPassEncoder(Encoder):
 
     def encode(
             self,
-            classes: Dict[str, Dict[str, List[int]]],
             in_pair: List[Tuple[str, Circuit]],
+            classes: Dict[str, Dict[str, List[int]]],
+            clusters: Dict[str, Dict[str, Dict[int, Set[int]]]],
             class_encoding: Callable,
             signal_encoding: Callable,
             return_signal_mapping: bool = False,

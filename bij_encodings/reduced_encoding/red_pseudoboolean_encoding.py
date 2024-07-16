@@ -55,8 +55,9 @@ class ReducedPseudobooleanEncoder(ReducedEncoder):
 
     def encode(
             self,
-            classes: Dict[str, Dict[str, List[int]]],
             in_pair: List[Tuple[str, Circuit]],
+            classes: Dict[str, Dict[str, List[int]]],
+            clusters: Dict[str, Dict[str, Dict[int, Set[int]]]] = None,
             return_signal_mapping: bool = False,
             return_constraint_mapping = False, 
             debug: bool = False,
@@ -68,7 +69,7 @@ class ReducedPseudobooleanEncoder(ReducedEncoder):
         ) -> CNF:
         
         return super(ReducedPseudobooleanEncoder, self).encode(
-            classes, in_pair, pseudoboolean_signal_encoder,
+            in_pair, classes, clusters, pseudoboolean_signal_encoder,
             return_signal_mapping, return_constraint_mapping, 
             debug, formula, mapp, ckmapp, assumptions, signal_info
         )

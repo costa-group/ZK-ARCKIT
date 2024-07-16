@@ -67,9 +67,9 @@ class ReducedNaturalEncoder(Encoder):
 
     def encode(
             self,
-            classes: Dict[str, Dict[str, List[int]]],
             in_pair: List[Tuple[str, Circuit]],
-            offset: int,
+            classes: Dict[str, Dict[str, List[int]]],
+            clusters: Dict[str, Dict[str, Dict[int, Set[int]]]] = None,
             return_signal_mapping: bool = False,
             return_constraint_mapping = False, 
             debug: bool = False,
@@ -77,11 +77,11 @@ class ReducedNaturalEncoder(Encoder):
             mapp: Assignment = Assignment(),
             ckmapp: Assignment = None,
             assumptions: Set[int] = set([]),
-            signal_info: Dict[str, Dict[int, int]] = None
+            signal_info: Dict[str, Dict[int, Set[int]]] = None
         ) -> CNF:
 
         return super(ReducedNaturalEncoder, self).encode(
-            classes, in_pair, natural_signal_encoder,
+            in_pair, classes, clusters, natural_signal_encoder,
             return_signal_mapping, return_constraint_mapping, 
             debug, formula, mapp, ckmapp, assumptions, signal_info
         )

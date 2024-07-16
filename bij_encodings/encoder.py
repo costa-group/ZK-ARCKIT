@@ -14,8 +14,9 @@ class Encoder():
 
     def get_solver(
             self,
-            classes:Dict[str, Dict[str, List[int]]],
             in_pair: List[Tuple[str, Circuit]],
+            classes: Dict[str, Dict[str, List[int]]],
+            clusters: Dict[str, Dict[str, Dict[int, Set[int]]]] = None,
             return_signal_mapping: bool = False,
             return_constraint_mapping = False, 
             return_engine: bool = False,
@@ -39,8 +40,9 @@ class Encoder():
 
     def encode(
             self,
-            classes: Dict[str, Dict[str, List[int]]],
             in_pair: List[Tuple[str, Circuit]],
+            classes: Dict[str, Dict[str, List[int]]],
+            clusters: Dict[str, Dict[str, Dict[int, Set[int]]]] = None,
             return_signal_mapping: bool = False,
             return_constraint_mapping = False, 
             debug: bool = False,
