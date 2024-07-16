@@ -25,7 +25,8 @@ class OnlineInfoPassEncoder(Encoder):
             class_encoding: Callable,
             signal_encoding: Callable,
             return_signal_mapping: bool = False,
-            return_constraint_mapping = False, 
+            return_constraint_mapping: bool = False,
+            return_encoded_classes: bool = False, 
             debug: bool = False,
             formula: CNF = CNF(),
             mapp: Assignment = Assignment(),
@@ -44,7 +45,7 @@ class OnlineInfoPassEncoder(Encoder):
             for name, _ in in_pair
         }
             
-        if debug: classes_encoded = []
+        if return_encoded_classes: classes_encoded = []
             
         priorityq = [
             (len(classes[in_pair[0][0]][key]), i, {name: classes[name][key] for name, _ in in_pair})
@@ -83,18 +84,19 @@ class OnlineInfoPassEncoder(Encoder):
                     continue
         
             if debug: print(f"Encoding class {class_ind} of size {length}                           ", end="\r")
-            if debug: classes_encoded.append(length)
+            if return_encoded_classes: classes_encoded.append(length)
 
             class_encoding(
                 class_, in_pair, mapp, ckmapp, formula, assumptions, signal_info
             )  
         
-        if debug: print("Total Cons Encoded: ", sum(classes_encoded), "                                                             ")
-        if debug: print("Classes Encoded: ", count_ints(classes_encoded))
+        if debug and return_encoded_classes: print("Total Cons Encoded: ", sum(classes_encoded), "                                                             ")
+        if debug and return_encoded_classes: print("Classes Encoded: ", count_ints(classes_encoded))
         signal_encoding(in_pair, mapp, formula, assumptions, signal_info)
 
         res = [formula, assumptions]
 
         if return_signal_mapping: res.append(mapp)
         if return_constraint_mapping: res.append(ckmapp)
+        if return_encoded_classes: res.append(count_ints(classes_encoded))
         return res

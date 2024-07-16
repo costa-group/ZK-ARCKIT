@@ -18,7 +18,8 @@ class Encoder():
             classes: Dict[str, Dict[str, List[int]]],
             clusters: Dict[str, Dict[str, Dict[int, Set[int]]]] = None,
             return_signal_mapping: bool = False,
-            return_constraint_mapping = False, 
+            return_constraint_mapping: bool = False, 
+            return_encoded_classes: bool = False,
             return_engine: bool = False,
             debug: bool = False,
             formula: CNF = CNF(),
@@ -31,7 +32,7 @@ class Encoder():
         Very basic default
         """
         
-        res = self.encode(classes, in_pair, return_signal_mapping, return_constraint_mapping, debug, 
+        res = self.encode(in_pair, classes, clusters, return_signal_mapping, return_constraint_mapping, return_encoded_classes, debug, 
                           formula, mapp, ckmapp, assumptions, signal_info)
 
         solver = Solver(name = 'cadical195', bootstrap_with=res[0])
@@ -44,7 +45,8 @@ class Encoder():
             classes: Dict[str, Dict[str, List[int]]],
             clusters: Dict[str, Dict[str, Dict[int, Set[int]]]] = None,
             return_signal_mapping: bool = False,
-            return_constraint_mapping = False, 
+            return_constraint_mapping: bool = False,
+            return_encoded_classes: bool = False, 
             debug: bool = False,
             formula: CNF = CNF(),
             mapp: Assignment = Assignment(),

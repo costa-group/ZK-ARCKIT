@@ -71,7 +71,8 @@ class ReducedNaturalEncoder(Encoder):
             classes: Dict[str, Dict[str, List[int]]],
             clusters: Dict[str, Dict[str, Dict[int, Set[int]]]] = None,
             return_signal_mapping: bool = False,
-            return_constraint_mapping = False, 
+            return_constraint_mapping: bool = False,
+            return_encoded_classes: bool = False,  
             debug: bool = False,
             formula: CNF = CNF(),
             mapp: Assignment = Assignment(),
@@ -82,7 +83,7 @@ class ReducedNaturalEncoder(Encoder):
 
         return super(ReducedNaturalEncoder, self).encode(
             in_pair, classes, clusters, natural_signal_encoder,
-            return_signal_mapping, return_constraint_mapping, 
+            return_signal_mapping, return_constraint_mapping, return_encoded_classes,
             debug, formula, mapp, ckmapp, assumptions, signal_info
         )
                     

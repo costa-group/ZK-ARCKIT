@@ -22,7 +22,8 @@ class BatchedInfoPassEncoder(Encoder):
             class_encoding: Callable,
             signal_encoding: Callable,
             return_signal_mapping: bool = False,
-            return_constraint_mapping = False, 
+            return_constraint_mapping: bool = False,
+            return_encoded_classes: bool = False, 
             debug: bool = False,
             formula: CNF = CNF(),
             mapp: Assignment = Assignment(),
@@ -38,8 +39,9 @@ class BatchedInfoPassEncoder(Encoder):
             for name, _ in in_pair
         }
             
-        if debug: classes_encoded, class_ind = [], 1
-            
+        if return_encoded_classes: classes_encoded = []
+        if debug: class_ind = 1
+
         def get_next_min_batch(input: Dict[str, Dict[str, List[int]]]) -> Iterable[Dict[str, List[int]]]:
             # can be done in one pass but slower because python
             
@@ -70,11 +72,10 @@ class BatchedInfoPassEncoder(Encoder):
 
             for class_ in current_batch:
                 
-                if debug: 
-                    length = len(class_[in_pair[0][0]])
-                    print(f"Encoding class {class_ind} of size {length}                           ", end="\r")
-                    classes_encoded.append(length)
-                    class_ind += 1
+                length = len(class_[in_pair[0][0]])
+                if debug: print(f"Encoding class {class_ind} of size {length}                           ", end="\r")
+                if return_encoded_classes: classes_encoded.append(length)
+                if debug: class_ind += 1
 
                 class_encoding(class_, in_pair, mapp, ckmapp, formula, assumptions, signal_info)
 
@@ -105,14 +106,15 @@ class BatchedInfoPassEncoder(Encoder):
             else:
                 classes = recluster(in_pair, next_batches, clusters, mapp, signal_info)
         
-        if debug: print("Total Cons Encoded: ", sum(classes_encoded), "                                                             ")
-        if debug: print("Classes Encoded: ", count_ints(classes_encoded))
+        if debug and return_encoded_classes: print("Total Cons Encoded: ", sum(classes_encoded), "                                                             ")
+        if debug and return_encoded_classes: print("Classes Encoded: ", count_ints(classes_encoded))
         signal_encoding(in_pair, mapp, formula, assumptions, signal_info)
 
         res = [formula, assumptions]
 
         if return_signal_mapping: res.append(mapp)
         if return_constraint_mapping: res.append(ckmapp)
+        if return_encoded_classes: res.append(count_ints(classes_encoded))
         return res
 
 
