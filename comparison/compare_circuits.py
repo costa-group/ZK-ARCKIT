@@ -7,90 +7,128 @@ The idea is that we have two circuis S_1, S_2, which are equivalent up to renami
             -- maybe will need more work here
         then finally we build the SAT logic that will return the bijection
 """
-from typing import Tuple, List
-
+from typing import Tuple, List, Callable, Dict, Set, Iterable
+from pysat.formula import CNF
+from pysat.solvers import Solver
 import time
+import json
 
-from comparison.constraint_preprocessing import constraint_classes
+from comparison.cluster_preprocessing import circuit_clusters
+
 from r1cs_scripts.circuit_representation import Circuit
+
 from bij_encodings.encoder import Encoder
+from bij_encodings.assignment import Assignment
 from bij_encodings.reduced_encoding.red_pseudoboolean_encoding import ReducedPseudobooleanEncoder
 
-def circuit_equivalence(S1: Circuit, 
-                        S2: Circuit,
-                        encoder: Encoder = ReducedPseudobooleanEncoder,
-                        timing: bool = False,
-                        debug: bool = False
-                        ) -> Tuple[bool, List[Tuple[int, int]]]:
+def count_ints(lints : Iterable[int]) -> Dict[int, int]:
+    res = {}
+    for i in lints:
+        res[i] = res.setdefault(i, 0) + 1
+    return sorted(res.items())
+
+# Typing throwing warnings for unknown classes, I think this is easier for a human to read though
+def circuit_equivalence(
+        S1: Circuit, 
+        S2: Circuit,
+        info_preprocessing: Callable[["In_pair", Assignment], "Signal_Info"] = None,
+        cons_clustering: Callable = None,
+        cons_grouping: Callable[["In_pair", "Clusters", "Signal_Info", Assignment], "Groups"] = None,
+        cons_preprocessing: Callable = None,
+        encoder: Encoder = ReducedPseudobooleanEncoder,
+        debug: bool = False,
+        **encoder_kwargs
+        ) -> Tuple[bool, List[Tuple[int, int]]]:
     """
     Currently assumes A*B + C = 0, where each A, B, C are equivalent up to renaming/factor
     """
 
+    test_data = {
+        "result": None
+    }
+
     start = time.time()
 
-    N = S1.nConstraints
-    K = S1.nWires
+    try: 
+        N = S1.nConstraints
+        K = S1.nWires
 
-    if K != S2.nWires:
-        return (False, f"Number of signals differs: {S1.nWires, S2.nWires} ")
+        if K != S2.nWires:
+            raise AssertionError("Different number of wires in circuits")
 
-    if N != S2.nConstraints:
-        return (False, f"Number of constraints differs: {S1.nConstraints, S2.nConstraints} ")
-    
-    in_pair = [('S1', S1), ('S2', S2)]
+        if N != S2.nConstraints:
+            raise AssertionError("Different number of constraints in circuits")
+        
+        in_pair = [('S1', S1), ('S2', S2)]
 
-    groups = constraint_classes(in_pair)
+        mapp = Assignment()
+        assumptions = set([])
+        formula = CNF()
+        ckmapp = Assignment(assignees=3, link = mapp)
 
-    # Early Exiting
-    hash_time = time.time()
-    if timing: print(f"Hashing took: {hash_time - start}")
+        signal_info = None
 
-    for key in list(groups['S1'].keys()) + list(groups['S2'].keys()):
-        try:
-            if len(groups['S1'][key]) != len(groups['S2'][key]):
-                return (False, f"Size of class {key} differs: {len(groups['S1'][key]), len(groups['S2'])}") 
-        except KeyError as e:
-            return (False, f"Circuit missing class {key} :: " + e)
-    
-    if timing: print([len(class_) for class_ in groups["S1"].values()])
+        if info_preprocessing is not None: signal_info = info_preprocessing(in_pair, mapp)
+        info_preprocessing_time = time.time()
 
-    try:
-        solver, assumptions, mapp, cmapp = encoder().get_solver(
-            groups, in_pair, K**2, return_signal_mapping = True, return_constraint_mapping = True, debug = debug
+        clusters = None
+
+        if cons_clustering is not None: clusters = circuit_clusters(in_pair, cons_clustering, calculate_adjacency = True)
+        clustering_time = time.time()
+
+        groups = {name: {"1": circ.constraints} for name, circ in in_pair}
+
+        if cons_grouping is not None: groups = cons_grouping(in_pair, clusters, signal_info, mapp)
+        grouping_time = time.time()
+
+        # groups early exit
+        for key in set(groups["S1"].keys()).union(groups["S2"].keys()):
+            for name, _ in in_pair:
+                if key not in groups[name].keys():
+                    raise AssertionError(f"Group with fingerprint {key} not in circuit {name}")
+            
+            if len(groups["S1"][key]) != len(groups["S2"][key]):
+                raise AssertionError(f"Group with fingerorint {key} has size {len(groups['S1'][key])} in 'S1', and {len(groups['S2'][key])} in 'S2'")
+
+        if cons_preprocessing is not None: 
+            groups, signal_info = cons_preprocessing(
+                in_pair, groups, clusters, mapp, 
+                ckmapp, assumptions, formula, signal_info
+            )
+        cons_preprocessing_time = time.time()
+
+        formula, assumptions = encoder().encode(
+            in_pair, groups, clusters, return_signal_mapping = False, return_constraint_mapping = False, debug = debug,
+            formula = formula, mapp = mapp, ckmapp = ckmapp, assumptions = assumptions, signal_info = signal_info, 
+            **encoder_kwargs
         )
+
+        solver = Solver(name='cadical195', bootstrap_with=formula)
+        encoding_time = time.time()
+
+        result = solver.solve(assumptions)
+        solving_time = time.time()
+
+        test_data["result"] = result
+
+        if result:
+            test_data["result_explanation"] = ""
+        else:
+            test_data["result_explanation"] = "Unsatisfiable"
+        
+        test_data["timing"] = {}
+        for time_title, time_bool, later_time, earlier_time in zip(
+            ["info_preprocessing_time", "clustering_time", "grouping_time", "cons_preprocessing_time", "encoding_time", "solving_time"], 
+            [info_preprocessing, cons_clustering, cons_grouping, cons_preprocessing, True, True],
+            [info_preprocessing_time, clustering_time, grouping_time, cons_preprocessing_time, encoding_time, solving_time], 
+            [start, info_preprocessing_time, clustering_time, grouping_time, cons_preprocessing_time, encoding_time]
+        ):
+            if time_bool is not None:
+                test_data["timing"][time_title] = later_time - earlier_time
+
     except AssertionError as e:
-        return False, e
 
-    encoding_time = time.time()
-    if timing: print(f"encoding took: {encoding_time - hash_time}")
-
-    equal = solver.solve(assumptions)
-
-    solving_time = time.time()
-    if timing: print(f"solving took: {solving_time - encoding_time}")
-
-    if not equal:
-        # print(solver.get_core())
-        # core = solver.get_core()
-        # score = filter(lambda x : 0 < abs(x) < K**2, core)
-        # ccore = filter(lambda x : K**2 < abs(x), core)
-        # print('core_signals', [mapp.get_inv_assignment(abs(x)) for x in score])
-        # print('core_cons', [cmapp.get_inv_assignment(abs(x)) for x in ccore])
-        return False, "SAT solver determined final formula unsatisfiable"
-    else:
-
-        ## For testing
-        assignment = filter(lambda x : 0 < x < K**2, solver.get_model()) ## retains only the assignment choices
-        # cassignment = filter(lambda x : K**2 < x, solver.get_model()) ## retains only the assignment choices
-        assignment = map(
-            lambda x : mapp.get_inv_assignment(x),
-            assignment
-        )
-        # cassignment = map(
-        #     lambda x : cmapp.get_inv_assignment(x),
-        #     cassignment
-        # )
-        # assignment = list(assignment)
-        # cassignment = list(cassignment)
-
-        return True, list(assignment)
+        test_data["result"] = result
+        test_data["result_explanation"] = e
+    
+    return test_data
