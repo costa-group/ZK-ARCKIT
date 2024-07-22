@@ -19,18 +19,49 @@ def internal_consistency(
     assumptions: Set[int],
     signal_info: Dict[str, Dict[int, Set[int]]]
 ) -> None:
-    # internal consistency
-    for (name, _), (oname, _) in zip(in_pair, in_pair[::-1]):
-        for lsignal in signal_info[name].keys():
-            i = name == in_pair[0][0]
+    
+    internally_inconsistent = set([])
 
-            internally_inconsistent = [
+    # if one of Assignment(l, r) has definite Assignment(l, r) the other must too
+    for i, (name, _) in enumerate(in_pair):
+
+        oname = in_pair[1-i][0]
+
+        for lsignal in signal_info[name].keys():
+            if len(signal_info[name][lsignal]) == 1:
+
+                assignment = next(iter(signal_info[name][lsignal]))
+
+                rsignal = mapp.get_inv_assignment(assignment)[1-i]
+
+                internally_inconsistent.update(filter(lambda x : x != assignment, signal_info[oname][rsignal]))
+                signal_info[oname][rsignal].intersection_update(signal_info[name][lsignal])
+
+                if len(signal_info[oname][rsignal]) == 0:
+                    raise AssertionError(f"Signal {rsignal} in circuit {name} has no valid assignment")
+
+    # if only one of Assignment(l, r) has Assignment(l, r) then it's false
+    for i, (name, _) in enumerate(in_pair):
+
+        oname = in_pair[1-i][0]
+        
+        for lsignal in signal_info[name].keys():
+
+            internal_inconsistensies = [
                 var for var in signal_info[name][lsignal]
-                if var not in signal_info[oname][ mapp.get_inv_assignment(var)[i] ]
+                if var not in signal_info[oname][ mapp.get_inv_assignment(var)[1-i] ]
             ]
 
-            assumptions.update(map(lambda x : -x, internally_inconsistent))
-            signal_info[name][lsignal] = signal_info[name][lsignal].difference(internally_inconsistent)
+            internally_inconsistent.update(internal_inconsistensies)
+            signal_info[name][lsignal].difference_update(internal_inconsistensies)
+
+            if len(signal_info[name][lsignal]) == 0:
+                    raise AssertionError(f"Signal {lsignal} in circuit {name} has no valid assignment")
+
+    assumptions.update(map(lambda x : -x, internally_inconsistent))
+    
+    if len(internally_inconsistent) > 0:
+        internal_consistency(in_pair, mapp, formula, assumptions, signal_info)
 
 def natural_signal_encoder(
     in_pair: List[Tuple[str, Circuit]],
