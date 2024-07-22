@@ -11,7 +11,6 @@ from typing import Tuple, List, Callable, Dict, Set, Iterable
 from pysat.formula import CNF
 from pysat.solvers import Solver
 import time
-import json
 
 from comparison.cluster_preprocessing import circuit_clusters
 
@@ -71,11 +70,13 @@ def circuit_equivalence(
         signal_info = None
 
         if info_preprocessing is not None: signal_info = info_preprocessing(in_pair, mapp)
+        if info_preprocessing and debug: print("Finished info preprocessing", end='\r')
         info_preprocessing_time = time.time()
 
         clusters = None
 
         if cons_clustering is not None: clusters = circuit_clusters(in_pair, cons_clustering, calculate_adjacency = True)
+        if cons_clustering and debug: print("Finished circuit clustering", end='\r')
         clustering_time = time.time()
 
         classes = {name: {"1": circ.constraints} for name, circ in in_pair}
@@ -83,6 +84,7 @@ def circuit_equivalence(
         if cons_grouping is not None: 
             classes = cons_grouping(in_pair, clusters, signal_info, mapp)
             test_data["group_sizes"]["initial_sizes"] = count_ints(map(len, classes["S1"].values()))
+            if debug: print("Finished building classes", end='\r')
         grouping_time = time.time()
 
         # classes early exit
@@ -97,9 +99,11 @@ def circuit_equivalence(
         if cons_preprocessing is not None: 
             classes, signal_info = cons_preprocessing(
                 in_pair, classes, clusters, mapp, 
-                ckmapp, assumptions, formula, signal_info
+                ckmapp, assumptions, formula, signal_info,
+                debug = debug
             )
             test_data["group_sizes"]["post_processing"] = count_ints(map(len, classes["S1"].values()))
+            if debug: print("Finished preprocessing constraint classes", end='\r')
         cons_preprocessing_time = time.time()
 
         formula, assumptions, encoded_classes = encoder().encode(
@@ -112,6 +116,7 @@ def circuit_equivalence(
 
         solver = Solver(name='cadical195', bootstrap_with=formula)
         encoding_time = time.time()
+        if debug: print("Finished encoding                                     ", end='\r')
 
         result = solver.solve(assumptions)
         solving_time = time.time()
@@ -134,7 +139,7 @@ def circuit_equivalence(
 
     except AssertionError as e:
 
-        test_data["result"] = result
-        test_data["result_explanation"] = e
+        test_data["result"] = False
+        test_data["result_explanation"] = repr(e)
     
     return test_data

@@ -90,8 +90,8 @@ class OnlineInfoPassEncoder(Encoder):
                 class_, in_pair, mapp, ckmapp, formula, assumptions, signal_info
             )  
         
-        if debug and return_encoded_classes: print("Total Cons Encoded: ", sum(classes_encoded), "                                                             ")
-        if debug and return_encoded_classes: print("Classes Encoded: ", count_ints(classes_encoded))
+        # if debug and return_encoded_classes: print("Total Cons Encoded: ", sum(classes_encoded), "                                                             ")
+        # if debug and return_encoded_classes: print("Classes Encoded: ", count_ints(classes_encoded))
         signal_encoding(in_pair, mapp, formula, assumptions, signal_info)
 
         res = [formula, assumptions]

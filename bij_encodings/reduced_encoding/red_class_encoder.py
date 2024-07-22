@@ -36,9 +36,9 @@ def reduced_encoding_class(
     def extend_options(opset_possibilities, options):
         # take union of all options
         for name, _ in in_pair:
-                for signal in options[name].keys():
-                    opset_possibilities[name][signal] = opset_possibilities[name].setdefault(signal, set([])
-                                                                                ).union(options[name][signal])
+            for signal in options[name].keys():
+                opset_possibilities[name][signal] = opset_possibilities[name].setdefault(signal, set([])
+                                                                            ).union(options[name][signal])
         
         return opset_possibilities
     
@@ -82,8 +82,6 @@ def reduced_encoding_class(
         
         elif len(potential_pairings) == 1:
             ## NOTE: this means that left has only 1 potential right pair, meaning it is that pair (if True)
-            assumptions.add(ijk)
-
             for name, _ in in_pair:
                 for signal in last_options[name].keys():
                     # force signal to be one of the options available
@@ -95,7 +93,9 @@ def reduced_encoding_class(
     for name, _ in in_pair:
         for signal in class_posibilities[name].keys():
 
+            # catches the variables that are now known to be redundant from a potetial_pairings = 1 update
             wrong_rvars = signal_info[name].setdefault(signal, class_posibilities[name][signal]
                                                     ).symmetric_difference(class_posibilities[name][signal])
             assumptions.update(map(lambda x : -x, wrong_rvars))
+
             signal_info[name][signal].intersection_update(class_posibilities[name][signal])

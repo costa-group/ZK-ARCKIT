@@ -17,7 +17,8 @@ class ReducedEncoder(Encoder):
             clusters: Dict[str, Dict[str, Dict[int, Set[int]]]],
             signal_encoding: Callable,
             return_signal_mapping: bool = False,
-            return_constraint_mapping = False, 
+            return_constraint_mapping: bool = False, 
+            return_encoded_classes: bool = False, 
             debug: bool = False,
             formula: CNF = CNF(),
             mapp: Assignment = Assignment(),
@@ -50,4 +51,5 @@ class ReducedEncoder(Encoder):
 
         if return_signal_mapping: res.append(mapp)
         if return_constraint_mapping: res.append(ckmapp)
+        if return_encoded_classes: res.append("See Previous")
         return res
