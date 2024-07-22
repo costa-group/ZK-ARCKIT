@@ -16,109 +16,7 @@ from bij_encodings.assignment import Assignment
 from bij_encodings.single_cons_options import signal_options
 from bij_encodings.batched_info_passing import recluster
 from bij_encodings.reduced_encoding.red_class_encoder import reduced_encoding_class
-
-def singular_class_propagator(
-        in_pair: List[Tuple[str, Circuit]], 
-        l_cons_index: int, r_cons_index: int,
-        mapp: Assignment, cmapp: Assignment,
-        signal_bijection: Dict[str, Dict[int, Set[int]]],
-        assumptions: Set[int],
-        formula: CNF
-):
-    """
-    Modifies mapp, cmapp, assumptions, formula to propagate information about l_cons_index, r_cons_index
-    """
-
-    def assume_signal_bijection(ij: int) -> None:
-    
-        assumptions.add(ij)
-
-        l, r = mapp.get_inv_assignment(ij)
-
-        for k, name in [(l, "S1"), (r, "S2")]:
-
-            if ij in signal_bijection[name].setdefault(k, set([])) or signal_bijection[name][k] == set([]):
-                signal_bijection[name][k] = set([ij])
-            else:
-                raise AssertionError("Contradicting Assumptions")
-
-
-    # get 1st norm of l, norms of r.
-    lcon  = r1cs_norm(in_pair[0][1].constraints[l_cons_index])[0]
-    rcons = r1cs_norm(in_pair[1][1].constraints[r_cons_index])
-
-    possible_k = []
-    k_logic = []
-
-    forced_signals = {
-        name: {}
-        for name, _ in in_pair
-    }
-
-    # check signal_bijection to see any forced decisions about 
-    # IU-II to get info about signals
-    for k, rcon in enumerate(rcons):
-        
-        options = signal_options(lcon, rcon, mapp, assumptions, signal_bijection)
-
-        if any([len(options[name][key]) == 0 for name, _ in in_pair for key in options[name].keys()]):
-            # logic inconsistent -- i.e. signal without consistent matching pair
-            continue
-
-        possible_k.append(cmapp.get_assignment(l_cons_index, r_cons_index, k))
-        logic = []
-        for name, _ in in_pair:
-            logic.extend(map(lambda tup: (name, tup[0], tup[1]),options[name].items()))
-
-            for key in options[name].keys():
-                forced_signals[name][key] = forced_signals[name].setdefault(key, set([])).union(options[name][key])
-        k_logic.append(logic)
-
-    for name, _ in in_pair:
-        for key in filter(lambda k : len(forced_signals[name][k]) == 1, forced_signals[name].keys()):
-            ij = iter(forced_signals[name][key]).__next__()
-            assume_signal_bijection(ij)
-            
-    if len(possible_k) == 0: raise AssertionError("No Valid Mapping means Non-Equivalent Circuits")
-    if len(possible_k) == 1: 
-        
-        # logic is now forced
-        assumptions.update(possible_k)
-
-        # each op is a different signal's options
-        for name, k, op in filter(lambda tup : len(tup[2]) == 1, k_logic[0]): 
-            assume_signal_bijection(list(op)[0])
-
-        for name, k, op in filter(lambda tup : len(tup[2]) > 1, k_logic[0]):
-
-            signal_bijection[name][k] = set(op)
-
-            formula.extend(
-                CardEnc.equals(
-                    lits = signal_bijection[name][k],
-                    bound = 1,
-                    encoding = EncType.pairwise
-                )
-            )   
-
-    if len(possible_k) > 1:
-            # raise NotImplementedError(f"Found constraint pair {l_cons_index}, {r_cons_index} with possible {possible_k}")
-            # NOTE: untested
-
-            # adds formula for 
-            formula.extend(
-                CardEnc.equals(
-                    lits = possible_k,
-                    bound = 1,
-                    encoding=EncType.pairwise
-                )
-            )
-
-            # logic for each individual constraint
-            for i, logic in enumerate(k_logic):
-                formula.extend(map( lambda tup : list(tup[2]) + [-possible_k[i]], logic))
-
-            # signal logic handled later by signal encoder
+from bij_encodings.reduced_encoding.red_pseudoboolean_encoding import internal_consistency
 
 def singular_class_preprocessing(
         in_pair: List[Tuple[str, Circuit]],
@@ -175,7 +73,9 @@ def singular_class_preprocessing(
         #     formula
         # )
     
+    internal_consistency(in_pair, mapp, formula, assumptions, known_signal_mapping)
     nonsingular_class_keys = filter(lambda key: len( classes[in_pair[0][0]][key] ) > 1, classes[in_pair[0][0]].keys())
+    
     if debug: print(f"Reclustering, this is batch {debug_value}                            ", end='\r')
 
     if clusters is None:
