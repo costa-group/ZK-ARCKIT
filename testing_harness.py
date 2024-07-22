@@ -7,21 +7,20 @@ from comparison.compare_circuits import circuit_equivalence
 
 def run_affirmative_test(
         filename: str,
+        out_filename: str,
         seed: int,
         info_preprocessing,
         cons_clustering,
         cons_grouping,
         cons_preprocessing,
         encoder,
+        debug: bool = False,
         **encoder_kwargs
     ):
-    full_filename = "r1cs_files/" + filename + ".r1cs"
 
-    circ, circs = get_circuits(full_filename, seed = seed, 
+    circ, circs = get_circuits(filename, seed = seed, 
         const_factor=True, shuffle_sig=True, shuffle_const=True, 
         return_mapping=False, return_cmapping=False)
-
-    in_pair = [("S1", circ), ("S2", circs)]
 
     start = time.time()
     try:
@@ -32,13 +31,14 @@ def run_affirmative_test(
             cons_grouping,
             cons_preprocessing,
             encoder,
-            debug = False,
+            debug = debug,
             **encoder_kwargs
         )
     except Exception as e:
+        print(e)
         test_data = {
             "result": "Error",
-            "result_explanation": e,
+            "result_explanation": repr(e),
             "timing": {"error_time": time.time() - start}
         }
 
@@ -47,6 +47,6 @@ def run_affirmative_test(
 
     # TODO: check result?
     
-    f = open("test_results/" + filename + ".json", "w")
+    f = open(out_filename, "w")
     json.dump(test_data, f, indent=4)
     f.close()
