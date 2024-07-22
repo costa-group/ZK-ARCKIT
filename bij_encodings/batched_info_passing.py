@@ -139,7 +139,7 @@ def recluster(
             for coni in class_[name]:
                 rehash_keys[name].update(
                     clusters[name]["coni_to_cluster"][coni] if coni in clusters[name]["coni_to_cluster"].keys() else []
-                )
+               )
 
     # need the groups of cluster
     hash_mapp = Assignment(assignees=1)
@@ -152,16 +152,22 @@ def recluster(
 
     def hash_cluster(name: str, circ: Circuit, key: int):
         known_split_cluster_hash = {}
+        old_hash = clusters[name]["clusters_to_hash"][key]
 
         for consi in clusters[name]["clusters"][key]:
-            consi_hash = constraint_to_hash[name].setdefault(
-                consi, hash_mapp.get_assignment(known_split(r1cs_norm(circ.constraints[consi]), name, mapp, signal_info)))
+
+            # refactored to avoid expensive setdefault
+            consi_hash = constraint_to_hash[name].setdefault(consi, None)
+            if consi_hash is None:
+                constraint_to_hash[name][consi] = hash_mapp.get_assignment(known_split(r1cs_norm(circ.constraints[consi]), name, mapp, signal_info))
+                consi_hash = constraint_to_hash[name][consi]
 
             known_split_cluster_hash[consi_hash] = known_split_cluster_hash.setdefault(consi_hash, 0) + 1
-        
-        old_hash = clusters[name]["clusters_to_hash"][key]
+    
+
         cluster_hash_ = f"{cluster_hashmapp.get_assignment(str(sorted(known_split_cluster_hash.items())))}:{old_hash}"
-        
+
+
         return cluster_hash_
 
     for name, circ in in_pair:
@@ -174,10 +180,16 @@ def recluster(
         if clusters[in_pair[0][0]]["adjacency"] != {}:
             for cluster_ind in rehash_keys[name]:
 
-                adj_hashes = sorted([
-                    clusters_to_hash[name].setdefault(adj, hash_cluster(name, circ, adj)) 
-                    for adj in iter(clusters[name]['adjacency'][cluster_ind] if cluster_ind in clusters[name]['adjacency'].keys() else []  )                           
-                ])
+                # refactored since setdefault always evaluates default
+                adjacent = clusters[name]['adjacency'][cluster_ind] if cluster_ind in clusters[name]['adjacency'].keys() else []
+                
+                [clusters_to_hash[name].setdefault(adj, None) for adj in adjacent]
+                
+                for adj in adjacent: 
+                    if clusters_to_hash[name][adj] is None:
+                        clusters_to_hash[name][adj] = hash_cluster(name, circ, adj)
+
+                adj_hashes = sorted([clusters_to_hash[name][adj] for adj in adjacent])
 
                 new_hash_ = re_cluster_hashmapp.get_assignment(f"{clusters_to_hash[name][cluster_ind]}:{adj_hashes}")
 
@@ -193,16 +205,11 @@ def recluster(
         name: {}
         for name, _ in in_pair
     }
-    
+
     for ind, class_ in enumerate(classes):
         for name, _ in in_pair:
             for consi in class_[name]:
                 new_classes[name].setdefault(f"{ind}:{constraint_to_hash[name][consi]}", []).append(consi)
-
-    # print([len(new_classes[name]) for name, _ in in_pair])
-
-    # print([key in new_classes[name] for name, _ in in_pair])
-    
 
     # pass these back to the main function
     return new_classes
