@@ -211,5 +211,29 @@ def recluster(
             for consi in class_[name]:
                 new_classes[name].setdefault(f"{ind}:{constraint_to_hash[name][consi]}", []).append(consi)
 
+    # debugging errors
+    # differences = set(new_classes["S1"].keys()).symmetric_difference(new_classes["S2"].keys())
+
+    # if len(differences) > 1:
+    #     print(list(map(len, new_classes.values())))
+
+    #     for i, (name, _) in enumerate(in_pair):
+    #         oname = in_pair[1 - i][0]
+    #         for lvar in signal_info[name].keys():
+    #             if len(signal_info[name][lvar]) == 1:
+    #                 nset = next(iter(signal_info[name][lvar]))
+
+    #                 rvar = mapp.get_inv_assignment(nset)[1-i]
+
+    #                 if signal_info[oname][rvar] != signal_info[name][lvar]:
+    #                     print(name, (lvar, rvar), signal_info[name][lvar], signal_info[oname][rvar])
+        
+    #     key_to_names = {"10": [], "01": [], "11":[]}
+    #     for key in set(new_classes["S1"].keys()).union(new_classes["S2"].keys()):
+    #         hash_ = f"{int(key in new_classes['S1'].keys())}{int(key in new_classes['S2'].keys())}"
+    #         key_to_names[hash_].append(key)
+        
+    #     print(key_to_names)
+
     # pass these back to the main function
     return new_classes
