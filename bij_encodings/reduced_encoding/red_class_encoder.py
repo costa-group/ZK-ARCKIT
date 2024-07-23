@@ -27,11 +27,28 @@ def reduced_encoding_class(
     left_normed = list(map(lambda coni : r1cs_norm(in_pair[0][1].constraints[coni])[0],  class_[in_pair[0][0]]))
 
     right_normed = list(map(lambda coni: r1cs_norm(in_pair[1][1].constraints[coni]), class_[in_pair[1][0]]))
-    
+
     class_posibilities = {
         name: {}
         for name, _ in in_pair
     }
+
+    pipe = []
+    def apply_intersection(i, name, signal, intersect_set):
+        if signal_info[name].setdefault(signal, None) is None:
+            signal_info[name][signal] = intersect_set
+        else:
+            leftovers = signal_info[name][signal].symmetric_difference(intersect_set)
+
+            pipe.extend(map(
+                lambda ass : (1-i, mapp.get_inv_assignment(ass)[1-i]),
+                leftovers)
+            )
+
+            assumptions.update(map(lambda x : -x, leftovers))
+            signal_info[name][signal].intersection_update(intersect_set)
+    
+
 
     def extend_options(opset_possibilities, options):
         # take union of all options
@@ -82,20 +99,45 @@ def reduced_encoding_class(
         
         elif len(potential_pairings) == 1:
             ## NOTE: this means that left has only 1 potential right pair, meaning it is that pair (if True)
-            for name, _ in in_pair:
+            for i, (name, _) in enumerate(in_pair):
                 for signal in last_options[name].keys():
                     # force signal to be one of the options available
-                    signal_info[name].setdefault(signal, last_options[name][signal]).intersection_update(last_options[name][signal])
-    
+                    apply_intersection(i, name, signal, last_options[name][signal])
         formula.append(potential_pairings)
     
     # intersection accross classes
-    for name, _ in in_pair:
+    for i, (name, _) in enumerate(in_pair):
         for signal in class_posibilities[name].keys():
+            apply_intersection(i, name, signal, class_posibilities[name][signal])
+    
+    pipe.extend([(i, key) for i in range(2) for key in class_posibilities[in_pair[i][0]].keys()])
 
-            # catches the variables that are now known to be redundant from a potetial_pairings = 1 update
-            wrong_rvars = signal_info[name].setdefault(signal, class_posibilities[name][signal]
-                                                    ).symmetric_difference(class_posibilities[name][signal])
-            assumptions.update(map(lambda x : -x, wrong_rvars))
+    while len(pipe) > 0:
 
-            signal_info[name][signal].intersection_update(class_posibilities[name][signal])
+        i, value = pipe.pop()
+
+        # name, signal type value
+        name, oname = in_pair[i][0], in_pair[1-i][0]
+
+        # if the other signal doesn't have the value then it isn't a valid assignment
+        inconsistent_assignments = [
+            ass for ass in signal_info[name][value]
+            if ass not in signal_info[oname][mapp.get_inv_assignment(ass)[1-i]]
+        ]
+        assumptions.update(map(lambda x : -x, inconsistent_assignments))
+
+        signal_info[name][value].difference_update(inconsistent_assignments)
+
+        if len(signal_info[name][value]) == 0:
+            raise AssertionError(f"Found signal {name, value} with no mapping after removing {inconsistent_assignments}")
+        elif len(signal_info[name][value]) == 1:
+            # if there is only 1 value, then that is a 'correct' assignment
+
+            ass = next(iter(signal_info[name][value]))
+            osignal = mapp.get_inv_assignment(ass)[1-i]
+
+            pipe.extend(
+                map(lambda x : (i, mapp.get_inv_assignment(x)[i]), 
+                filter(lambda x : x != ass, signal_info[oname][osignal]))
+            )
+            signal_info[oname][osignal] = set([ass])
