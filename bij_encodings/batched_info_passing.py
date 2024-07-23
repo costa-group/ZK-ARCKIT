@@ -6,8 +6,6 @@ from bij_encodings.assignment import Assignment
 from bij_encodings.encoder import Encoder
 from bij_encodings.online_info_passing import count_ints
 
-from bij_encodings.reduced_encoding.red_natural_encoding import internal_consistency
-
 from r1cs_scripts.circuit_representation import Circuit
 
 from comparison.constraint_preprocessing import known_split
@@ -81,7 +79,8 @@ class BatchedInfoPassEncoder(Encoder):
 
                 class_encoding(class_, in_pair, mapp, ckmapp, formula, assumptions, signal_info)
 
-            internal_consistency(in_pair, mapp, formula, assumptions, signal_info)
+            # consistency updates now to be done in class encoder (less checks required)
+            # internal_consistency(in_pair, mapp, formula, assumptions, signal_info)
 
             if debug: print(f"Reclustering {len(classes[in_pair[0][0]].values())} classes, this is batch {k}                  ", end="\r")
 

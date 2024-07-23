@@ -16,7 +16,7 @@ def pseudoboolean_signal_encoder(
     signal_info: Dict[str, Dict[int, Set[int]]]
 ) -> None:
     
-    internal_consistency(in_pair, mapp, formula, assumptions, signal_info)
+    # internal_consistency(in_pair, mapp, formula, assumptions, signal_info)
 
     sign = lambda x: -1 if x < 0 else 1
 

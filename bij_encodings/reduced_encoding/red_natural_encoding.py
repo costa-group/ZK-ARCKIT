@@ -20,7 +20,7 @@ def internal_consistency(
     signal_info: Dict[str, Dict[int, Set[int]]]
 ) -> None:
     
-    internally_inconsistent = set([])
+    # internally_inconsistent = set([])
 
     # if one of Assignment(l, r) has definite Assignment(l, r) the other must too
     for i, (name, _) in enumerate(in_pair):
@@ -71,7 +71,7 @@ def natural_signal_encoder(
     signal_info: Dict[str, Dict[int, Set[int]]]
 ) -> None:
 
-    internal_consistency(in_pair, mapp, formula, assumptions, signal_info)
+    # internal_consistency(in_pair, mapp, formula, assumptions, signal_info)
 
     for name, _ in in_pair:
 

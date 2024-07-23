@@ -73,7 +73,8 @@ def singular_class_preprocessing(
         #     formula
         # )
     
-    internal_consistency(in_pair, mapp, formula, assumptions, known_signal_mapping)
+    # internal consistency now down inside reduced_encoding_class
+    # internal_consistency(in_pair, mapp, formula, assumptions, known_signal_mapping)
     nonsingular_class_keys = filter(lambda key: len( classes[in_pair[0][0]][key] ) > 1, classes[in_pair[0][0]].keys())
     
     if debug: print(f"Reclustering, this is batch {debug_value}                            ", end='\r')
