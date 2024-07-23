@@ -108,32 +108,54 @@ def getvars(con: Constraint) -> set:
     return set(con.A.keys()).union(con.B.keys()).union(con.C.keys()).difference(set([0]))
     
 if __name__ == '__main__':
-    files = ["Poseidon", "Reveal", "Biomebase", "Move"]
-    optimisation = "O0"
+    pass
 
-    encoders = [OnlineInfoPassEncoder]
-    encoder_names = ["online_info"]
+    # circ, circs = get_circuits(
+    #     "r1cs_files/test_ecdsaO0.r1cs", seed=56, return_mapping=False
+    # )
 
-    RNG = np.random.default_rng(seed = 42)
+    # start = time.time()
 
-    for file in files:
-        for encoder, encoder_name in zip(encoders, encoder_names):
-            seed = int(RNG.integers(low = 1, high = 25565))
+    # in_pair = list(zip(["S1", "S2"], [circ, circs]))
+    # mapp = Assignment()
+    # assumptions = set([])
+    # formula = CNF()
+    # ckmapp = Assignment(assignees=3, link = mapp)
+    # signal_info = None
 
-            print("Testing: ", file + optimisation, encoder_name, "seed = ", seed)
-            run_affirmative_test(
-                "r1cs_files/" + file + optimisation + ".r1cs",
-                "test_results/" + encoder_name + "/" + file + optimisation + ".json",
-                seed,
-                None,
-                naive_removal_clustering,
-                groups_from_clusters,
-                None,
-                encoder,
-                class_encoding = reduced_encoding_class,
-                signal_encoding = pseudoboolean_signal_encoder,
-                debug=True
-            )
+    # clusters = circuit_clusters(in_pair, naive_removal_clustering, calculate_adjacency = True)
+    # classes = groups_from_clusters(in_pair, clusters, signal_info, mapp)
+
+    # setup = time.time()
+    # print("setup time: ",setup - start)
+
+    # files = ["Poseidon", "Reveal", "Biomebase", "Move"]
+    # files = ["test_ecdsa", "test_ecdsa_verify"]
+    # optimisation = "O0"
+
+    # encoders = [OnlineInfoPassEncoder, BatchedInfoPassEncoder]
+    # encoder_names = ["online_info", "batched_info"]
+
+    # RNG = np.random.default_rng(seed = 42)
+
+    # for file in files:
+    #     for encoder, encoder_name in zip(encoders, encoder_names):
+    #         seed = int(RNG.integers(low = 1, high = 25565))
+
+    #         print("Testing: ", file + optimisation, encoder_name, "seed = ", seed)
+    #         run_affirmative_test(
+    #             "r1cs_files/" + file + optimisation + ".r1cs",
+    #             "test_results/" + encoder_name + "/" + file + optimisation + ".json",
+    #             seed,
+    #             None,
+    #             naive_removal_clustering,
+    #             groups_from_clusters,
+    #             None,
+    #             encoder,
+    #             class_encoding = reduced_encoding_class,
+    #             signal_encoding = pseudoboolean_signal_encoder,
+    #             debug=True
+    #         )
 
 
 
