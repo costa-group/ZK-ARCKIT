@@ -9,6 +9,7 @@ import itertools
 from r1cs_scripts.circuit_representation import Circuit
 from bij_encodings.assignment import Assignment
 from bij_encodings.single_cons_options import signal_options
+from bij_encodings.internal_consistency import internal_consistency
 from normalisation import r1cs_norm
 
 def reduced_encoding_class(
@@ -112,32 +113,4 @@ def reduced_encoding_class(
     
     pipe.extend([(i, key) for i in range(2) for key in class_posibilities[in_pair[i][0]].keys()])
 
-    while len(pipe) > 0:
-
-        i, value = pipe.pop()
-
-        # name, signal type value
-        name, oname = in_pair[i][0], in_pair[1-i][0]
-
-        # if the other signal doesn't have the value then it isn't a valid assignment
-        inconsistent_assignments = [
-            ass for ass in signal_info[name][value]
-            if ass not in signal_info[oname][mapp.get_inv_assignment(ass)[1-i]]
-        ]
-        assumptions.update(map(lambda x : -x, inconsistent_assignments))
-
-        signal_info[name][value].difference_update(inconsistent_assignments)
-
-        if len(signal_info[name][value]) == 0:
-            raise AssertionError(f"Found signal {name, value} with no mapping after removing {inconsistent_assignments}")
-        elif len(signal_info[name][value]) == 1:
-            # if there is only 1 value, then that is a 'correct' assignment
-
-            ass = next(iter(signal_info[name][value]))
-            osignal = mapp.get_inv_assignment(ass)[1-i]
-
-            pipe.extend(
-                map(lambda x : (i, mapp.get_inv_assignment(x)[i]), 
-                filter(lambda x : x != ass, signal_info[oname][osignal]))
-            )
-            signal_info[oname][osignal] = set([ass])
+    internal_consistency(in_pair, mapp, assumptions, signal_info, pipe)

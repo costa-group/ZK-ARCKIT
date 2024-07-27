@@ -16,7 +16,6 @@ from bij_encodings.assignment import Assignment
 from bij_encodings.single_cons_options import signal_options
 from bij_encodings.batched_info_passing import recluster
 from bij_encodings.reduced_encoding.red_class_encoder import reduced_encoding_class
-from bij_encodings.reduced_encoding.red_pseudoboolean_encoding import internal_consistency
 
 def singular_class_preprocessing(
         in_pair: List[Tuple[str, Circuit]],

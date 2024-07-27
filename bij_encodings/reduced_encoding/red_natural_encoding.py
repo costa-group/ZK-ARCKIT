@@ -12,57 +12,6 @@ from bij_encodings.assignment import Assignment
 from bij_encodings.reduced_encoding.red_class_encoder import reduced_encoding_class
 from r1cs_scripts.circuit_representation import Circuit
 
-def internal_consistency(
-    in_pair: List[Tuple[str, Circuit]],
-    mapp: Assignment,
-    formula: CNF,
-    assumptions: Set[int],
-    signal_info: Dict[str, Dict[int, Set[int]]]
-) -> None:
-    
-    # internally_inconsistent = set([])
-
-    # if one of Assignment(l, r) has definite Assignment(l, r) the other must too
-    for i, (name, _) in enumerate(in_pair):
-
-        oname = in_pair[1-i][0]
-
-        for lsignal in signal_info[name].keys():
-            if len(signal_info[name][lsignal]) == 1:
-
-                assignment = next(iter(signal_info[name][lsignal]))
-
-                rsignal = mapp.get_inv_assignment(assignment)[1-i]
-
-                internally_inconsistent.update(filter(lambda x : x != assignment, signal_info[oname][rsignal]))
-                signal_info[oname][rsignal].intersection_update(signal_info[name][lsignal])
-
-                if len(signal_info[oname][rsignal]) == 0:
-                    raise AssertionError(f"Signal {rsignal} in circuit {name} has no valid assignment")
-
-    # if only one of Assignment(l, r) has Assignment(l, r) then it's false
-    for i, (name, _) in enumerate(in_pair):
-
-        oname = in_pair[1-i][0]
-        
-        for lsignal in signal_info[name].keys():
-
-            internal_inconsistensies = [
-                var for var in signal_info[name][lsignal]
-                if var not in signal_info[oname][ mapp.get_inv_assignment(var)[1-i] ]
-            ]
-
-            internally_inconsistent.update(internal_inconsistensies)
-            signal_info[name][lsignal].difference_update(internal_inconsistensies)
-
-            if len(signal_info[name][lsignal]) == 0:
-                    raise AssertionError(f"Signal {lsignal} in circuit {name} has no valid assignment")
-
-    assumptions.update(map(lambda x : -x, internally_inconsistent))
-    
-    if len(internally_inconsistent) > 0:
-        internal_consistency(in_pair, mapp, formula, assumptions, signal_info)
-
 def natural_signal_encoder(
     in_pair: List[Tuple[str, Circuit]],
     mapp: Assignment,
@@ -70,8 +19,6 @@ def natural_signal_encoder(
     assumptions: Set[int],
     signal_info: Dict[str, Dict[int, Set[int]]]
 ) -> None:
-
-    # internal_consistency(in_pair, mapp, formula, assumptions, signal_info)
 
     for name, _ in in_pair:
 
