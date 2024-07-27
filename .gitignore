@@ -10,17 +10,20 @@
 !bij_encodings/reduced_encoding
 !bij_encodings/reduced_encoding/*.py
 
-!bij_encodings/cons_propagator
-!bij_encodings/cons_propagator/*.py
-
 !structural_analysis
 !structural_analysis/*.py
 
 !structural_analysis/graph_clustering
 !structural_analysis/graph_clustering/*.py
 
-!minizinc
-!minizinc/*.mzn
+!deprecated
+!deprecated/*
+
+!deprecated/minizinc
+!deprecated/minizinc/*.mzn
+
+!deprecated/cons_propagator
+!deprecated/cons_propagator/*.py
 
 !comparison
 !comparison/*.py
