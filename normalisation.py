@@ -156,8 +156,10 @@ def r1cs_norm(C: Constraint) -> List[Constraint]:
             p = C.p
         )
         ## sorting
-        for dict_ in [res.A, res.B, res.C]:
-            dict_ = {key: dict_[key] for key in sorted(dict_.keys(), key = lambda x : dict_[x])}
+        
+        res.A = {key: res.A[key] for key in sorted(res.A.keys(), key = lambda x : res.A[x])}
+        res.B = {key: res.B[key] for key in sorted(res.B.keys(), key = lambda x : res.B[x])}
+        res.C = {key: res.C[key] for key in sorted(res.C.keys(), key = lambda x : res.C[x])}
         
         return res
 

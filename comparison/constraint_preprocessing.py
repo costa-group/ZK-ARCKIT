@@ -71,7 +71,7 @@ def hash_constraint(cons: Constraint, name: str = None, mapp: Assignment = None,
         return str(norms)
     
     def return_coefs(cons):
-        return list(cons.A.values()) + list(cons.B.values()) + list(cons.C.values())
+        return list(cons.A.values()) + [-1] + list(cons.B.values()) + [-1] + list(cons.C.values())
 
     norms = r1cs_norm(cons)
     if len(norms) > 1: norms = sorted(norms, key = return_coefs) ## need canonical order for returned normed constraints
