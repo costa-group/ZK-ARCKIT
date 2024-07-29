@@ -43,6 +43,15 @@ def signal_options(C1: Constraint, C2: Constraint, mapp: Assignment,
                     continue
                 inv[i][j].setdefault(dict_[key], set([])).add(key)
                 app[i].setdefault(key, []).append( j )
+    
+    for j in range(3):
+        if len( set(inv[0][j].keys()).symmetric_difference(inv[1][j].keys()) ) != 0:
+            # These are not equivalent constraints, hence the option is inviable
+
+            return {
+                name: {signal: set([]) for signal in allkeys[i]}
+                for i, name in enumerate(["S1", "S2"])
+            }
 
     # TODO: update so it's not in two steps
     def get_options_set(name, i, key, update):
