@@ -7,7 +7,7 @@ Here we define a constraint abstractly as an ordered list of coefficients, integ
 
 @author: Alejandro
 """
-from r1cs_scripts.modular_operations import divideP
+from r1cs_scripts.modular_operations import divideP, multiplyP
 from r1cs_scripts.constraint import Constraint
 
 import numpy as np
@@ -137,7 +137,7 @@ def r1cs_norm_choices(C: Constraint) -> List[Tuple[int, int]]:
             choices += list(product([(0, 0)], divisionNorm(list(C.C.values()), C.p, early_exit = True, select = True)))
         else:
             # normalise by quadratic term if no constant factor
-            choices += list(zip(choices_AB, [a * b for a, b in choices_AB]))
+            choices += list(zip(choices_AB, [multiplyP(a, b, C.p) for a, b in choices_AB]))
     
     return choices
     
