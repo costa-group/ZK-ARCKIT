@@ -1,5 +1,9 @@
 """
+TODO: overhaul
 
+Currently deprecated due to codebase changes since last update. 
+Would need to be a notable faster encode than previous version, 
+    seems unikely given it opens with a class encoding, the most time consuming part
 """
 
 import sys
@@ -10,8 +14,6 @@ from typing import Dict
 from r1cs_scripts.circuit_representation import Circuit
 from r1cs_scripts.constraint import Constraint
 from bij_encodings.assignment import Assignment
-from bij_encodings.IU_II import intra_union_inter_intersection
-from compare_circuits import get_classes, hash_constraint
 from normalisation import r1cs_norm
 
 def _classes_string(classes) -> str:
