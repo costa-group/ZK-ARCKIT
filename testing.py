@@ -5,7 +5,9 @@ from pysat.solvers import Solver
 import pysat as ps
 import time 
 import numpy as np
+import json
 from functools import reduce
+from itertools import product
 
 from comparison.compare_circuits import circuit_equivalence
 from comparison_testing import get_circuits, shuffle_constraints
@@ -26,7 +28,7 @@ from structural_analysis.graph_clustering.degree_clustering import twice_average
 from structural_analysis.graph_clustering.signal_equivalence_clustering import naive_removal_clustering, is_signal_equivalence_constraint
 from structural_analysis.graph_clustering.clustering_from_list import cluster_from_list
 from comparison.static_distance_preprocessing import distances_to_static_preprocessing
-from testing_harness import run_affirmative_test
+from testing_harness import run_affirmative_test, run_current_best_test
 from normalisation import r1cs_norm
 import itertools
 
@@ -108,7 +110,98 @@ def getvars(con: Constraint) -> set:
     return set(con.A.keys()).union(con.B.keys()).union(con.C.keys()).difference(set([0]))
     
 if __name__ == '__main__':
-    pass
+
+    # dir, compiler = "smtprocessor10_test", "O2"
+
+    # f1 = "../r1cs_circomlib_tests/" + dir + "/" + dir + "_" + compiler + "_.r1cs"
+    # f2 = "../r1cs_circomlib_tests/" + dir + "/" + dir + "_buses_" + compiler + ".r1cs"
+
+    # run_current_best_test(
+    #     f1, f2, "test.json", compiler
+    # )
+
+    # circ, circs = Circuit(), Circuit()
+
+    # parse_r1cs(f1, circ)
+    # parse_r1cs(f2, circs)
+
+    # in_pair = [("S1", circ), ("S2", circs)]
+
+    # mapp = Assignment()
+
+
+    # clusters = 
+    # groups = groups_from_clusters(in_pair, clusters, None, mapp)
+
+    
+    # tests_list_file = "../r1cs_circomlib_tests/_filenames.txt"
+    # f = open(tests_list_file, "r")
+    # tests = map(lambda st : st[:-1], f.readlines())
+    # f.close()
+
+    tests = ["smtprocessor3_test"]
+    compilers = ["O0", "O1", "O2"]
+
+    summary = {
+        True: [],
+        False: {}
+    }
+
+    for dir, compiler in product(tests, compilers):
+
+        try:
+
+            # f = open("test_results/update_tests/" + dir + "_" + compiler + ".json", "r")
+            # data = json.load(f)
+            # f.close()
+
+            # if data["result"]:
+
+            #     summary[data["result"]].append(f"{dir}_{compiler}")
+            # else:
+            #     summary[data["result"]][f"{dir}_{compiler}"] = data["result_explanation"]
+
+            print(f"############## TESTING {dir} {compiler} #################")
+            run_current_best_test(
+                "../r1cs_circomlib_tests/" + dir + "/" + dir + "_" + compiler + "_.r1cs",
+                "../r1cs_circomlib_tests/" + dir + "/" + dir + "_buses_" + compiler + ".r1cs",
+                "test_results/update_tests/" + dir + "_" + compiler + ".json",
+                compiler
+            )
+
+        except FileNotFoundError as e:
+            print(repr(e))
+            continue
+
+    # f = open("test_results/update_tests/_summary.json", "w")
+    # json.dump(summary, f, indent=4)
+    # f.close()
+
+    # dir, compiler = "babypbk_test", "O2"
+
+    # run_current_best_test(
+    #             "../r1cs_circomlib_tests/" + dir + "/" + dir + "_" + compiler + "_.r1cs",
+    #             "../r1cs_circomlib_tests/" + dir + "/" + dir + "_buses_" + compiler + ".r1cs",
+    #             "test_results/update_tests/" + dir + "_" + compiler + ".json",
+    #             compiler
+    #         )
+
+
+    
+
+    # circ, circs = get_circuits(
+    #     "r1cs_files/RevealO0.r1cs", seed=56, return_mapping=False
+    # )
+
+    # circuit_equivalence(circ, circs,
+    #             None,
+    #             naive_removal_clustering,
+    #             groups_from_clusters,
+    #             None,
+    #             OnlineInfoPassEncoder,
+    #             class_encoding = reduced_encoding_class,
+    #             signal_encoding = pseudoboolean_signal_encoder,
+    #             debug=True)
 
     # circ, circs = get_circuits(
     #     "r1cs_files/test_ecdsaO0.r1cs", seed=56, return_mapping=False
@@ -129,13 +222,28 @@ if __name__ == '__main__':
     # setup = time.time()
     # print("setup time: ",setup - start)
 
+    # directories = ["batched_info", "online_info"]
     # files = ["Poseidon", "Reveal", "Biomebase", "Move"]
-    # files = ["test_ecdsa", "test_ecdsa_verify"]
-    # optimisation = "O0"
+    # compilers = ["O0", "O1"]
+
+    # for dir, file, com in itertools.product(directories, files, compilers):
+    #     f = open("test_results/"+dir + "/" + file + com + ".json", "rb")
+    #     result = json.load(f)
+    #     f.close()
+
+    #     for key in result["group_sizes"]:
+    #         comparisons = sum(map(lambda tup : tup[0] ** 2 * tup[1], result["group_sizes"][key]))
+    #         print(dir, file, com, key, "num of comparison: ", comparisons, np.log10(comparisons))
+
+
+    # files = ["Poseidon", "Reveal", "Biomebase", "Move"]
+    # # files = ["test_ecdsa", "test_ecdsa_verify"]
+    # optimisation = "O1"
 
     # encoders = [OnlineInfoPassEncoder, BatchedInfoPassEncoder]
     # encoder_names = ["online_info", "batched_info"]
 
+    # # was 56
     # RNG = np.random.default_rng(seed = 42)
 
     # for file in files:
@@ -148,7 +256,7 @@ if __name__ == '__main__':
     #             "test_results/" + encoder_name + "/" + file + optimisation + ".json",
     #             seed,
     #             None,
-    #             naive_removal_clustering,
+    #             twice_average_degree,
     #             groups_from_clusters,
     #             None,
     #             encoder,
