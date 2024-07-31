@@ -55,10 +55,10 @@ def circuit_equivalence(
         K = S1.nWires
 
         if K != S2.nWires:
-            raise AssertionError("Different number of wires in circuits")
+            raise AssertionError(f"Different number of wires in circuits: S1 has {S1.nWires}, S2 has {S2.nWires}")
 
         if N != S2.nConstraints:
-            raise AssertionError("Different number of constraints in circuits")
+            raise AssertionError(f"Different number of constraints in circuits: S1 has {S1.nConstraints}, S2 has {S2.nConstraints}")
         
         in_pair = [('S1', S1), ('S2', S2)]
 
@@ -91,10 +91,10 @@ def circuit_equivalence(
         for key in set(classes["S1"].keys()).union(classes["S2"].keys()):
             for name, _ in in_pair:
                 if key not in classes[name].keys():
-                    raise AssertionError(f"Group with fingerprint {key} not in circuit {name}")
+                    raise AssertionError(f"EE: Group with fingerprint {key} not in circuit {name}")
             
             if len(classes["S1"][key]) != len(classes["S2"][key]):
-                raise AssertionError(f"Group with fingerorint {key} has size {len(classes['S1'][key])} in 'S1', and {len(classes['S2'][key])} in 'S2'")
+                raise AssertionError(f"EE: Group with fingerprint {key} has size {len(classes['S1'][key])} in 'S1', and {len(classes['S2'][key])} in 'S2'")
 
         if cons_preprocessing is not None: 
             classes, signal_info = cons_preprocessing(
