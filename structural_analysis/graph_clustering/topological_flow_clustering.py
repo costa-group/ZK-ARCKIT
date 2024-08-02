@@ -49,49 +49,148 @@ This one deals with the order somewhat but at a skim read seems too slow
 
 https://www.grad.hr/crocodays/proc_ccd2/antunovic_final.pdf
 
+    TODO: implement above algorithm to test speed at larger instances to see if advanced version (order accounting ver) 
+        is worth it to implement to test
+
+-----------------------------------------------------------------------------------------------------------------------------------
+    Important Discovery: O1 circuits can be disconnected. RevealO1 has 27 connected components.
+
+    How do we deal with this? We can s
 
 """
-from typing import Iterable, List
-
+from typing import List, Set
+from functools import reduce
+from collections import deque
+import itertools
 
 from r1cs_scripts.circuit_representation import Circuit
+from r1cs_scripts.constraint import Constraint
 
-def constraint_dag(C: Circuit):
+from comparison.static_distance_preprocessing import _distances_to_signal_set
+
+from structural_analysis.graph_clustering.degree_clustering import _signal_data_from_cons_list
+
+def getvars(con: Constraint) -> set:
+    return set(con.A.keys()).union(con.B.keys()).union(con.C.keys()).difference(set([0]))
+    
+
+def constraint_topological_order(circ: Circuit):
     """
-    turns a circuit into a networkx directed acyclic graph
+    given a circuit, returns a topological order and in and out neighbourhoods for each vertex
 
-    NOTE:
-        -- historical use of nx for this makes it really slow...
-        -- can I do the calculations that avoid nx entirely
+    NOTE: 
+        in and out neighbours will be the same for equivalent circuits
+        topological order will be a valid topological order for the DAG defined by the previous but is not consistent
+    
+    TODO:
+        how to deal with extra disconnected chunks -- waiting on team to tell me if they will be removed in updates to circom
     """
 
-def dag_community_detection(circ: Circuit, topological_order: List[int], in_neighbours: List[List[int]], out_neighbours: List[List[int]]):
+    _, signal_to_coni = _signal_data_from_cons_list(circ.constraints)
+
+    # outputs = range(1, circ.nPubOut+1)
+    # distances_to_output = _distances_to_signal_set(circ.constraints, outputs, signal_to_coni)
+
+    inputs = range(circ.nPubOut+1, circ.nPubOut + circ.nPrvIn + circ.nPubIn + 1)
+    distances_to_input = _distances_to_signal_set(circ.constraints, inputs, signal_to_coni)
+
+    # get distances, to give each constraint a pair (l, r)
+    #   l is the min distance a signal in the constraint has to an input...
+    #   r is the max distance a signal in the constraint has to an input... ( what about distance to output? Think about ordering )
+
+    # TODO: think about more complex layer fingerprints here based on all distances in getvars and outputs
+
+    coni_to_distances = [
+        (min(tup[0]), max(tup[1]))
+        for tup in map(
+            lambda coni : itertools.tee(map(lambda sig : distances_to_input[sig], getvars(circ.constraints[coni]))), 
+            range(circ.nConstraints)
+        )
+    ]
+
+    ## With a strict layering order we keep any edges between constraints of different layers
+    in_neighbours = [set([]) for _ in range(circ.nConstraints)]
+    out_neighbours = [set([]) for _ in range(circ.nConstraints)]
+
+    topological_order = sorted(range(circ.nConstraints),key = lambda coni: coni_to_distances[coni], reverse=True)
+
+    for coni in topological_order:
+
+        adjacent_coni = reduce(
+            lambda acc, x: acc.union(signal_to_coni[x]),
+            getvars(circ.constraints[coni]),
+            set([])
+        )
+
+        is_strictly_higher = lambda oconi : coni_to_distances[oconi] > coni_to_distances[coni]
+        is_strictly_lower = lambda oconi : coni_to_distances[oconi] < coni_to_distances[coni]
+
+        in_neighbours[coni] = set(filter(is_strictly_higher, adjacent_coni))
+        out_neighbours[coni] = set(filter(is_strictly_lower, adjacent_coni))
+
+    return topological_order, in_neighbours, out_neighbours
+
+
+def dag_community_detection(circ: Circuit, topological_order: List[int], in_neighbours: List[Set[int]], out_neighbours: List[Set[int]]):
     """
     Algorithm takes O(nm) time
-    Algorithm (hopefully) takes O(n^2) memory
+    Algorithm takes O(n) memory + requires O(n + m) memory
     """
 
-    # initial labels for all constraints
+    # num_edges
+    m = sum(map(lambda x : len(x), in_neighbours))
 
     # coni_to_label[k][coni] = label of coni for optimal k
-    coni_to_label = [[None for _ in range(circ.nConstraints)]]
-    for i in range(len(topological_order)): coni_to_label[0][topological_order[i]] = i
+    coni_to_order = [None for _ in range(circ.nConstraints)]
+    for i in range(len(topological_order)): coni_to_order[topological_order[i]] = i
 
-    for coni in range(circ.nConstraints-1, -1, -1):
-        pass
+    clusters = [0]
 
-        # the calculation at every step is really whether the delta Q is better if the 
-        #   "next" went in it's own thing or went up to all the previous
-        #   can we improve this?
+    while clusters[-1] < circ.nConstraints-1:
 
-        # each include/exclude decision is purely made on a binary yes/no
-            # each include of a vertex u in the neighbourhood of i add 1/m
-            # each include of a vertex u adds [ out(i) * in(u) + in(i) * out(u) ] / m^2
-                #i.e. it's m > out(i) * in_sum(u) + in(i) * out_sum(u)
-                # otherwise its solo.
+        coni = topological_order[ clusters[-1] ]
         
-        # so really, we should do a memo array.
-            # but clearly this is order dependent... so it doesn't matter.
+        eligible_neighbours = in_neighbours[coni].union(out_neighbours[coni]
+                                                ).intersection(topological_order[coni_to_order[coni]:])
+        
+        ## no valid future guess
+        if len(eligible_neighbours) == 0:
+            clusters.append(clusters[-1]+1)
+            continue
+        
+        ordered_neighbours = sorted(eligible_neighbours, key = lambda x : coni_to_order[x])
+
+        current_best = 0
+        current_best_stop = None
+
+        running_count = 0
+        prev = coni_to_order[coni]
+
+        in_coni = len(in_neighbours[coni])
+        out_coni = len(out_neighbours[coni])
+
+        for neighbour in ordered_neighbours:
+
+            running_count += m
+            running_count -= in_coni * sum([
+                len(out_neighbours[topological_order[ord_]])
+                for ord_ in range(prev + 1, coni_to_order[neighbour]+ 1)
+            ])
+            running_count -= out_coni * sum([
+                len(in_neighbours[topological_order[ord_]])
+                for ord_ in range(prev + 1, coni_to_order[neighbour]+ 1)
+            ])
+
+            if running_count > current_best:
+                current_best = running_count
+                current_best_stop = neighbour
+        
+        if current_best_stop is None:
+            clusters.append(clusters[-1]+1)
+        else:
+            clusters.append(coni_to_order[current_best_stop]+1)
+
+    return clusters
 
 
 
