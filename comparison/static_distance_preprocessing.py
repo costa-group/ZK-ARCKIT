@@ -1,5 +1,6 @@
 from typing import List, Tuple, Dict, Set
 from collections import deque
+from functools import reduce
 
 from r1cs_scripts.circuit_representation import Circuit
 from r1cs_scripts.constraint import Constraint
@@ -8,6 +9,39 @@ from structural_analysis.graph_clustering.degree_clustering import _signal_data_
 
 def getvars(con: Constraint) -> set:
     return set(con.A.keys()).union(con.B.keys()).union(con.C.keys()).difference(set([0]))
+
+def _distances_to_signal_set(cons: List[Circuit], source_set: Set[int], signal_to_conis = None):
+    # just BFS
+
+    if signal_to_conis is None: _, signal_to_conis = _signal_data_from_cons_list(cons)
+    
+    distances = {sig: 0 for sig in source_set}
+    checked = {sig: True for sig in source_set}
+
+    queue = deque(source_set)
+
+    while len(queue) > 0:
+        
+        sig = queue.popleft()
+
+        adjacent = filter(
+            lambda sig : not checked.setdefault(sig, False),
+            reduce(
+                lambda acc, x : acc.union(x),
+                map(lambda coni: getvars(cons[coni]), signal_to_conis[sig]),
+                set([])
+            )
+        )
+        
+        for adj in adjacent:
+            checked[adj] = True
+            distances[adj] = distances[sig] + 1
+            queue.append(adj)
+    
+    # if len(reduce(lambda acc, x : acc.union(getvars(x)), cons, set([])).difference(checked.keys())) > 0:
+    #     raise AssertionError(f"Constrants do not form a single connected component")
+
+    return distances
 
 def distances_to_static_preprocessing(
         in_pair: List[Tuple[str, Circuit]], 
@@ -34,35 +68,7 @@ def distances_to_static_preprocessing(
         log = {}
     
         for name, circ in in_pair:
-            # just BFS
-
-            _, signal_to_conis = _signal_data_from_cons_list(circ.constraints)
-
-            checked = {v: True for v in start}
-            log[name] = {}
-
-            curr = 0
-            queue = deque(list(start) + ["increment"])
-            
-            while len(queue) > 1:
-                next = queue.popleft()
-
-                # technically less efficient to have least occuring first but easier to read
-                if next == "increment":
-                    curr += 1
-                    queue.append("increment")
-                else:
-                    # default case
-                    log[name].setdefault(curr, []).append(next)
-
-                    neighbourhood = set([])
-                    for coni in signal_to_conis[next]:
-                        neighbourhood.update(getvars(circ.constraints[coni]))
-
-                    neighbourhood = list(filter(lambda signal : checked.setdefault(signal, False) is False, neighbourhood))
-                    for v in neighbourhood: checked[v] = True
-
-                    queue.extend(neighbourhood)
+            log[name] = _distances_to_signal_set(circ.constraints, start)
 
         assert set(log[in_pair[0][0]].keys()).symmetric_difference(log[in_pair[1][0]].keys()) == set([]), "different distances found"
 
