@@ -4,9 +4,10 @@ Idea is to have a directed graph showing edge ab implies a circuit where signal 
 
 import networkx as nx
 from typing import List
-from itertools import chain
+from itertools import chain, combinations
 
 from r1cs_scripts.constraint import Constraint
+from utilities import getvars
 
 def negone_to_signal( cons: List[Constraint]) -> nx.DiGraph:
 
@@ -32,12 +33,13 @@ def shared_constraint_graph( cons: List[Constraint] ) -> nx.Graph:
 
     for con in cons:
 
-        for r in con.C.keys():
-            if r == 0: continue
-            
-            for l in chain(con.A.keys(), con.B.keys(), con.C.keys()):
-                if l == r or l == 0: continue
-                
-                graph.add_edge(l, r)
+        signals = getvars(con)
+
+        if len(signals) == 1:
+            graph.add_node(next(iter(signals)))
+            continue
+
+        for l, r in combinations(signals, r=2):
+            graph.add_edge(l, r)
     
     return graph
