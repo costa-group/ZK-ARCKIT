@@ -47,15 +47,14 @@ Some notes on the paper:
 This one deals with the order somewhat but at a skim read seems too slow 
     (essentially does the above and then loops over all clusters checking if merging improves value)
 
+The paper itself is frustratingly vague about the specifics of the algorithm which is a shame because it seems to work relatively quickly
+
 https://www.grad.hr/crocodays/proc_ccd2/antunovic_final.pdf
 
     TODO: implement above algorithm to test speed at larger instances to see if advanced version (order accounting ver) 
         is worth it to implement to test
 
------------------------------------------------------------------------------------------------------------------------------------
-    Important Discovery: O1 circuits can be disconnected. RevealO1 has 27 connected components.
-
-    How do we deal with this? We can s
+    Running the algorithm is relatively quick 0.6s for revealO0
 
 """
 from typing import List, Set
@@ -130,29 +129,113 @@ def constraint_topological_order(circ: Circuit):
 
     return topological_order, in_neighbours, out_neighbours
 
+def order_to_clusters(clusters: List[int], order: List[int]):
+    actual_clusters = []
 
-def dag_community_detection(circ: Circuit, topological_order: List[int], in_neighbours: List[Set[int]], out_neighbours: List[Set[int]]):
+    for i in range(1, len(clusters)):
+
+        start, end = clusters[i-1], clusters[i]
+
+        actual_clusters.append([order[pos] for pos in range(start,end)])
+    
+    return actual_clusters
+
+def dag_clustering_as_example(topological_order: List[int], in_neighbours: List[Set[int]], out_neighbours: List[Set[int]]):
     """
-    Algorithm takes O(nm) time
-    Algorithm takes O(n) memory + requires O(n + m) memory
+    Algorithm takes O(n^2 * max_degree) time.
+
+    DAG clustering as actually works in the examples provided
+
+    TODO: doesn't line up with the example.
+        Clusters the example directed graph [1, 2, 3, 4], [5, 6] instead of [1,2,3], [4,5,6]
+        Since example does not list \Delta Q_d and no other examples are provided (results networks not given)
+        I have no way to confirm if the authors have made an error or I've misinterpreted something about the process...
     """
 
     # num_edges
-    m = sum(map(lambda x : len(x), in_neighbours))
+    m = sum(map(len, in_neighbours))
+    m2 = m ** 2
 
     # coni_to_label[k][coni] = label of coni for optimal k
-    coni_to_order = [None for _ in range(circ.nConstraints)]
+    coni_to_order = [None for _ in range(len(topological_order))]
+    for i in range(len(topological_order)): coni_to_order[topological_order[i]] = i
+
+    # final element always in own cluster
+    pos_to_curr_modularity = [None for _ in range(len(topological_order) - 1)] + [0]
+    pos_to_best_modularity = [None for _ in range(len(topological_order) - 1)] + [0, 0]
+    pos_to_best_clusters = [None for _ in range(len(topological_order) - 1)] + [len(topological_order)-1]
+
+    for pos in range(len(topological_order)-2, -1, -1):
+
+        coni = topological_order[pos]
+
+        in_coni = len(in_neighbours[coni])
+        out_coni = len(in_neighbours[coni])
+
+        neighbourhood = in_neighbours[coni].union(out_neighbours[coni])
+
+        # base choice is entirely new cluster: modularity is previous modularity
+
+        best_modularity = pos_to_best_modularity[pos + 1]
+        best_stopping = pos
+
+        current_modularity_change = 0
+
+        for opos in range(pos+1, len(topological_order)):
+            
+            optimal_modularity_for_rest = pos_to_best_modularity[opos+1]
+            working_cluster_curr_modularity = pos_to_curr_modularity[opos]
+
+            # modularity change for cluster of pos
+            current_modularity_change -= in_coni * len(out_neighbours[topological_order[opos]]) + out_coni * len(in_neighbours[topological_order[opos]])
+            
+            # TODO: improve this check
+            if topological_order[opos] in neighbourhood:
+                current_modularity_change += m
+
+            pos_to_curr_modularity[opos] = working_cluster_curr_modularity + current_modularity_change
+            opos_modularity = optimal_modularity_for_rest + working_cluster_curr_modularity + current_modularity_change
+
+            if opos_modularity > best_modularity:
+                best_modularity = opos_modularity
+                best_stopping = opos
+
+        pos_to_curr_modularity[pos] = 0
+        pos_to_best_modularity[pos] = best_modularity
+        pos_to_best_clusters[pos]   = best_stopping
+
+    # build clusters from info
+    clusters = [0]
+    while clusters[-1] < len(topological_order):
+        clusters.append(pos_to_best_clusters[clusters[-1]]+1)
+
+    return order_to_clusters(clusters, topological_order)
+
+def dag_clustering_as_written(topological_order: List[int], in_neighbours: List[Set[int]], out_neighbours: List[Set[int]]):
+    """
+    Algorithm takes O(nm) time
+    Algorithm takes O(n) memory + requires O(n + m) memory
+
+    Although this is how the algorithm is written in the paper this is not how it functions in examples in the paper.
+    Specifically, if we're greedily maximising \Delta Q_d then z_123 wouldn't be chosen.
+    """
+
+    # num_edges
+    m = sum(map(len, in_neighbours))
+
+    # coni_to_label[k][coni] = label of coni for optimal k
+    coni_to_order = [None for _ in range(len(topological_order))]
     for i in range(len(topological_order)): coni_to_order[topological_order[i]] = i
 
     clusters = [0]
 
-    while clusters[-1] < circ.nConstraints-1:
+    while clusters[-1] < len(topological_order):
 
         coni = topological_order[ clusters[-1] ]
         
         eligible_neighbours = in_neighbours[coni].union(out_neighbours[coni]
                                                 ).intersection(topological_order[coni_to_order[coni]:])
-        
+
         ## no valid future guess
         if len(eligible_neighbours) == 0:
             clusters.append(clusters[-1]+1)
@@ -190,7 +273,6 @@ def dag_community_detection(circ: Circuit, topological_order: List[int], in_neig
         else:
             clusters.append(coni_to_order[current_best_stop]+1)
 
-    return clusters
-
+    return order_to_clusters(clusters, topological_order)
 
 
