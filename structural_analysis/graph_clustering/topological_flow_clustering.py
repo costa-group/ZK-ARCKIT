@@ -56,6 +56,12 @@ https://www.grad.hr/crocodays/proc_ccd2/antunovic_final.pdf
 
     Running the algorithm is relatively quick 0.6s for revealO0
 
+-----------------------------------------------------------------------------------------------------------------------------------
+
+https://dial.uclouvain.be/memoire/ucl/en/object/thesis%3A8207/datastream/PDF_01/view
+
+This thesis also provides a good overview of clustering techniques on directed graphs
+
 """
 from typing import List, Set
 from functools import reduce
@@ -140,7 +146,7 @@ def order_to_clusters(clusters: List[int], order: List[int]):
     
     return actual_clusters
 
-def dag_clustering_as_example(topological_order: List[int], in_neighbours: List[Set[int]], out_neighbours: List[Set[int]]):
+def dag_clustering_from_order(topological_order: List[int], in_neighbours: List[Set[int]], out_neighbours: List[Set[int]]):
     """
     Algorithm takes O(n^2 * max_degree) time.
 
@@ -154,7 +160,6 @@ def dag_clustering_as_example(topological_order: List[int], in_neighbours: List[
 
     # num_edges
     m = sum(map(len, in_neighbours))
-    m2 = m ** 2
 
     # coni_to_label[k][coni] = label of coni for optimal k
     coni_to_order = [None for _ in range(len(topological_order))]
@@ -210,69 +215,4 @@ def dag_clustering_as_example(topological_order: List[int], in_neighbours: List[
         clusters.append(pos_to_best_clusters[clusters[-1]]+1)
 
     return order_to_clusters(clusters, topological_order)
-
-def dag_clustering_as_written(topological_order: List[int], in_neighbours: List[Set[int]], out_neighbours: List[Set[int]]):
-    """
-    Algorithm takes O(nm) time
-    Algorithm takes O(n) memory + requires O(n + m) memory
-
-    Although this is how the algorithm is written in the paper this is not how it functions in examples in the paper.
-    Specifically, if we're greedily maximising \Delta Q_d then z_123 wouldn't be chosen.
-    """
-
-    # num_edges
-    m = sum(map(len, in_neighbours))
-
-    # coni_to_label[k][coni] = label of coni for optimal k
-    coni_to_order = [None for _ in range(len(topological_order))]
-    for i in range(len(topological_order)): coni_to_order[topological_order[i]] = i
-
-    clusters = [0]
-
-    while clusters[-1] < len(topological_order):
-
-        coni = topological_order[ clusters[-1] ]
-        
-        eligible_neighbours = in_neighbours[coni].union(out_neighbours[coni]
-                                                ).intersection(topological_order[coni_to_order[coni]:])
-
-        ## no valid future guess
-        if len(eligible_neighbours) == 0:
-            clusters.append(clusters[-1]+1)
-            continue
-        
-        ordered_neighbours = sorted(eligible_neighbours, key = lambda x : coni_to_order[x])
-
-        current_best = 0
-        current_best_stop = None
-
-        running_count = 0
-        prev = coni_to_order[coni]
-
-        in_coni = len(in_neighbours[coni])
-        out_coni = len(out_neighbours[coni])
-
-        for neighbour in ordered_neighbours:
-
-            running_count += m
-            running_count -= in_coni * sum([
-                len(out_neighbours[topological_order[ord_]])
-                for ord_ in range(prev + 1, coni_to_order[neighbour]+ 1)
-            ])
-            running_count -= out_coni * sum([
-                len(in_neighbours[topological_order[ord_]])
-                for ord_ in range(prev + 1, coni_to_order[neighbour]+ 1)
-            ])
-
-            if running_count > current_best:
-                current_best = running_count
-                current_best_stop = neighbour
-        
-        if current_best_stop is None:
-            clusters.append(clusters[-1]+1)
-        else:
-            clusters.append(coni_to_order[current_best_stop]+1)
-
-    return order_to_clusters(clusters, topological_order)
-
 
