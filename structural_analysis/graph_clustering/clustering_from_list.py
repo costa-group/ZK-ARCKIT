@@ -1,5 +1,5 @@
 
-from typing import List, Tuple, Dict, Callable
+from typing import List, Tuple, Dict, Callable, Set
 from functools import reduce
 
 from r1cs_scripts.constraint import Constraint
@@ -13,10 +13,13 @@ class UnionFind():
     def __init__(self):
 
         self.parent = {}
+        self.representatives = set([])
     
     def find(self, i:int) -> int:
         assert i >= 0, "invalid i"
         
+        if i not in self.parent.keys(): self.representatives.add(i)
+
         if self.parent.setdefault(i, -1) < 0:
             return i
         else:
@@ -26,14 +29,17 @@ class UnionFind():
 
     def union(self, *args: int) -> None:
 
-        # if a set representative is itself, then
-        parents = sorted([self.find(i) for i in args], key = lambda x: self.parent[x])
+        representatives = sorted(set([self.find(i) for i in args]), key = lambda x: self.parent[x])
 
-        if len(parents) > 1 and self.parent[parents[0]] == self.parent[parents[1]]:
-            self.parent[parents[0]] -= 1
+        if len(representatives) > 1 and self.parent[representatives[0]] == self.parent[representatives[1]]:
+            self.parent[representatives[0]] -= 1
 
-        for repr in parents[1:]:
-            self.parent[repr] = parents[0]
+        for repr in representatives[1:]:
+            self.representatives.remove(repr)
+            self.parent[repr] = representatives[0]
+    
+    def get_representatives(self) -> Set[int]:
+        return self.representatives
 
 def cluster_from_list(cons: List[Constraint], 
                       to_ignore: List[int] = None, 
