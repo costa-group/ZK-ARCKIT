@@ -46,7 +46,7 @@ def stable_louvain(adjacency: List[List[int]],
     Takes way too long, only checking adjacent clusters is a big speedup but still way too slow for reveal
 
     Poseidon ~0.2s
-    Reveal >30min
+    Reveal 72min - [(1, 584), (7, 24), (16, 1), (19, 6), (26, 1), (33, 1), (37, 2), (39, 3), (41, 1), (64, 1), (65, 1), (127, 1), (130, 20), (132, 16), (133, 6), (134, 18), (135, 12), (140, 2), (144, 6), (145, 1), (164, 12), (383, 9), (384, 12), (500, 1), (883, 1)]
 
     The inbuilt Louvain is way, way faster.. ~10s for Reveal), but unstable and thus useless for us.
 
