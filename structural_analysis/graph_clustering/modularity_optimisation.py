@@ -28,7 +28,9 @@ def unweighted_adjacency(circ: Circuit) -> List[List[int]]:
     return adjacency
     # return list(map(list, adjacency))
 
-def stable_louvain(adjacency: List[List[int]], resolution: int = 1) -> List[List[int]]:
+def stable_louvain(adjacency: List[List[int]], 
+                   resolution: int = 1,
+                   resistance: int = 0) -> List[List[int]]:
     """
     Based on the louvain community detection algorithm - modified to be consistent
     https://networkx.org/documentation/stable/reference/algorithms/generated/networkx.algorithms.community.louvain.louvain_communities.html 
@@ -59,6 +61,12 @@ def stable_louvain(adjacency: List[List[int]], resolution: int = 1) -> List[List
         for v in range(N) 
     ]
 
+    if resistance > 0:
+        m += N * resistance
+        for v in range(N): adjacency[v][v] = resistance
+
+    totals = [sum(adjacency[v].values()) for v in range(N)]
+
     clusters = UnionFind()
     list(map(clusters.find, range(N)))
 
@@ -75,15 +83,15 @@ def stable_louvain(adjacency: List[List[int]], resolution: int = 1) -> List[List
 
             # checkes singular-singular twice
             for lkey, rkey in chain(*map(lambda sig:  product([sig], map(clusters.find, adjacency[sig].keys())), singular_clusters)): 
-                # (lkey, rkey, "                                 ", end='\r')
+                # print(lkey, rkey, "                                 ", end='\r')
 
                 if lkey == rkey or ( singular[rkey] and lkey > rkey ):
                     continue 
                 
                 # modularity change calc 
                 k_iC = sum([val for dest, val in adjacency[lkey].items() if clusters.find(dest) == rkey])
-                k_i = sum(val for val in adjacency[lkey].values())
-                Eps_tot = sum([val for val in adjacency[rkey].values()]) # we continuously update so that repr has all edges/weights
+                k_i = totals[lkey]
+                Eps_tot = totals[rkey] # we continuously update so that repr has all edges/weights
 
                 mod_change = k_iC * m - resolution * k_i * Eps_tot
 
@@ -114,11 +122,12 @@ def stable_louvain(adjacency: List[List[int]], resolution: int = 1) -> List[List
                 # update adjacency so that representative has all the links: since l -> r sum all (old) l links to r
                 for sig, val in adjacency[l_].items():
                     adjacency[r_][clusters.find(sig)] = adjacency[r_].setdefault(clusters.find(sig), 0) + val
+                    totals[r_] += val
         
         if iteration == 0:
             break
         
-        # print(f"################### {outer_iteration} #################")
+        # print(f"################### {outer_iteration, len(clusters.get_representatives())} #################")
 
         for sig in clusters.get_representatives():
             # make 'singular' again
@@ -141,9 +150,7 @@ def stable_louvain(adjacency: List[List[int]], resolution: int = 1) -> List[List
 def stable_directed_louvain(in_adjacency: List[Dict[int, int]], out_adjacency: List[Dict[int, int]]) -> List[List[int]]:
     """
     Worse as stable_louvain but for a directed graph
-    Will be too slow
-    
-    
+    Will be too slow for Reveal on its own but will be used (hopefully) for stabilising the dag_clustering_from_formula
     """
     
     pass
