@@ -3,6 +3,8 @@
 The goal, broadly, is the to find and isolate the different templates within a circuit.
     These usually have higher-than-normal intra-community average degree then inter-community average degree
     Hence modularity should be an appropriate way of clustering them
+
+Resolution limits I think will also play a key part meaning modularity may not be the best..
 """
 
 from typing import List, Tuple, Dict
@@ -26,7 +28,7 @@ def unweighted_adjacency(circ: Circuit) -> List[List[int]]:
     return adjacency
     # return list(map(list, adjacency))
 
-def stable_louvain(adjacency: List[List[int]]) -> List[List[int]]:
+def stable_louvain(adjacency: List[List[int]], resolution: int = 1) -> List[List[int]]:
     """
     Based on the louvain community detection algorithm - modified to be consistent
     https://networkx.org/documentation/stable/reference/algorithms/generated/networkx.algorithms.community.louvain.louvain_communities.html 
@@ -39,10 +41,13 @@ def stable_louvain(adjacency: List[List[int]]) -> List[List[int]]:
         5. return
     
     -----------------------------------------------------------------------------------------------------------------------------------
-    Takes way too long, on first iteration makes nConstraints^2 comparisons...
+    Takes way too long, only checking adjacent clusters is a big speedup but still way too slow for reveal
 
-    Poseidon ~2s
-    
+    Poseidon ~0.2s
+    Reveal >30min
+
+    The inbuilt Louvain is way, way faster.. ~10s for Reveal), but unstable and thus useless for us.
+
     """
 
     N = len(adjacency)
@@ -60,7 +65,7 @@ def stable_louvain(adjacency: List[List[int]]) -> List[List[int]]:
     # TODO: maybe think/test different singular method
     singular = [True for _ in range(N)]
 
-    for _ in range(N):
+    for outer_iteration in range(N):
 
         for iteration in range(N):
             best_mod_changes_val = 0
@@ -69,7 +74,8 @@ def stable_louvain(adjacency: List[List[int]]) -> List[List[int]]:
             singular_clusters = filter(lambda key : singular[key], clusters.get_representatives()) 
 
             # checkes singular-singular twice
-            for lkey, rkey in product(singular_clusters, clusters.get_representatives()): 
+            for lkey, rkey in chain(*map(lambda sig:  product([sig], map(clusters.find, adjacency[sig].keys())), singular_clusters)): 
+                # (lkey, rkey, "                                 ", end='\r')
 
                 if lkey == rkey or ( singular[rkey] and lkey > rkey ):
                     continue 
@@ -79,7 +85,7 @@ def stable_louvain(adjacency: List[List[int]]) -> List[List[int]]:
                 k_i = sum(val for val in adjacency[lkey].values())
                 Eps_tot = sum([val for val in adjacency[rkey].values()]) # we continuously update so that repr has all edges/weights
 
-                mod_change = k_iC * m - k_i * Eps_tot
+                mod_change = k_iC * m - resolution * k_i * Eps_tot
 
                 if mod_change > best_mod_changes_val:
                     best_mod_changes_val = mod_change
@@ -89,6 +95,8 @@ def stable_louvain(adjacency: List[List[int]]) -> List[List[int]]:
 
             if best_mod_changes == []:
                 break
+
+            # print(outer_iteration, iteration, best_mod_changes_val, len(best_mod_changes))
 
             for l, r in best_mod_changes:
                 l_, r_ = clusters.find(l), clusters.find(r)
@@ -104,14 +112,13 @@ def stable_louvain(adjacency: List[List[int]]) -> List[List[int]]:
                 singular[r_] = False
 
                 # update adjacency so that representative has all the links: since l -> r sum all (old) l links to r
-                for sig in list(adjacency[l_].keys()):
-
-                    adjacency[clusters.find(r)][
-                              clusters.find(sig)] = adjacency[clusters.find(r)].setdefault(
-                                                              clusters.find(sig), 0) + adjacency[l_][sig]
+                for sig, val in adjacency[l_].items():
+                    adjacency[r_][clusters.find(sig)] = adjacency[r_].setdefault(clusters.find(sig), 0) + val
         
         if iteration == 0:
             break
+        
+        # print(f"################### {outer_iteration} #################")
 
         for sig in clusters.get_representatives():
             # make 'singular' again
@@ -131,7 +138,15 @@ def stable_louvain(adjacency: List[List[int]]) -> List[List[int]]:
 
     return cluster_lists.values()
 
-
+def stable_directed_louvain(in_adjacency: List[Dict[int, int]], out_adjacency: List[Dict[int, int]]) -> List[List[int]]:
+    """
+    Worse as stable_louvain but for a directed graph
+    Will be too slow
+    
+    
+    """
+    
+    pass
 
 def eigen_modularity_optimisation():
     """
@@ -141,7 +156,7 @@ def eigen_modularity_optimisation():
     
     works similar to above but starts with all vertex in 1 community, and splits it down
 
-    TODO: finish
+    TODO: implement this
     """
     
     pass
