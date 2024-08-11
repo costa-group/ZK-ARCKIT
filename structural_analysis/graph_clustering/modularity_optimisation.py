@@ -7,7 +7,7 @@ The goal, broadly, is the to find and isolate the different templates within a c
 Resolution limits I think will also play a key part meaning modularity may not be the best..
 """
 
-from typing import List, Tuple, Dict
+from typing import List, Tuple, Dict, Callable
 from itertools import product, chain, combinations_with_replacement
 
 from utilities import count_ints
@@ -28,72 +28,46 @@ def unweighted_adjacency(circ: Circuit) -> List[List[int]]:
     return adjacency
     # return list(map(list, adjacency))
 
-def stable_louvain(adjacency: List[List[int]], 
-                   resolution: int = 1,
-                   resistance: int = 0) -> List[List[int]]:
+def abs_stable_louvain(
+        N: int,
+        adjacency_args: List["Adjacency"],
+        get_adjacent_to: Callable,
+        calculate_mod_change: Callable,
+        inner_update_adjacency: Callable,
+        outer_update_adjacency: Callable
+    ) -> List[List[int]]:
     """
-    Based on the louvain community detection algorithm - modified to be consistent
-    https://networkx.org/documentation/stable/reference/algorithms/generated/networkx.algorithms.community.louvain.louvain_communities.html 
-
-    To ensure that the clustering is equivalent accross the same circuit multiple times, we:
-        1. check the modularity change for every possible different insertion of a singular vertex.
-        2. do (all) the merges with maximum modularity change
-        3. repeat until no merges increase modularity or no singular vertices left
-        4. define new network with each community representing a vertex, and go to 1
-        5. return
-    
-    -----------------------------------------------------------------------------------------------------------------------------------
-    Takes way too long, only checking adjacent clusters is a big speedup but still way too slow for reveal
-
-    Poseidon ~0.2s
-    Reveal 72min - [(1, 584), (7, 24), (16, 1), (19, 6), (26, 1), (33, 1), (37, 2), (39, 3), (41, 1), (64, 1), (65, 1), (127, 1), (130, 20), (132, 16), (133, 6), (134, 18), (135, 12), (140, 2), (144, 6), (145, 1), (164, 12), (383, 9), (384, 12), (500, 1), (883, 1)]
-
-    The inbuilt Louvain is way, way faster.. ~10s for Reveal), but unstable and thus useless for us.
-
+    A pseudo-abstract stable louvain method that holds the skeleton to be used by the undirected and directed versions
     """
-
-    N = len(adjacency)
-    m = sum(map(len, adjacency)) << 1
-
-    # change to weighted version
-    adjacency = [
-        {u: 1 for u in adjacency[v]}
-        for v in range(N) 
-    ]
-
-    if resistance > 0:
-        m += N * resistance
-        for v in range(N): adjacency[v][v] = resistance
-
-    totals = [sum(adjacency[v].values()) for v in range(N)]
 
     clusters = UnionFind()
     list(map(clusters.find, range(N)))
 
-    # TODO: maybe think/test different singular method
     singular = [True for _ in range(N)]
 
+    # since each iteration reduces the total number of clusters each is capped by N
     for outer_iteration in range(N):
-
         for iteration in range(N):
+
             best_mod_changes_val = 0
             best_mod_changes = []
 
             singular_clusters = filter(lambda key : singular[key], clusters.get_representatives()) 
 
             # checkes singular-singular twice
-            for lkey, rkey in chain(*map(lambda sig:  product([sig], map(clusters.find, adjacency[sig].keys())), singular_clusters)): 
+            for lkey, rkey in chain(*
+                    map(
+                        lambda sig:  product([sig], map(clusters.find, get_adjacent_to(sig, *adjacency_args))), 
+                        singular_clusters
+                    )
+                ): 
                 # print(lkey, rkey, "                                 ", end='\r')
 
                 if lkey == rkey or ( singular[rkey] and lkey > rkey ):
                     continue 
                 
                 # modularity change calc 
-                k_iC = sum([val for dest, val in adjacency[lkey].items() if clusters.find(dest) == rkey])
-                k_i = totals[lkey]
-                Eps_tot = totals[rkey] # we continuously update so that repr has all edges/weights
-
-                mod_change = k_iC * m - resolution * k_i * Eps_tot
+                mod_change = calculate_mod_change(lkey, rkey, clusters, *adjacency_args)
 
                 if mod_change > best_mod_changes_val:
                     best_mod_changes_val = mod_change
@@ -120,10 +94,8 @@ def stable_louvain(adjacency: List[List[int]],
                 singular[r_] = False
 
                 # update adjacency so that representative has all the links: since l -> r sum all (old) l links to r
-                for sig, val in adjacency[l_].items():
-                    adjacency[r_][clusters.find(sig)] = adjacency[r_].setdefault(clusters.find(sig), 0) + val
-                    totals[r_] += val
-        
+                inner_update_adjacency(l, l_, r, r_, clusters, *adjacency_args)
+
         if iteration == 0:
             break
         
@@ -134,18 +106,73 @@ def stable_louvain(adjacency: List[List[int]],
             singular[sig] = True
 
             # some keys in adjacency may have been made no longer representative so:
-            for osig in list(adjacency[sig].keys()):
-                
-                if clusters.find(osig) != osig:
-                    adjacency[sig][clusters.find(osig)] = adjacency[sig].setdefault(clusters.find(osig), 0) + adjacency[sig][osig]
-                    del adjacency[sig][osig]
-    
+            outer_update_adjacency(sig, clusters, *adjacency_args)
+
     cluster_lists = {}
 
-    for i in clusters.parent.keys():
+    for i in range(N):
         cluster_lists.setdefault(clusters.find(i), []).append(i)
 
     return cluster_lists.values()
+
+def stable_undirected_louvain(
+        adjacency: List[List[int]],
+        resolution: int = 1,
+        resistance: int = 0
+    ) -> List[List[int]]:
+
+    N = len(adjacency)
+    m = sum(map(len, adjacency)) << 1
+
+    # change to weighted version
+    adjacency = [
+        {u: 1 for u in adjacency[v]}
+        for v in range(N) 
+    ]
+
+    # add resistances if required
+    if resistance > 0:
+        m += N * resistance
+        for v in range(N): adjacency[v][v] = resistance
+
+    totals = [sum(adjacency[v].values()) for v in range(N)]
+
+    adjacency_args = [adjacency, totals]
+
+    def get_adjacent_to(sig: int, adjacency: List[Dict[int, int]], totals: List[int]):
+        return adjacency[sig].keys()
+
+    def calculate_mod_change(lkey: int, rkey: int, clusters: UnionFind, adjacency: List[Dict[int, int]], totals: List[int]):
+
+        k_iC = sum([val for dest, val in adjacency[lkey].items() if clusters.find(dest) == rkey])
+        k_i = totals[lkey]
+        Eps_tot = totals[rkey] # we continuously update so that repr has all edges/weights
+
+        mod_change = k_iC * m - resolution * k_i * Eps_tot
+
+        return mod_change
+
+    def inner_update_adjacency(l:int, l_: int, r: int, r_: int, clusters: UnionFind, adjacency: List[Dict[int, int]], totals: List[int]):
+
+        for sig, val in adjacency[l_].items():
+            adjacency[r_][clusters.find(sig)] = adjacency[r_].setdefault(clusters.find(sig), 0) + val
+            totals[r_] += val
+
+    def outer_update_adjacency(sig: int, clusters: UnionFind, adjacency: List[Dict[int, int]], totals: List[int]):
+
+        for osig in list(adjacency[sig].keys()):
+            if clusters.find(osig) != osig:
+                adjacency[sig][clusters.find(osig)] = adjacency[sig].setdefault(clusters.find(osig), 0) + adjacency[sig][osig]
+                del adjacency[sig][osig]
+    
+    return abs_stable_louvain(
+        N,
+        adjacency_args,
+        get_adjacent_to,
+        calculate_mod_change,
+        inner_update_adjacency,
+        outer_update_adjacency
+    )
 
 def stable_directed_louvain(in_adjacency: List[Dict[int, int]], out_adjacency: List[Dict[int, int]]) -> List[List[int]]:
     """
