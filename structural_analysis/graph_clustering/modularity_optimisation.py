@@ -115,27 +115,33 @@ def abs_stable_louvain(
 
     return cluster_lists.values()
 
+def undirected_inner_update_adjacency(l:int, l_: int, r: int, r_: int, clusters: UnionFind, adjacency: List[Dict[int, int]], totals: List[int]):
+
+        for sig, val in adjacency[l_].items():
+            adjacency[r_][clusters.find(sig)] = adjacency[r_].setdefault(clusters.find(sig), 0) + val
+            totals[r_] += val
+
+def undirected_outer_update_adjacency(sig: int, clusters: UnionFind, adjacency: List[Dict[int, int]], totals: List[int]):
+
+    for osig in list(adjacency[sig].keys()):
+        if clusters.find(osig) != osig:
+            adjacency[sig][clusters.find(osig)] = adjacency[sig].setdefault(clusters.find(osig), 0) + adjacency[sig][osig]
+            del adjacency[sig][osig]
+
 def stable_undirected_louvain(
-        adjacency: List[List[int]],
+        adjacency: List[Dict[int, int]],
         resolution: int = 1,
         resistance: int = 0
     ) -> List[List[int]]:
 
     N = len(adjacency)
-    m = sum(map(len, adjacency)) << 1
-
-    # change to weighted version
-    adjacency = [
-        {u: 1 for u in adjacency[v]}
-        for v in range(N) 
-    ]
 
     # add resistances if required
     if resistance > 0:
-        m += N * resistance
         for v in range(N): adjacency[v][v] = resistance
 
     totals = [sum(adjacency[v].values()) for v in range(N)]
+    m = sum(totals) << 1
 
     adjacency_args = [adjacency, totals]
 
@@ -151,36 +157,72 @@ def stable_undirected_louvain(
         mod_change = k_iC * m - resolution * k_i * Eps_tot
 
         return mod_change
-
-    def inner_update_adjacency(l:int, l_: int, r: int, r_: int, clusters: UnionFind, adjacency: List[Dict[int, int]], totals: List[int]):
-
-        for sig, val in adjacency[l_].items():
-            adjacency[r_][clusters.find(sig)] = adjacency[r_].setdefault(clusters.find(sig), 0) + val
-            totals[r_] += val
-
-    def outer_update_adjacency(sig: int, clusters: UnionFind, adjacency: List[Dict[int, int]], totals: List[int]):
-
-        for osig in list(adjacency[sig].keys()):
-            if clusters.find(osig) != osig:
-                adjacency[sig][clusters.find(osig)] = adjacency[sig].setdefault(clusters.find(osig), 0) + adjacency[sig][osig]
-                del adjacency[sig][osig]
     
     return abs_stable_louvain(
         N,
         adjacency_args,
         get_adjacent_to,
         calculate_mod_change,
-        inner_update_adjacency,
-        outer_update_adjacency
+        undirected_inner_update_adjacency,
+        undirected_outer_update_adjacency
     )
 
-def stable_directed_louvain(in_adjacency: List[Dict[int, int]], out_adjacency: List[Dict[int, int]]) -> List[List[int]]:
+def stable_directed_louvain(
+        in_adjacency: List[Dict[int, int]], 
+        out_adjacency: List[Dict[int, int]],
+        resolution: int = 1,
+        resistance: int = 0) -> List[List[int]]:
+    
     """
-    Worse as stable_louvain but for a directed graph
+    Works as stable_louvain but for a directed graph
     Will be too slow for Reveal on its own but will be used (hopefully) for stabilising the dag_clustering_from_formula
     """
     
-    pass
+    N = len(in_adjacency)
+
+    if resistance > 0:
+        for v in range(N):
+            in_adjacency[v][v] = in_adjacency[v].setdefault(v, 0) + resistance
+            out_adjacency[v][v] = out_adjacency[v].setdefault(v, 0) + resistance
+    
+    totals_in  = [sum(in_adjacency[v].values()) for v in range(N)] 
+    totals_out = [sum(out_adjacency[v].values()) for v in range(N)] 
+
+    m = sum(totals_in)
+
+    adjacency_args = [in_adjacency, out_adjacency, totals_in, totals_out]
+
+    def get_adjacent_to(sig: int, in_adjacency: List[Dict[int, int]], out_adjacency: List[Dict[int, int]], totals_in: List[int], totals_out: List[int]):
+        return set(chain(in_adjacency[sig].keys(), out_adjacency[sig].keys()))
+    
+    def calculate_mod_change(lkey: int, rkey: int, clusters: UnionFind, in_adjacency: List[Dict[int, int]], out_adjacency: List[Dict[int, int]], totals_in: List[int], totals_out: List[int]):
+        k_i_in = sum([val for adjacency in [in_adjacency, out_adjacency] for dest, val in adjacency[lkey].items() if clusters.find(dest) == rkey])
+        k_out_i = totals_out[lkey]
+        k_in_i = totals_in[lkey]
+        eps_in = totals_in[rkey]
+        eps_out = totals_out[rkey]
+    
+        mod_change = k_i_in * m - resolution * (k_out_i * eps_in + k_in_i * eps_out)
+
+        return mod_change 
+
+    def inner_update_adjacency(l:int, l_: int, r: int, r_: int, clusters: UnionFind, in_adjacency: List[Dict[int, int]], out_adjacency: List[Dict[int, int]], totals_in: List[int], totals_out: List[int]):
+
+        for adjacency, totals in [(in_adjacency, totals_in), (out_adjacency, totals_out)]:
+            undirected_inner_update_adjacency(l, l_, r, r_, clusters, adjacency, totals)
+    
+    def outer_update_adjacency(sig: int, clusters: UnionFind, in_adjacency: List[Dict[int, int]], out_adjacency: List[Dict[int, int]], totals_in: List[int], totals_out: List[int]):
+
+        for adjacency, totals in [(in_adjacency, totals_in), (out_adjacency, totals_out)]:
+            undirected_outer_update_adjacency(sig, clusters, adjacency, totals)
+
+    return abs_stable_louvain(
+        N, adjacency_args,
+        get_adjacent_to,
+        calculate_mod_change,
+        inner_update_adjacency,
+        outer_update_adjacency
+    )
 
 def eigen_modularity_optimisation():
     """
