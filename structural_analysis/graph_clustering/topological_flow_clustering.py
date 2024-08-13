@@ -75,7 +75,7 @@ from comparison.static_distance_preprocessing import _distances_to_signal_set
 
 from structural_analysis.graph_clustering.clustering_from_list import UnionFind
 from structural_analysis.graph_clustering.degree_clustering import _signal_data_from_cons_list
-from structural_analysis.graph_clustering.modularity_optimisation import directed_add_resistance, directed_calculate_mod_change, directed_get_adjacent_to, directed_inner_update_adjacency, directed_outer_update_adjacency
+from structural_analysis.graph_clustering.modularity_optimisation import stable_directed_louvain, directed_add_resistance, directed_calculate_mod_change, directed_get_adjacent_to, directed_inner_update_adjacency, directed_outer_update_adjacency
 
 def getvars(con: Constraint) -> set:
     return set(con.A.keys()).union(con.B.keys()).union(con.C.keys()).difference(set([0]))
@@ -227,12 +227,19 @@ def dag_clustering_from_order(topological_order: List[int], in_neighbours: List[
 # TODO: new version of dag_cluster that uses directed 
 # want dag_cluster version to not be n^2 -- i.e. be fast
     # previous version that went forward and jumped was fast -- even greedier, maintaining the clustering by adjacent
-def dag_cluster_speed_priority(topological_order: List[int], in_neighbours: List[Dict[int, int]], out_neighbours: List[Dict[int, int]], resistance: int = 0, resolution: int = 1):
+def dag_cluster_speed_priority(
+        topological_order: List[int], 
+        in_neighbours: List[Dict[int, int]], 
+        out_neighbours: List[Dict[int, int]], 
+        resistance: int = 0, resolution: int = 1, 
+        return_unionfind: bool = False):
     """
     starting from end, and going backward greedily pick which of adjacent clusters is best, if none are best then stay solo
-    Theoretically this provides a less optimal clustering, but at the tradeoff of a 60x speedup in reveal I think we take it.
+    Theoretically this provides a less optimal clustering, but at the tradeoff of a 3x speedup in reveal I think we take it.
 
-    takes about 1s for reveal
+    NOTE: modifies in/out neighbours
+
+    takes about 22s for reveal
     """
     clusters = UnionFind()
     for sig in topological_order: clusters.find(sig)
@@ -283,6 +290,8 @@ def dag_cluster_speed_priority(topological_order: List[int], in_neighbours: List
 
         directed_inner_update_adjacency(sig, l_, best_osig, r_, clusters, in_neighbours, out_neighbours, in_totals, out_totals, resolution, m)
 
+    if return_unionfind: return clusters
+
     cluster_lists = {}
 
     for i in range(N):
@@ -290,12 +299,51 @@ def dag_cluster_speed_priority(topological_order: List[int], in_neighbours: List
 
     return cluster_lists.values()
 
-def dag_cluster_and_merge(topological_order: List[int], in_neighbours: List[Set[int]], out_neighbours: List[Set[int]]):
+def dag_cluster_and_merge(topological_order: List[int], in_neighbours: List[Set[int]], out_neighbours: List[Set[int]], resistance: int = 0, resolution: int = 1):
     """
     The dag_clustering_from_order is quick but dependent on non-unique topological order.
 
     idea is to initially cluster using the above, then use stable (directed) louvain
 
-    .. clustering would still take minutes due to dag though...
+    In this way some of the order-dependent merging should be picked up..
+
+    PROBLEM: dag_speed leaves ~11000 singular with reveal making the louvain take forever (even with 0 resistance)
     
     """
+
+    clusters = dag_cluster_speed_priority(topological_order, in_neighbours, out_neighbours, resistance, resolution, return_unionfind=True)
+    for sig in clusters.get_representatives(): directed_outer_update_adjacency(sig, clusters, in_neighbours, out_neighbours, None, None, None, None)
+
+    mapping = {}
+    inv_mapping = []
+    for i, repr in enumerate(clusters.get_representatives()):
+        mapping[repr] = i
+        inv_mapping.append(repr)
+
+    higher_order_in_adjacency = [
+        {
+            mapping[u]: in_neighbours[v][u]
+            for u in in_neighbours[v].keys()
+        }
+        for v in inv_mapping
+    ]
+
+    higher_order_out_adjacency = [
+        {
+            mapping[u]: out_neighbours[v][u]
+            for u in out_neighbours[v].keys()
+        }
+        for v in inv_mapping
+    ]
+    
+    higher_order_clusters = stable_directed_louvain(higher_order_in_adjacency, higher_order_out_adjacency, resolution=resolution)
+    
+    for cluster in higher_order_clusters:
+        clusters.union(*cluster)
+    
+    cluster_lists = {}
+
+    for i in range(len(in_neighbours)):
+        cluster_lists.setdefault(clusters.find(i), []).append(i)
+
+    return cluster_lists.values()
