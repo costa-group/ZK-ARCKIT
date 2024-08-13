@@ -63,7 +63,7 @@ https://dial.uclouvain.be/memoire/ucl/en/object/thesis%3A8207/datastream/PDF_01/
 This thesis also provides a good overview of clustering techniques on directed graphs
 
 """
-from typing import List, Set
+from typing import List, Set, Dict
 from functools import reduce
 from collections import deque
 import itertools
@@ -73,13 +73,15 @@ from r1cs_scripts.constraint import Constraint
 
 from comparison.static_distance_preprocessing import _distances_to_signal_set
 
+from structural_analysis.graph_clustering.clustering_from_list import UnionFind
 from structural_analysis.graph_clustering.degree_clustering import _signal_data_from_cons_list
+from structural_analysis.graph_clustering.modularity_optimisation import directed_add_resistance, directed_calculate_mod_change, directed_get_adjacent_to, directed_inner_update_adjacency, directed_outer_update_adjacency
 
 def getvars(con: Constraint) -> set:
     return set(con.A.keys()).union(con.B.keys()).union(con.C.keys()).difference(set([0]))
     
 
-def constraint_topological_order(circ: Circuit):
+def constraint_topological_order(circ: Circuit, unweighted: bool = False):
     """
     given a circuit, returns a topological order and in and out neighbourhoods for each vertex
 
@@ -88,7 +90,7 @@ def constraint_topological_order(circ: Circuit):
         topological order will be a valid topological order for the DAG defined by the previous but is not consistent
     
     TODO:
-        how to deal with extra disconnected chunks -- waiting on team to tell me if they will be removed in updates to circom
+        maybe add weights to flow into modularity stuff easier -- or at least option for weights
     """
 
     _, signal_to_coni = _signal_data_from_cons_list(circ.constraints)
@@ -99,25 +101,21 @@ def constraint_topological_order(circ: Circuit):
     inputs = range(circ.nPubOut+1, circ.nPubOut + circ.nPrvIn + circ.nPubIn + 1)
     distances_to_input = _distances_to_signal_set(circ.constraints, inputs, signal_to_coni)
 
-    # get distances, to give each constraint a pair (l, r)
-    #   l is the min distance a signal in the constraint has to an input...
-    #   r is the max distance a signal in the constraint has to an input... ( what about distance to output? Think about ordering )
+    # get distances, to give each constraint a tuple (x_1, x_2..., x_n) where each x_i is the distance of signal i in coni. this is sorted
 
-    # TODO: think about more complex layer fingerprints here based on all distances in getvars and outputs
-
-    coni_to_distances = [
-        (min(tup[0]), max(tup[1]))
-        for tup in map(
-            lambda coni : itertools.tee(map(lambda sig : distances_to_input[sig], getvars(circ.constraints[coni]))), 
+    # NOTE: interestingly, this more comprehensive order makes the speed_priority version way slower on reveal... why?
+        # more unique distances means more edges ~ 20K more which makes it take longer
+    coni_to_distances = list(map(
+            lambda coni : sorted(map(lambda sig : distances_to_input[sig], getvars(circ.constraints[coni]))), 
             range(circ.nConstraints)
-        )
-    ]
+        ))
 
     ## With a strict layering order we keep any edges between constraints of different layers
-    in_neighbours = [set([]) for _ in range(circ.nConstraints)]
-    out_neighbours = [set([]) for _ in range(circ.nConstraints)]
+    in_neighbours = [{} for _ in range(circ.nConstraints)]
+    out_neighbours = [{} for _ in range(circ.nConstraints)]
 
-    topological_order = sorted(range(circ.nConstraints),key = lambda coni: coni_to_distances[coni], reverse=True)
+    # NOTE: reversed order provided consistently better results
+    topological_order = sorted(range(circ.nConstraints),key = lambda coni: coni_to_distances[coni])
 
     for coni in topological_order:
 
@@ -130,8 +128,13 @@ def constraint_topological_order(circ: Circuit):
         is_strictly_higher = lambda oconi : coni_to_distances[oconi] > coni_to_distances[coni]
         is_strictly_lower = lambda oconi : coni_to_distances[oconi] < coni_to_distances[coni]
 
-        in_neighbours[coni] = set(filter(is_strictly_higher, adjacent_coni))
-        out_neighbours[coni] = set(filter(is_strictly_lower, adjacent_coni))
+        for func, dict_ in [(is_strictly_higher, in_neighbours), (is_strictly_lower, out_neighbours)]:
+            for oconi in filter(func, adjacent_coni):
+                dict_[coni][oconi] = dict_[coni].setdefault(oconi, 0) + 1
+    
+    if unweighted:
+        in_neighbours = [list(in_neighbours[v].keys()) for v in range(circ.nConstraints)]
+        out_neighbours = [list(out_neighbours[v].keys()) for v in range(circ.nConstraints)]
 
     return topological_order, in_neighbours, out_neighbours
 
@@ -146,7 +149,7 @@ def order_to_clusters(clusters: List[int], order: List[int]):
     
     return actual_clusters
 
-def dag_clustering_from_order(topological_order: List[int], in_neighbours: List[Set[int]], out_neighbours: List[Set[int]]):
+def dag_clustering_from_order(topological_order: List[int], in_neighbours: List[Set[int]], out_neighbours: List[Set[int]], resolution: int = 1):
     """
     Algorithm takes O(n^2 * max_degree) time.
 
@@ -156,6 +159,8 @@ def dag_clustering_from_order(topological_order: List[int], in_neighbours: List[
         Clusters the example directed graph [1, 2, 3, 4], [5, 6] instead of [1,2,3], [4,5,6]
         Since example does not list \Delta Q_d and no other examples are provided (results networks not given)
         I have no way to confirm if the authors have made an error or I've misinterpreted something about the process...
+    
+    Testing shows this being relatively slow but stable on tested circuits, though this is not always true (see above)
     """
 
     # num_edges
@@ -170,6 +175,9 @@ def dag_clustering_from_order(topological_order: List[int], in_neighbours: List[
     pos_to_best_modularity = [None for _ in range(len(topological_order) - 1)] + [0, 0]
     pos_to_best_clusters = [None for _ in range(len(topological_order) - 1)] + [len(topological_order)-1]
 
+    # TODO: we can get upper bounds on Delta, then we can keep r_k + pos_to_curr sorted and abort the search once its no longer possible?
+    #       working_cluster_curr_modularity still can't be calculated then?
+    #       maybe ignore working_cluster_curr_modularity and the paper example behviour
     for pos in range(len(topological_order)-2, -1, -1):
 
         coni = topological_order[pos]
@@ -192,7 +200,7 @@ def dag_clustering_from_order(topological_order: List[int], in_neighbours: List[
             working_cluster_curr_modularity = pos_to_curr_modularity[opos]
 
             # modularity change for cluster of pos
-            current_modularity_change -= in_coni * len(out_neighbours[topological_order[opos]]) + out_coni * len(in_neighbours[topological_order[opos]])
+            current_modularity_change -= resolution * (in_coni * len(out_neighbours[topological_order[opos]]) + out_coni * len(in_neighbours[topological_order[opos]]))
             
             # TODO: improve this check
             if topological_order[opos] in neighbourhood:
