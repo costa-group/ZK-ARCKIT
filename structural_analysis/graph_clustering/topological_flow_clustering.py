@@ -224,3 +224,78 @@ def dag_clustering_from_order(topological_order: List[int], in_neighbours: List[
 
     return order_to_clusters(clusters, topological_order)
 
+# TODO: new version of dag_cluster that uses directed 
+# want dag_cluster version to not be n^2 -- i.e. be fast
+    # previous version that went forward and jumped was fast -- even greedier, maintaining the clustering by adjacent
+def dag_cluster_speed_priority(topological_order: List[int], in_neighbours: List[Dict[int, int]], out_neighbours: List[Dict[int, int]], resistance: int = 0, resolution: int = 1):
+    """
+    starting from end, and going backward greedily pick which of adjacent clusters is best, if none are best then stay solo
+    Theoretically this provides a less optimal clustering, but at the tradeoff of a 60x speedup in reveal I think we take it.
+
+    takes about 1s for reveal
+    """
+    clusters = UnionFind()
+    for sig in topological_order: clusters.find(sig)
+
+    if resistance > 0: directed_add_resistance(resistance, in_neighbours, out_neighbours)
+    in_totals = [sum(in_neighbours[v].values()) for v in range(len(topological_order))]
+    out_totals = [sum(out_neighbours[v].values()) for v in range(len(topological_order))]
+
+    N = len(topological_order)
+    m = sum(in_totals)
+
+    coni_to_order = [None for _ in range(N)]
+    for i in range(N): coni_to_order[topological_order[i]] = i
+
+    for pos in range(len(topological_order)-2, -1, -1):
+
+        sig = topological_order[pos]
+
+        adjacencies = directed_get_adjacent_to(sig, in_neighbours, out_neighbours, in_totals, out_totals, resolution, m)
+
+        best_modularity = 0
+        best_pos = None
+        best_osig = None
+
+        for osig in filter(lambda v : coni_to_order[v] > pos, adjacencies):
+
+            opos = coni_to_order[osig]
+            orep = clusters.find(osig)
+
+            mod_change = directed_calculate_mod_change(sig, orep, clusters, in_neighbours, out_neighbours, in_totals, out_totals, resolution, m)
+
+            if mod_change > best_modularity:
+                best_modularity = mod_change
+                best_osig = orep
+                best_pos = pos
+            elif mod_change == best_modularity and (best_pos is None or best_pos < opos):
+                best_osig = orep
+                best_pos = pos
+
+        if best_osig is None:
+            continue
+        
+        l_, r_ = clusters.find(sig), clusters.find(best_osig)
+        clusters.union(sig, best_osig)
+
+        # as in abs_stable_louvain makes it so l -> r
+        if r_ != clusters.find(best_osig): sig, best_osig, l_, r_ = best_osig, sig, r_, l_
+
+        directed_inner_update_adjacency(sig, l_, best_osig, r_, clusters, in_neighbours, out_neighbours, in_totals, out_totals, resolution, m)
+
+    cluster_lists = {}
+
+    for i in range(N):
+        cluster_lists.setdefault(clusters.find(i), []).append(i)
+
+    return cluster_lists.values()
+
+def dag_cluster_and_merge(topological_order: List[int], in_neighbours: List[Set[int]], out_neighbours: List[Set[int]]):
+    """
+    The dag_clustering_from_order is quick but dependent on non-unique topological order.
+
+    idea is to initially cluster using the above, then use stable (directed) louvain
+
+    .. clustering would still take minutes due to dag though...
+    
+    """
