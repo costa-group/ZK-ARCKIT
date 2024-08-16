@@ -321,9 +321,6 @@ def dag_cluster_and_merge(
     In this way some of the order-dependent merging should be picked up..
 
     PROBLEM: dag_speed leaves ~11000 singular with reveal making the louvain take forever (even with 0 resistance)
-    
-    TODO: fix bug where equivalent clusters from method are being merged differently in louvain, supposedly stable
-
     """
 
     clusters = cluster_method(topological_order, in_neighbours, out_neighbours, resistance, resolution, return_unionfind=True)
@@ -350,11 +347,13 @@ def dag_cluster_and_merge(
         }
         for v in inv_mapping
     ]
-    
+
     higher_order_clusters = stable_directed_louvain(higher_order_in_adjacency, higher_order_out_adjacency, resolution=resolution)
-    
-    for cluster in higher_order_clusters:
-        clusters.union(*cluster)
+
+    for cluster in higher_order_clusters.values():
+        clusters.union(*map(inv_mapping.__getitem__, cluster))
+
+    # TODO: properly modify adjacency for compatability
     
     if return_unionfind: return clusters
     
@@ -378,6 +377,8 @@ def dag_strict_order_clustering(
 
     Very fast, but don't think stable even with louvain post-processing due to how different orders can put 'irrelevant'
         vertices in clusters
+    
+    It's so close though, the same cluster structure comes out but the clusters are just slightly wrong...
 
     takes 1.17s for Reveal
     """
