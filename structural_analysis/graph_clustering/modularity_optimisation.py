@@ -30,11 +30,13 @@ def unweighted_adjacency(circ: Circuit) -> List[List[int]]:
 
 def abs_stable_louvain(
         N: int,
-        adjacency_args: List["Adjacency"],
+        adjacency_args: List,
         get_adjacent_to: Callable,
         calculate_mod_change: Callable,
         inner_update_adjacency: Callable,
-        outer_update_adjacency: Callable
+        outer_update_adjacency: Callable,
+        return_unionfind: bool = False,
+        debug: bool = False
     ) -> List[List[int]]:
     """
     A pseudo-abstract stable louvain method that holds the skeleton to be used by the undirected and directed versions
@@ -61,7 +63,7 @@ def abs_stable_louvain(
                         singular_clusters
                     )
                 ): 
-                # print(lkey, rkey, "                                 ", end='\r')
+                if debug: print(lkey, rkey, "                                 ", end='\r')
 
                 if lkey == rkey or ( singular[rkey] and lkey > rkey ):
                     continue 
@@ -78,7 +80,7 @@ def abs_stable_louvain(
             if best_mod_changes == []:
                 break
 
-            # print(outer_iteration, iteration, best_mod_changes_val, len(best_mod_changes))
+            if debug: print(outer_iteration, iteration, best_mod_changes_val, len(best_mod_changes))
 
             for l, r in best_mod_changes:
                 l_, r_ = clusters.find(l), clusters.find(r)
@@ -89,17 +91,17 @@ def abs_stable_louvain(
                 clusters.union(l, r)
                 
                 # if r_ == clusters.find(r) then l -> r, otherwise r -> l -- so after this l -> r
-                if r_ != clusters.find(r): l , r, l_, r_ = r , l, r_, l_
+                if r_ != clusters.find(r): l_, r_ = r_, l_
                 # assert r_ == clusters.find(r) == clusters.find(l), "Theory Error"
                 singular[r_] = False
 
                 # update adjacency so that representative has all the links: since l -> r sum all (old) l links to r
-                inner_update_adjacency(l, l_, r, r_, clusters, *adjacency_args)
+                inner_update_adjacency(l_, r_, clusters, *adjacency_args)
 
         if iteration == 0:
             break
         
-        # print(f"################### {outer_iteration, len(clusters.get_representatives())} #################")
+        if debug: print(f"################### {outer_iteration, len(clusters.get_representatives())} #################")
 
         for sig in clusters.get_representatives():
             # make 'singular' again
@@ -108,14 +110,16 @@ def abs_stable_louvain(
             # some keys in adjacency may have been made no longer representative so:
             outer_update_adjacency(sig, clusters, *adjacency_args)
 
+    if return_unionfind: return clusters
+
     cluster_lists = {}
 
     for i in range(N):
         cluster_lists.setdefault(clusters.find(i), []).append(i)
 
-    return cluster_lists.values()
+    return cluster_lists
 
-def undirected_inner_update_adjacency(l:int, l_: int, r: int, r_: int, clusters: UnionFind, adjacency: List[Dict[int, int]], totals: List[int]):
+def undirected_inner_update_adjacency(l_: int, r_: int, clusters: UnionFind, adjacency: List[Dict[int, int]], totals: List[int]):
 
         for sig, val in adjacency[l_].items():
             adjacency[r_][clusters.find(sig)] = adjacency[r_].setdefault(clusters.find(sig), 0) + val
@@ -131,7 +135,8 @@ def undirected_outer_update_adjacency(sig: int, clusters: UnionFind, adjacency: 
 def stable_undirected_louvain(
         adjacency: List[Dict[int, int]],
         resolution: int = 1,
-        resistance: int = 0
+        resistance: int = 0,
+        **kwargs
     ) -> List[List[int]]:
 
     N = len(adjacency)
@@ -164,7 +169,8 @@ def stable_undirected_louvain(
         get_adjacent_to,
         calculate_mod_change,
         undirected_inner_update_adjacency,
-        undirected_outer_update_adjacency
+        undirected_outer_update_adjacency,
+        **kwargs
     )
 
 def directed_add_resistance(resistance: int, in_adjacency: List[Dict[int, int]], out_adjacency: List[Dict[int, int]]):
@@ -186,10 +192,10 @@ def directed_calculate_mod_change(lkey: int, rkey: int, clusters: UnionFind, in_
 
     return mod_change 
 
-def directed_inner_update_adjacency(l:int, l_: int, r: int, r_: int, clusters: UnionFind, in_adjacency: List[Dict[int, int]], out_adjacency: List[Dict[int, int]], totals_in: List[int], totals_out: List[int], resolution: int, m: int):
+def directed_inner_update_adjacency(l_: int, r_: int, clusters: UnionFind, in_adjacency: List[Dict[int, int]], out_adjacency: List[Dict[int, int]], totals_in: List[int], totals_out: List[int], resolution: int, m: int):
 
     for adjacency, totals in [(in_adjacency, totals_in), (out_adjacency, totals_out)]:
-        undirected_inner_update_adjacency(l, l_, r, r_, clusters, adjacency, totals)
+        undirected_inner_update_adjacency(l_, r_, clusters, adjacency, totals)
 
 def directed_outer_update_adjacency(sig: int, clusters: UnionFind, in_adjacency: List[Dict[int, int]], out_adjacency: List[Dict[int, int]], totals_in: List[int], totals_out: List[int], resolution: int, m: int):
 
@@ -200,7 +206,9 @@ def stable_directed_louvain(
         in_adjacency: List[Dict[int, int]], 
         out_adjacency: List[Dict[int, int]],
         resolution: int = 1,
-        resistance: int = 0) -> List[List[int]]:
+        resistance: int = 0,
+        **kwargs
+    ) -> List[List[int]]:
     
     """
     Works as stable_louvain but for a directed graph
@@ -223,7 +231,8 @@ def stable_directed_louvain(
         directed_get_adjacent_to,
         directed_calculate_mod_change,
         directed_inner_update_adjacency,
-        directed_outer_update_adjacency
+        directed_outer_update_adjacency,
+        **kwargs
     )
 
 def eigen_modularity_optimisation():
