@@ -62,8 +62,13 @@ https://dial.uclouvain.be/memoire/ucl/en/object/thesis%3A8207/datastream/PDF_01/
 
 This thesis also provides a good overview of clustering techniques on directed graphs
 
+------------------------------------------------------------------------------------------------------------------------------------
+
+TODO: prove that with modfied version the cluster_and_merge is stable... don't think technically true due to 2-step jumps...
+Can we detect when it won't be the same?
+
 """
-from typing import List, Set, Dict
+from typing import List, Set, Dict, Iterable, Callable
 from functools import reduce
 from collections import deque
 import itertools
@@ -79,7 +84,6 @@ from structural_analysis.graph_clustering.modularity_optimisation import stable_
 
 def getvars(con: Constraint) -> set:
     return set(con.A.keys()).union(con.B.keys()).union(con.C.keys()).difference(set([0]))
-    
 
 def constraint_topological_order(circ: Circuit, unweighted: bool = False):
     """
@@ -105,6 +109,7 @@ def constraint_topological_order(circ: Circuit, unweighted: bool = False):
 
     # NOTE: interestingly, this more comprehensive order makes the speed_priority version way slower on reveal... why?
         # more unique distances means more edges ~ 20K more which makes it take longer
+        # although both versions consistently give the same clustering this is not guaranteed and the below is 'better' for this...
     coni_to_distances = list(map(
             lambda coni : sorted(map(lambda sig : distances_to_input[sig], getvars(circ.constraints[coni]))), 
             range(circ.nConstraints)
@@ -297,9 +302,16 @@ def dag_cluster_speed_priority(
     for i in range(N):
         cluster_lists.setdefault(clusters.find(i), []).append(i)
 
-    return cluster_lists.values()
+    return cluster_lists
 
-def dag_cluster_and_merge(topological_order: List[int], in_neighbours: List[Set[int]], out_neighbours: List[Set[int]], resistance: int = 0, resolution: int = 1):
+def dag_cluster_and_merge(
+        topological_order: List[int], 
+        in_neighbours: List[Set[int]],
+        out_neighbours: List[Set[int]], 
+        resistance: int = 0, 
+        resolution: int = 1,
+        return_unionfind: bool = False
+    ):
     """
     The dag_clustering_from_order is quick but dependent on non-unique topological order.
 
@@ -341,9 +353,49 @@ def dag_cluster_and_merge(topological_order: List[int], in_neighbours: List[Set[
     for cluster in higher_order_clusters:
         clusters.union(*cluster)
     
+    if return_unionfind: return clusters
+    
     cluster_lists = {}
 
     for i in range(len(in_neighbours)):
         cluster_lists.setdefault(clusters.find(i), []).append(i)
 
     return cluster_lists.values()
+
+def dag_calculate_adjacency(clusters: UnionFind, in_neighbours, out_neighbours):
+    """
+    Each of the dag_... functions modifies the in_neighbours/out_neighbours as the modularity optimisation function, so that
+        the cluster representative has all the adjacencies.
+    """
+
+    # updates all the adjacencies to be pointing to a representative
+    for sig in clusters.get_representatives(): directed_outer_update_adjacency(sig, clusters, in_neighbours, out_neighbours, None, None, None, None)
+
+    return {
+        set(itertools.chain(in_neighbours[repr].keys(), out_neighbours[repr].keys()))
+        for repr in clusters.get_representatives()
+    }
+
+def circuit_topological_clusters(
+        circ: Circuit,
+        method: Callable = dag_cluster_speed_priority,
+        calculate_adjacency: bool = True,
+        resistance = 0,
+        resolution = 1
+    ):
+        
+    order, in_adjacencies, out_adjacencies = constraint_topological_order(circ)
+    clusters = method(order, in_adjacencies, out_adjacencies, resistance = resistance, resolution = resolution, return_unionfind=True)    
+
+    if calculate_adjacency: adjacency = dag_calculate_adjacency(clusters, in_adjacencies, out_adjacencies)
+    else: adjacency = {} # TODO: check compatability -- maybe make None?
+
+    cluster_lists = {}
+
+    for i in range(circ.nConstraints):
+        cluster_lists.setdefault(clusters.find(i), []).append(i)
+
+    # TODO: move adjacency calculation to here
+
+    # structure of "clusters" is clusters, adjacencies, removed.. but we don't remove anything
+    res = [cluster_lists, adjacency, []]
