@@ -291,9 +291,9 @@ def dag_cluster_speed_priority(
         clusters.union(sig, best_osig)
 
         # as in abs_stable_louvain makes it so l -> r
-        if r_ != clusters.find(best_osig): sig, best_osig, l_, r_ = best_osig, sig, r_, l_
+        if r_ != clusters.find(best_osig): l_, r_ = r_, l_
 
-        directed_inner_update_adjacency(sig, l_, best_osig, r_, clusters, in_neighbours, out_neighbours, in_totals, out_totals, resolution, m)
+        directed_inner_update_adjacency(l_, r_, clusters, in_neighbours, out_neighbours, in_totals, out_totals, resolution, m)
 
     if return_unionfind: return clusters
 
@@ -308,6 +308,7 @@ def dag_cluster_and_merge(
         topological_order: List[int], 
         in_neighbours: List[Set[int]],
         out_neighbours: List[Set[int]], 
+        cluster_method: Callable["Stuff", UnionFind] = dag_cluster_speed_priority,
         resistance: int = 0, 
         resolution: int = 1,
         return_unionfind: bool = False
@@ -321,9 +322,11 @@ def dag_cluster_and_merge(
 
     PROBLEM: dag_speed leaves ~11000 singular with reveal making the louvain take forever (even with 0 resistance)
     
+    TODO: fix bug where equivalent clusters from method are being merged differently in louvain, supposedly stable
+
     """
 
-    clusters = dag_cluster_speed_priority(topological_order, in_neighbours, out_neighbours, resistance, resolution, return_unionfind=True)
+    clusters = cluster_method(topological_order, in_neighbours, out_neighbours, resistance, resolution, return_unionfind=True)
     for sig in clusters.get_representatives(): directed_outer_update_adjacency(sig, clusters, in_neighbours, out_neighbours, None, None, None, None)
 
     mapping = {}
@@ -362,6 +365,99 @@ def dag_cluster_and_merge(
 
     return cluster_lists.values()
 
+def dag_strict_order_clustering(
+        topological_order: List[int], 
+        in_neighbours: List[Dict[int, int]], 
+        out_neighbours: List[Dict[int, int]], 
+        resistance: int = 0, resolution: int = 1, 
+        return_unionfind: bool = False):
+    """
+    Based on first understanding of dag clustering (from paper)
+    Restricts clusters to only be via adjacent vertices as in order but greedily picks best in order
+    Built for speed over best modularity -- very much not stable
+
+    Very fast, but don't think stable even with louvain post-processing due to how different orders can put 'irrelevant'
+        vertices in clusters
+
+    takes 1.17s for Reveal
+    """
+
+    if resistance > 0: directed_add_resistance(resistance, in_neighbours, out_neighbours)
+
+    # used in inner_update
+    in_totals = [sum(in_neighbours[v].values()) for v in range(len(topological_order))]
+    out_totals = [sum(out_neighbours[v].values()) for v in range(len(topological_order))]
+
+    N = len(topological_order)
+    m = sum(in_totals)
+
+    coni_to_order = [None for _ in range(N)]
+    for i in range(N): coni_to_order[topological_order[i]] = i
+
+    cluster_markers = [0]
+
+    while cluster_markers[-1] < len(topological_order):
+
+        pos = cluster_markers[-1]
+        coni = topological_order[pos]
+
+        next_adjacencies = sorted(
+            filter(lambda x : pos < coni_to_order[x], 
+                   directed_get_adjacent_to(coni, in_neighbours, out_neighbours, None, None, None, None)
+                   ),
+            key=coni_to_order.__getitem__
+        )
+
+        best_modularity = 0
+        best_pos = None
+
+        curr_modularity = 0
+        curr_marker = pos
+
+        in_degree = len(in_neighbours[coni])
+        out_degree = len(out_neighbours[coni])
+        
+        for oconi in next_adjacencies:
+
+            opos = coni_to_order[oconi]
+            opos_range = range(curr_marker, opos+1)
+
+            curr_modularity += m
+            curr_modularity -= resolution * (
+                in_degree * sum(map(lambda x : len(out_neighbours[topological_order[x]]), opos_range)) + 
+                out_degree * sum(map(lambda x : len(in_neighbours[topological_order[x]]), opos_range))
+            )
+
+            curr_marker = opos + 1
+
+            if curr_modularity > best_modularity:
+                best_modularity = curr_modularity
+                best_pos = curr_marker
+        if best_pos != None:
+            cluster_markers.append(curr_marker)
+        else:
+            cluster_markers.append(pos+1)
+    
+    ## Compatability with other dag_... functions
+
+    clusters = UnionFind()
+    for l, r in zip(cluster_markers[:-1], cluster_markers[1:]):
+        clusters.union(*list(map(topological_order.__getitem__, range(l, r))))
+
+    # modify in_neighbours/out_neighbours to have all edges in representative
+    for coni in filter(lambda x : clusters.find(x) != x, range(N)):
+        directed_inner_update_adjacency(coni, clusters.find(coni), clusters, in_neighbours, out_neighbours, in_totals, out_totals, None, None)
+
+    if return_unionfind: return clusters
+    
+    # technically slightly inneficient but maintains compatability
+    cluster_lists = {}
+
+    for i in range(len(in_neighbours)):
+        cluster_lists.setdefault(clusters.find(i), []).append(i)
+
+    return cluster_lists.values()
+
 def dag_calculate_adjacency(clusters: UnionFind, in_neighbours, out_neighbours):
     """
     Each of the dag_... functions modifies the in_neighbours/out_neighbours as the modularity optimisation function, so that
@@ -372,7 +468,7 @@ def dag_calculate_adjacency(clusters: UnionFind, in_neighbours, out_neighbours):
     for sig in clusters.get_representatives(): directed_outer_update_adjacency(sig, clusters, in_neighbours, out_neighbours, None, None, None, None)
 
     return {
-        set(itertools.chain(in_neighbours[repr].keys(), out_neighbours[repr].keys()))
+        repr: set(itertools.chain(in_neighbours[repr].keys(), out_neighbours[repr].keys()))
         for repr in clusters.get_representatives()
     }
 
@@ -381,11 +477,12 @@ def circuit_topological_clusters(
         method: Callable = dag_cluster_speed_priority,
         calculate_adjacency: bool = True,
         resistance = 0,
-        resolution = 1
+        resolution = 1,
+        **method_kwargs
     ):
         
     order, in_adjacencies, out_adjacencies = constraint_topological_order(circ)
-    clusters = method(order, in_adjacencies, out_adjacencies, resistance = resistance, resolution = resolution, return_unionfind=True)    
+    clusters = method(order, in_adjacencies, out_adjacencies, resistance = resistance, resolution = resolution, return_unionfind=True, **method_kwargs)    
 
     if calculate_adjacency: adjacency = dag_calculate_adjacency(clusters, in_adjacencies, out_adjacencies)
     else: adjacency = {} # TODO: check compatability -- maybe make None?
@@ -395,7 +492,5 @@ def circuit_topological_clusters(
     for i in range(circ.nConstraints):
         cluster_lists.setdefault(clusters.find(i), []).append(i)
 
-    # TODO: move adjacency calculation to here
-
     # structure of "clusters" is clusters, adjacencies, removed.. but we don't remove anything
-    res = [cluster_lists, adjacency, []]
+    return [cluster_lists, adjacency, []]
