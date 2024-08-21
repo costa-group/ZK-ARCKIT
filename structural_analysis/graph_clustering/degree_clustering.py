@@ -2,26 +2,10 @@ from typing import List, Tuple, Dict
 from functools import reduce
 
 from r1cs_scripts.constraint import Constraint
-from structural_analysis.graph_clustering.clustering_from_list import cluster_from_list
+from structural_analysis.graph_clustering.clustering_from_list import cluster_from_list, cluster_from_list_old, _signal_data_from_cons_list
 
 def getvars(con) -> set:
     return set(con.A.keys()).union(con.B.keys()).union(con.C.keys()).difference(set([0]))
-
-def _signal_data_from_cons_list(cons: List[Constraint]):
-    signal_to_cons = {}
-    signal_to_degree = {}
-
-    for i, con in enumerate(cons):
-        for signal in getvars(con):
-            signal_to_cons.setdefault(signal, []).append(i)
-            signal_to_degree[signal] = signal_to_degree.setdefault(signal, 0) + 1
-
-    degree_to_signal = {}
-
-    for signal, degree in signal_to_degree.items():
-        degree_to_signal.setdefault(degree, []).append(signal)
-
-    return degree_to_signal, signal_to_cons
 
 class Average():
     "Enum for averages"
@@ -29,7 +13,18 @@ class Average():
     median = 1
     mode = 2
 
-def twice_average_degree(cons: List[Constraint], avg_type: int = Average.mode, and_up: bool = True, **kwargs) -> List[List[int]]:
+class ClusterMethod():
+    "enum for method picking"
+    edge_removal = 0
+    signal_removal = 1
+    old_signal_removal = 2
+
+def twice_average_degree(
+        cons: List[Constraint], 
+        avg_type: int = Average.mode, 
+        and_up: bool = True, 
+        clustering_method: int = ClusterMethod.edge_removal,
+        **kwargs) -> List[List[int]]:
     
     degree_to_signal, signal_to_cons = _signal_data_from_cons_list(cons)
 
@@ -66,13 +61,16 @@ def twice_average_degree(cons: List[Constraint], avg_type: int = Average.mode, a
 
         signalset = degree_to_signal[2 * avg_num_signals]
 
+    if clustering_method == 0: return cluster_from_list(cons, signals_to_ignore=signalset, **kwargs)
+
     coniset = reduce(
         lambda acc, signal : acc.union(signal_to_cons[signal]),
         signalset,
         set([])
     )
 
-    return cluster_from_list(cons, to_ignore=coniset, **kwargs)
+    if clustering_method == 1: return cluster_from_list(cons, constraints_to_ignore=coniset, **kwargs)
+    if clustering_method == 2: return cluster_from_list_old(cons, to_ignore=coniset, **kwargs)
 
 # NOT SURE IF ONLY USING DARKFOREST CIRCUITS IS THE BEST IDEA FOR THIS BUT TESTING SHOWS 0.36 signal ratio
 
@@ -104,4 +102,4 @@ def ratio_of_signals(cons: List[Constraint], nSignals = None, signal_ratio=0.36,
         set([])
     )
 
-    return cluster_from_list(cons, to_ignore=coniset, **kwargs)
+    return cluster_from_list(cons, constraints_to_ignore=coniset, **kwargs)

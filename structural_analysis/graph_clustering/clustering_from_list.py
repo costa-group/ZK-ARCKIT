@@ -1,12 +1,29 @@
 
 from typing import List, Tuple, Dict, Callable, Set
 from functools import reduce
+import itertools
 
 from r1cs_scripts.constraint import Constraint
 
 
 def getvars(con) -> set:
     return set(con.A.keys()).union(con.B.keys()).union(con.C.keys()).difference(set([0]))
+
+def _signal_data_from_cons_list(cons: List[Constraint]):
+    signal_to_cons = {}
+    signal_to_degree = {}
+
+    for i, con in enumerate(cons):
+        for signal in getvars(con):
+            signal_to_cons.setdefault(signal, []).append(i)
+            signal_to_degree[signal] = signal_to_degree.setdefault(signal, 0) + 1
+
+    degree_to_signal = {}
+
+    for signal, degree in signal_to_degree.items():
+        degree_to_signal.setdefault(degree, []).append(signal)
+
+    return degree_to_signal, signal_to_cons
 
 class UnionFind():
 
@@ -40,8 +57,75 @@ class UnionFind():
     
     def get_representatives(self) -> Set[int]:
         return self.representatives
+    
+def cluster_from_list(
+        cons: List[Constraint],
+        constraints_to_ignore: List[int] = [],
+        signals_to_ignore: List[int] = [],
+        ignore_func: Callable[[int, Constraint], bool] = None,
+        calculate_adjacency: bool = True,
+    ) -> List[List[int]]:
 
-def cluster_from_list(cons: List[Constraint], 
+    assert len(constraints_to_ignore) > 0  or len(signals_to_ignore) > 0 or ignore_func is not None, "no removal method given"
+
+    if ignore_func is None: 
+        # O(N) memory, O(1) time
+        ignoring = [ False for _ in range(len(cons)) ]
+        for i in constraints_to_ignore: ignoring[i] = True
+
+        keep = lambda coni : not ignoring[coni]
+        removed = constraints_to_ignore
+    else:
+        keep = lambda coni : not ignore_func(cons[coni])
+        removed = list(filter(lambda coni : not keep(coni), range(len(cons))))
+
+    clusters = UnionFind()
+    for i in range(len(cons)): clusters.find(i)
+    
+    _, signal_to_coni = _signal_data_from_cons_list(cons)
+
+    for signal in set(signal_to_coni.keys()).difference(signals_to_ignore):
+        clusters.union(*filter(keep, signal_to_coni[signal]))
+
+    cluster_lists = {}
+    for i in filter(keep, range(len(cons))):
+        cluster_lists.setdefault(clusters.find(i), []).append(i)
+
+    ### Adjacency Calculation
+
+    # Modifications to previous mean that some clusters may have direct adjacencies
+    # 1 step passthrough 
+
+    adjacency = {}
+
+    if calculate_adjacency:
+        removed_adjacencies = {}
+
+        # get coni -> get signals - > get adjacent coni -> get repr -> make unique
+        coni_to_adjacent_coni = lambda coni : set(map(
+                clusters.find, 
+                itertools.chain(*map(
+                    lambda sig : signal_to_coni[sig],
+                    getvars(cons[coni])
+                ))
+            ))
+            
+        for coni in removed: removed_adjacencies[coni] = list(filter(keep, coni_to_adjacent_coni(coni)))
+
+        for key, cluster in cluster_lists.items():
+            adjacent_repr = set(itertools.chain(*map(
+                coni_to_adjacent_coni,
+                cluster
+            )))
+            
+            adjacency[key] = list(itertools.chain(*map(
+                lambda coni :  [coni] if keep(coni) else removed_adjacencies[coni],
+                adjacent_repr
+            )))
+
+    return cluster_lists, adjacency, removed
+
+def cluster_from_list_old(cons: List[Constraint], 
                       to_ignore: List[int] = None, 
                       ignore_func: Callable[[Constraint], bool] = None,
                       calculate_adjacency: bool = True) -> List[List[int]]:

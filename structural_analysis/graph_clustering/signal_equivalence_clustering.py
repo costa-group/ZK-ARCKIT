@@ -7,7 +7,7 @@ from typing import List
 import itertools
 from functools import reduce
 
-from structural_analysis.graph_clustering.clustering_from_list import cluster_from_list
+from structural_analysis.graph_clustering.clustering_from_list import cluster_from_list, cluster_from_list_old
 from r1cs_scripts.constraint import Constraint
 from structural_analysis.signal_graph import shared_constraint_graph
 from structural_analysis.constraint_graph import shared_signal_graph, getvars
@@ -28,7 +28,8 @@ def naive_all_removal(cons: List[Constraint]) -> nx.Graph:
 
     return list(nx.connected_components(g)), [[i] for i in to_remove]
 
-def naive_removal_clustering(cons: List[Constraint], **kwargs) -> List[List[int]]:
+def naive_removal_clustering(cons: List[Constraint], clustering_method: int = 0, **kwargs) -> List[List[int]]:
 
-    return cluster_from_list(cons, ignore_func=is_signal_equivalence_constraint, **kwargs)
+    if   clustering_method == 0: return cluster_from_list(cons, ignore_func=is_signal_equivalence_constraint, **kwargs)
+    elif clustering_method == 1: return cluster_from_list_old(cons, ignore_func=is_signal_equivalence_constraint, **kwargs)
 
