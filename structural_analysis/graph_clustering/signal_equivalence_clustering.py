@@ -29,7 +29,7 @@ def naive_all_removal(circ: Circuit) -> nx.Graph:
 
     return list(nx.connected_components(g)), [[i] for i in to_remove]
 
-def naive_removal_clustering(circ: Circuit, clustering_method: int = 0, **kwargs) -> List[List[int]]:
+def naive_removal_clustering(circ: Circuit, clustering_method: int = 1, **kwargs) -> List[List[int]]:
 
     if   clustering_method == 0: return cluster_from_list(circ.constraints, ignore_func=is_signal_equivalence_constraint, **kwargs)
     elif clustering_method == 1: return cluster_from_list_old(circ.constraints, ignore_func=is_signal_equivalence_constraint, **kwargs)
