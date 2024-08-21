@@ -16,6 +16,8 @@ from comparison.cluster_preprocessing import circuit_clusters
 
 from r1cs_scripts.circuit_representation import Circuit
 
+from structural_analysis.connected_preprocessing import connected_preporcessing
+
 from bij_encodings.encoder import Encoder
 from bij_encodings.assignment import Assignment
 from bij_encodings.reduced_encoding.red_pseudoboolean_encoding import ReducedPseudobooleanEncoder
@@ -52,6 +54,9 @@ def circuit_equivalence(
     start = time.time()
     S1 = in_pair[0][1]
     S2 = in_pair[1][1]
+
+    connected_preporcessing(S1)
+    connected_preporcessing(S2)
 
     try: 
         N = S1.nConstraints
