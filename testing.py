@@ -111,6 +111,46 @@ def getvars(con: Constraint) -> set:
     
 if __name__ == '__main__':
 
+    directory = "r1cs_files/"
+    tests = ["Reveal", "Move", "Biomebase"]
+    compilers = ["O0"]#, "O1", "O2"]
+    RNG = np.random.default_rng(57)
+
+    for test, comp, method in product(tests, compilers, range(2)):
+
+        file = directory + test + comp + ".r1cs"
+        # seed = RNG.integers(0, 25565)
+
+        print(file, method)
+
+        # in_pair = get_circuits(file, seed)
+        # clusters = circuit_clusters(in_pair, naive_removal_clustering)
+        # groups = groups_from_clusters(in_pair, clusters)
+
+        # print(max(map(len, groups["S1"].values())))
+
+        run_affirmative_test(
+            file,
+            "test_results/avg_degree_tests/" + test + comp + '_' + str(method) + ".json",
+            int(RNG.integers(0, 25565)),
+            None,
+            naive_removal_clustering,
+            groups_from_clusters,
+            None,
+            OnlineInfoPassEncoder,
+            clustering_kwargs={
+                "clustering_method": method
+            },
+            encoder_kwargs={
+                "class_encoding": reduced_encoding_class,
+                "signal_encoding": pseudoboolean_signal_encoder
+            },
+            debug=True
+        )
+
+
+
+
     # dir, compiler = "smtprocessor10_test", "O2"
 
     # f1 = "../r1cs_circomlib_tests/" + dir + "/" + dir + "_" + compiler + "_.r1cs"
@@ -139,39 +179,39 @@ if __name__ == '__main__':
     # tests = map(lambda st : st[:-1], f.readlines())
     # f.close()
 
-    tests = ["smtprocessor3_test"]
-    compilers = ["O0", "O1", "O2"]
+    # tests = ["smtprocessor3_test"]
+    # compilers = ["O0", "O1", "O2"]
 
-    summary = {
-        True: [],
-        False: {}
-    }
+    # summary = {
+    #     True: [],
+    #     False: {}
+    # }
 
-    for dir, compiler in product(tests, compilers):
+    # for dir, compiler in product(tests, compilers):
 
-        try:
+    #     try:
 
-            # f = open("test_results/update_tests/" + dir + "_" + compiler + ".json", "r")
-            # data = json.load(f)
-            # f.close()
+    #         # f = open("test_results/update_tests/" + dir + "_" + compiler + ".json", "r")
+    #         # data = json.load(f)
+    #         # f.close()
 
-            # if data["result"]:
+    #         # if data["result"]:
 
-            #     summary[data["result"]].append(f"{dir}_{compiler}")
-            # else:
-            #     summary[data["result"]][f"{dir}_{compiler}"] = data["result_explanation"]
+    #         #     summary[data["result"]].append(f"{dir}_{compiler}")
+    #         # else:
+    #         #     summary[data["result"]][f"{dir}_{compiler}"] = data["result_explanation"]
 
-            print(f"############## TESTING {dir} {compiler} #################")
-            run_current_best_test(
-                "../r1cs_circomlib_tests/" + dir + "/" + dir + "_" + compiler + "_.r1cs",
-                "../r1cs_circomlib_tests/" + dir + "/" + dir + "_buses_" + compiler + ".r1cs",
-                "test_results/update_tests/" + dir + "_" + compiler + ".json",
-                compiler
-            )
+    #         print(f"############## TESTING {dir} {compiler} #################")
+    #         run_current_best_test(
+    #             "../r1cs_circomlib_tests/" + dir + "/" + dir + "_" + compiler + "_.r1cs",
+    #             "../r1cs_circomlib_tests/" + dir + "/" + dir + "_buses_" + compiler + ".r1cs",
+    #             "test_results/update_tests/" + dir + "_" + compiler + ".json",
+    #             compiler
+    #         )
 
-        except FileNotFoundError as e:
-            print(repr(e))
-            continue
+    #     except FileNotFoundError as e:
+    #         print(repr(e))
+    #         continue
 
     # f = open("test_results/update_tests/_summary.json", "w")
     # json.dump(summary, f, indent=4)
