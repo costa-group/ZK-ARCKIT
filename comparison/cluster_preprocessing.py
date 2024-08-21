@@ -22,7 +22,7 @@ def circuit_clusters(
 
     for name, circ in in_pair:
 
-        clusters, adjacency, removed = clustering_algorithm(circ.constraints, **kwargs)
+        clusters, adjacency, removed = clustering_algorithm(circ, **kwargs)
 
         results[name] = {
             "clusters": clusters,
