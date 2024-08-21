@@ -239,8 +239,12 @@ def dag_cluster_speed_priority(
         resistance: int = 0, resolution: int = 1, 
         return_unionfind: bool = False):
     """
+    time: O(N + m)
+
     starting from end, and going backward greedily pick which of adjacent clusters is best, if none are best then stay solo
     Theoretically this provides a less optimal clustering, but at the tradeoff of a 3x speedup in reveal I think we take it.
+
+    can be thought of as a single greedy iteration of louvain
 
     NOTE: modifies in/out neighbours
 
@@ -280,6 +284,7 @@ def dag_cluster_speed_priority(
                 best_modularity = mod_change
                 best_osig = orep
                 best_pos = pos
+            # tiebreaking on pos not stable.. but faster?
             elif mod_change == best_modularity and (best_pos is None or best_pos < opos):
                 best_osig = orep
                 best_pos = pos
