@@ -45,6 +45,7 @@ def circuit_equivalence(
     test_data = {
         "result": None,
         "timing": {},
+        "result_explanation": None,
         "group_sizes": {}
     }
 
@@ -83,7 +84,12 @@ def circuit_equivalence(
 
         if cons_grouping is not None: 
             classes = cons_grouping(in_pair, clusters, signal_info, mapp)
-            test_data["group_sizes"]["initial_sizes"] = count_ints(map(len, classes["S1"].values()))
+            ints = count_ints(map(len, classes["S1"].values()))
+
+            test_data["group_sizes"]["initial_sizes"] = {
+                "sizes": [x[0] for x in ints],
+                "counts": [x[1] for x in ints]
+            }
             if debug: print("Finished building classes", end='\r')
         grouping_time = time.time()
 
@@ -102,7 +108,13 @@ def circuit_equivalence(
                 ckmapp, assumptions, formula, signal_info,
                 debug = debug
             )
-            test_data["group_sizes"]["post_processing"] = count_ints(map(len, classes["S1"].values()))
+            ints = count_ints(map(len, classes["S1"].values()))
+
+            test_data["group_sizes"]["post_processing"] = {
+                "sizes": [x[0] for x in ints],
+                "counts": [x[1] for x in ints]
+            }
+
             if debug: print("Finished preprocessing constraint classes", end='\r')
         cons_preprocessing_time = time.time()
 
@@ -112,7 +124,10 @@ def circuit_equivalence(
             **encoder_kwargs
         )
 
-        test_data["group_sizes"]["encoded_classes"] = encoded_classes
+        test_data["group_sizes"]["encoded_classes"] = {
+            "sizes": [x[0] for x in encoded_classes],
+            "counts": [x[1] for x in encoded_classes]
+        }
 
         solver = Solver(name='cadical195', bootstrap_with=formula)
         encoding_time = time.time()
