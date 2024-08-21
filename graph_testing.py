@@ -26,18 +26,17 @@ if __name__ == '__main__':
     circ = Circuit()
     parse_r1cs(filename, circ)
 
-    circ, circs, cmapp = get_circuits(filename, seed=463, return_mapping=False, return_cmapping=True)
+    in_pair = get_circuits(filename, seed=463)
 
-    circ = connected_preporcessing(circ)
-    circs = connected_preporcessing(circs)
+    connected_preporcessing(in_pair[0][1])
+    connected_preporcessing(in_pair[1][1])
 
-    old_order = None
 
-    in_pair = [("S1", circ), ("S2", circs)]
-    clusters = circuit_clusters(in_pair, clustering_algorithm=twice_average_degree)
+    clusters = circuit_clusters(in_pair, clustering_algorithm=circuit_topological_clusters, resistance=40)
     groups = groups_from_clusters(in_pair, clusters)
 
     print(count_ints(map(len, groups["S1"].values())))
+    print(count_ints(map(len, groups["S2"].values())))
 
 
     # for c in [circ, circs]:

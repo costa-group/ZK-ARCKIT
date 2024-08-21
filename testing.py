@@ -27,6 +27,7 @@ from bij_encodings.batched_info_passing import BatchedInfoPassEncoder, recluster
 from structural_analysis.graph_clustering.degree_clustering import twice_average_degree, ratio_of_signals
 from structural_analysis.graph_clustering.signal_equivalence_clustering import naive_removal_clustering, is_signal_equivalence_constraint
 from structural_analysis.graph_clustering.clustering_from_list import cluster_from_list
+from structural_analysis.graph_clustering.topological_flow_clustering import circuit_topological_clusters
 from comparison.static_distance_preprocessing import distances_to_static_preprocessing
 from testing_harness import run_affirmative_test, run_current_best_test
 from normalisation import r1cs_norm
@@ -113,15 +114,19 @@ if __name__ == '__main__':
 
     directory = "r1cs_files/"
     tests = ["Reveal", "Move", "Biomebase"]
-    compilers = ["O0"]#, "O1", "O2"]
+    compilers = ["O0", "O1", "O2"]
     RNG = np.random.default_rng(57)
 
-    for test, comp, method in product(tests, compilers, range(2)):
+    i = 0
+    for test, comp in product(tests, compilers):
 
         file = directory + test + comp + ".r1cs"
+
+        i += 1
+
         # seed = RNG.integers(0, 25565)
 
-        print(file, method)
+        print(file)
 
         # in_pair = get_circuits(file, seed)
         # clusters = circuit_clusters(in_pair, naive_removal_clustering)
@@ -131,15 +136,15 @@ if __name__ == '__main__':
 
         run_affirmative_test(
             file,
-            "test_results/avg_degree_tests/" + test + comp + '_' + str(method) + ".json",
+            "test_results/topological_cluster/" + test + comp + ".json",
             int(RNG.integers(0, 25565)),
             None,
-            naive_removal_clustering,
+            circuit_topological_clusters,
             groups_from_clusters,
             None,
             OnlineInfoPassEncoder,
             clustering_kwargs={
-                "clustering_method": method
+                "resistance": 40
             },
             encoder_kwargs={
                 "class_encoding": reduced_encoding_class,
@@ -147,9 +152,6 @@ if __name__ == '__main__':
             },
             debug=True
         )
-
-
-
 
     # dir, compiler = "smtprocessor10_test", "O2"
 
