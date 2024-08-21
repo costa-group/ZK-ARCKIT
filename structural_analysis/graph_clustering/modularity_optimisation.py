@@ -8,22 +8,26 @@ Resolution limits I think will also play a key part meaning modularity may not b
 """
 
 from typing import List, Tuple, Dict, Callable
-from itertools import product, chain, combinations_with_replacement
+from itertools import product, chain, combinations
 
 from utilities import count_ints
 from r1cs_scripts.circuit_representation import Circuit
 from structural_analysis.graph_clustering.clustering_from_list import UnionFind
 from structural_analysis.graph_clustering.degree_clustering import _signal_data_from_cons_list
 
-def unweighted_adjacency(circ: Circuit) -> List[List[int]]:
+def undirected_adjacency(circ: Circuit, unweighted: bool = False) -> List[List[int]]:
     _, signal_to_coni = _signal_data_from_cons_list(circ.constraints)
 
-    adjacency = [set([]) for _ in range(circ.nConstraints)]
+    adjacency = [{} for _ in range(circ.nConstraints)]
 
     for signal in signal_to_coni.keys():
-        for coni in signal_to_coni[signal]:
-            adjacency[coni].update(filter(lambda oconi : oconi != coni, signal_to_coni[signal]))
-    
+        for l, r in combinations(signal_to_coni[signal], 2):
+            adjacency[l][r] = adjacency[l].setdefault(r, 0) + 1
+            adjacency[r][l] = adjacency[r].setdefault(l, 0) + 1
+
+    if unweighted:
+        adjacency = [ list(adjacency[v].keys()) for v in range(len(adjacency)) ]
+
     # last conversion probably unnescary, don't think order is mattering
     return adjacency
     # return list(map(list, adjacency))
@@ -35,11 +39,20 @@ def abs_stable_louvain(
         calculate_mod_change: Callable,
         inner_update_adjacency: Callable,
         outer_update_adjacency: Callable,
+        tolerance: float = 0,
+        inner_loop_limit: int = float("inf"),
+        outer_loop_limit: int = float("inf"),
         return_unionfind: bool = False,
         debug: bool = False
     ) -> List[List[int]]:
     """
     A pseudo-abstract stable louvain method that holds the skeleton to be used by the undirected and directed versions
+
+    ## TODO: modularize the function so that we can have iteration limits.. we know 1 iteration will take ~20s
+        # possible algorithm version is a version where we have a relatively high tolerance.. say 50%
+        # and only run ~4-5 iterations of the inner.. How would this scale, better than twice average degree? It's stable.
+        #   current reveal times are ~30s total... would need to show great improvement in resultant encoding for this to work
+        #   given low estimates of ~2-3min..
     """
 
     clusters = UnionFind()
@@ -48,8 +61,8 @@ def abs_stable_louvain(
     singular = [True for _ in range(N)]
 
     # since each iteration reduces the total number of clusters each is capped by N
-    for outer_iteration in range(N):
-        for iteration in range(N):
+    for outer_iteration in range(min(outer_loop_limit, N)):
+        for iteration in range(min(inner_loop_limit, N)):
 
             best_mod_changes_val = 0
             best_mod_changes = []
@@ -73,16 +86,22 @@ def abs_stable_louvain(
 
                 if mod_change > best_mod_changes_val:
                     best_mod_changes_val = mod_change
-                    best_mod_changes = [(lkey, rkey)]
-                elif mod_change == best_mod_changes_val:
-                    best_mod_changes.append((lkey, rkey))
+                    
+                    if tolerance == 0:
+                        best_mod_changes = [(lkey, rkey, mod_change)]
+                    if tolerance > 0: 
+                        best_mod_changes = list(filter(lambda tup : tup[2] >= mod_change * (1-tolerance), best_mod_changes))
+                        best_mod_changes.append((lkey, rkey, mod_change))
+                        
+                elif mod_change >= best_mod_changes_val * (1 - tolerance):
+                    best_mod_changes.append((lkey, rkey, mod_change))
 
             if best_mod_changes == []:
                 break
 
             if debug: print(outer_iteration, iteration, best_mod_changes_val, len(best_mod_changes))
 
-            for l, r in best_mod_changes:
+            for l, r, _ in best_mod_changes:
                 l_, r_ = clusters.find(l), clusters.find(r)
                 
                 if l_ == r_:
