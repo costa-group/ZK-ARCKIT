@@ -52,12 +52,29 @@ def rand_const_factor(circ: Circuit, high = 2**10 - 1, seed = None) -> None:
             for key in dict.keys():
                 dict[key] = multiplyP(dict[key], coef, circ.prime_number)
 
+def shuffle_internals(circ: Circuit, seed: int = None) -> None:
+    RNG = np.random.default_rng(seed)
+
+    for con in circ.constraints:
+        conA = list(con.A.items())
+        RNG.shuffle(conA)
+        con.A = dict(conA)
+
+        conB = list(con.B.items())
+        RNG.shuffle(conA)
+        con.B = dict(conB)
+
+        conC = list(con.C.items())
+        RNG.shuffle(conA)
+        con.C = dict(conC)
+
 def get_circuits(file, seed = None, 
             return_mapping: bool = False,
             return_cmapping: bool = False,
             const_factor : bool = True, 
             shuffle_sig : bool = True, 
-            shuffle_const: bool = True
+            shuffle_const: bool = True,
+            shuffle_internal_const: bool = True
     ):
     circ, circ_shuffled = Circuit(), Circuit()
 
@@ -65,12 +82,13 @@ def get_circuits(file, seed = None,
     r1cs_scripts.read_r1cs.parse_r1cs(file, circ_shuffled)
 
     RNG = np.random.default_rng(seed = seed)
-    seed1, seed2, seed3 = RNG.integers(0, 10**6, size = 3)
+    seed1, seed2, seed3, seed4 = RNG.integers(0, 10**6, size = 4)
     if const_factor: rand_const_factor(circ_shuffled, seed = seed1)
     if shuffle_sig: mapping = shuffle_signals(circ_shuffled, seed = seed2)
     else: mapping = list(range(circ.nWires))
     if shuffle_const: cmapping = shuffle_constraints(circ_shuffled, seed = seed3)
     else: cmapping = list(range(circ.nConstraints))
+    if shuffle_internal_const: shuffle_internals(circ_shuffled, seed = seed4)
 
     res = [[("S1", circ), ("S2", circ_shuffled)]]
     if return_mapping: res.append(mapping)
