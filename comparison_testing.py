@@ -53,7 +53,7 @@ def rand_const_factor(circ: Circuit, high = 2**10 - 1, seed = None) -> None:
                 dict[key] = multiplyP(dict[key], coef, circ.prime_number)
 
 def get_circuits(file, seed = None, 
-            return_mapping: bool = True,
+            return_mapping: bool = False,
             return_cmapping: bool = False,
             const_factor : bool = True, 
             shuffle_sig : bool = True, 
@@ -72,9 +72,11 @@ def get_circuits(file, seed = None,
     if shuffle_const: cmapping = shuffle_constraints(circ_shuffled, seed = seed3)
     else: cmapping = list(range(circ.nConstraints))
 
-    res = [circ, circ_shuffled]
+    res = [[("S1", circ), ("S2", circ_shuffled)]]
     if return_mapping: res.append(mapping)
     if return_cmapping: res.append(cmapping)
+
+    if len(res) == 1: return res[0]
 
     return res
 

@@ -8,28 +8,29 @@ from comparison_testing import get_circuits
 from comparison.compare_circuits import circuit_equivalence
 
 def exception_catcher(
-    circ: Circuit,
-    circs: Circuit,
+    in_pair,
     info_preprocessing,
     cons_clustering,
     cons_grouping,
     cons_preprocessing,
     encoder,
     debug: bool = False,
-    **encoder_kwargs
+    clustering_kwargs: dict = {},
+    encoder_kwargs: dict = {}
     ):   
 
     start = time.time()
     try:
         test_data = circuit_equivalence(
-            circ, circs,
+            in_pair,
             info_preprocessing,
             cons_clustering,
             cons_grouping,
             cons_preprocessing,
             encoder,
-            debug = debug,
-            **encoder_kwargs
+            debug,
+            clustering_kwargs,
+            encoder_kwargs
         )
     except Exception as e:
         raise e
@@ -54,22 +55,23 @@ def run_affirmative_test(
         cons_preprocessing,
         encoder,
         debug: bool = False,
-        **encoder_kwargs
+        clustering_kwargs: dict = {},
+        encoder_kwargs: dict = {}
     ):
 
-    circ, circs = get_circuits(filename, seed = seed, 
-        const_factor=True, shuffle_sig=True, shuffle_const=True, 
-        return_mapping=False, return_cmapping=False)
+    in_pair = get_circuits(filename, seed = seed, 
+        const_factor=True, shuffle_sig=True, shuffle_const=True)
 
     test_data = exception_catcher(
-        circ, circs,
+        in_pair,
         info_preprocessing,
         cons_clustering,
         cons_grouping,
         cons_preprocessing,
         encoder,
         debug,
-        **encoder_kwargs
+        clustering_kwargs,
+        encoder_kwargs
     )
 
     test_data["seed"] = seed

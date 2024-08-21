@@ -28,15 +28,15 @@ def count_ints(lints : Iterable[int]) -> Dict[int, int]:
 
 # Typing throwing warnings for unknown classes, I think this is easier for a human to read though
 def circuit_equivalence(
-        S1: Circuit, 
-        S2: Circuit,
+        in_pair: List[Tuple[str, Circuit]],
         info_preprocessing: Callable[["In_pair", Assignment], "Signal_Info"] = None,
         cons_clustering: Callable = None,
         cons_grouping: Callable[["In_pair", "Clusters", "Signal_Info", Assignment], "Classes"] = None,
         cons_preprocessing: Callable = None,
         encoder: Encoder = ReducedPseudobooleanEncoder,
         debug: bool = False,
-        **encoder_kwargs
+        clustering_kwargs: dict = {},
+        encoder_kwargs: dict = {}
         ) -> Tuple[bool, List[Tuple[int, int]]]:
     """
     Currently assumes A*B + C = 0, where each A, B, C are equivalent up to renaming/factor
@@ -49,6 +49,8 @@ def circuit_equivalence(
     }
 
     start = time.time()
+    S1 = in_pair[0][1]
+    S2 = in_pair[1][1]
 
     try: 
         N = S1.nConstraints
@@ -59,8 +61,6 @@ def circuit_equivalence(
 
         if N != S2.nConstraints:
             raise AssertionError(f"Different number of constraints in circuits: S1 has {S1.nConstraints}, S2 has {S2.nConstraints}")
-        
-        in_pair = [('S1', S1), ('S2', S2)]
 
         mapp = Assignment()
         assumptions = set([])
@@ -75,7 +75,7 @@ def circuit_equivalence(
 
         clusters = None
 
-        if cons_clustering is not None: clusters = circuit_clusters(in_pair, cons_clustering, calculate_adjacency = True)
+        if cons_clustering is not None: clusters = circuit_clusters(in_pair, cons_clustering, calculate_adjacency = True, **clustering_kwargs)
         if cons_clustering and debug: print("Finished circuit clustering", end='\r')
         clustering_time = time.time()
 
