@@ -12,6 +12,7 @@ from comparison.constraint_preprocessing import hash_constraint
 from structural_analysis.constraint_graph import shared_signal_graph
 from structural_analysis.graph_clustering.stepped_girvan_newman import stepped_girvan_newman
 from structural_analysis.graph_clustering.signal_equivalence_clustering import naive_removal_clustering
+from comparison.static_distance_preprocessing import _distances_to_signal_set
 
 def circuit_clusters(
         in_pair: List[Tuple[str, Circuit]], 
@@ -37,6 +38,11 @@ def groups_from_clusters(
         clusters: Dict[str, Tuple[Dict[int, List[int]], Dict[int, List[int]], List[int]]],
         known_signal_mapping: Dict[str, Dict[int, Set[int]]] = None,
         mapp: Assignment = None):
+    
+    signal_to_distance = {
+        name: _distances_to_signal_set(circ.constraints, range(circ.nPubOut+1, circ.nPubOut + circ.nPrvIn + circ.nPubIn + 1))
+        for name, circ in in_pair
+    }
 
     # NOTE: clusters not necessarily in the same order
     internally_hashed_clusters = {
@@ -56,7 +62,7 @@ def groups_from_clusters(
             for consi in cluster:
                 clusters[name]["coni_to_cluster"].setdefault(consi, set([])).add(key)
 
-                hash_ = hash_constraint(circ.constraints[consi], name, mapp, known_signal_mapping)
+                hash_ = hash_constraint(circ.constraints[consi], name, mapp, known_signal_mapping, signal_to_distance)
 
                 hashes.setdefault(hash_, []).append(consi)
             
@@ -119,7 +125,7 @@ def groups_from_clusters(
         for consi in clusters[name]["removed"]:
 
             cluster_groups[name].setdefault(
-                f"*{re_constraint_hashmapp.get_assignment(hash_constraint(circ.constraints[consi], name, mapp, known_signal_mapping))}",
+                f"*{re_constraint_hashmapp.get_assignment(hash_constraint(circ.constraints[consi], name, mapp, known_signal_mapping, signal_to_distance))}",
                 []).append(consi)
 
     return cluster_groups

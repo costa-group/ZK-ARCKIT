@@ -5,6 +5,7 @@ from r1cs_scripts.constraint import Constraint
 from r1cs_scripts.modular_operations import divideP
 from normalisation import r1cs_norm
 from bij_encodings.assignment import Assignment
+from utilities import count_ints
 
 constSignal = 0
 
@@ -38,18 +39,33 @@ def known_split(norms: List[Constraint], name, mapp, signal_info) -> str:
 
         return str(sorted(parts))
 
-def hash_constraint(cons: Constraint, name: str = None, mapp: Assignment = None, signal_info: Dict[str, Dict[int, Set[int]]] = None):
+def hash_constraint(
+        cons: Constraint, 
+        name: str = None, 
+        mapp: Assignment = None, 
+        signal_info: Dict[str, Dict[int, Set[int]]] = None,
+        distances: Dict[str, List[int]] = None):
 
-    def constant_quadratic_split(C: Constraint) -> str:
+    def constant_split(C: Constraint) -> str:
         """
-        returns 4 length string
-            - first bit is has quad
-            - 2-4th are the const factor of A.B C has a constant factor
+        returns 3 bits
+            - 1-3rd bits are 1 if A,B,C resp has const. factor
         """
-        has_quad  =  str(int(len(C.A) * len(C.B) != 0))
         const_pos = ''.join( [ str(1 if int(constSignal in D.keys()) else 0) for D in [C.A, C.B, C.C]] ) # maybe reduce hash len?
 
-        return has_quad + const_pos          
+        return const_pos
+
+    def distances_split(C: Constraint) -> str:
+        """
+        List of lists containing sorted count for number of shortest distances to input signal in each part
+        """
+        if distances is None or name is None:
+            return ""
+    
+        return str([
+            count_ints(map(distances[name].__getitem__, filter(lambda x : x != 0, dict_.keys())))
+            for dict_ in [C.A, C.B, C.C]
+        ])
     
     def norm_split(norms: List[Constraint]) -> str:
         """
@@ -77,7 +93,8 @@ def hash_constraint(cons: Constraint, name: str = None, mapp: Assignment = None,
     if len(norms) > 1: norms = sorted(norms, key = return_coefs) ## need canonical order for returned normed constraints
     
     hashes = [
-        constant_quadratic_split(cons),
+        constant_split(cons),
+        distances_split(cons),
         known_split(norms, name, mapp, signal_info),
         norm_split(norms,)
     ]
