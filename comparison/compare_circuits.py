@@ -149,10 +149,10 @@ def circuit_equivalence(
             test_data["result_explanation"] = "Unsatisfiable Formula"
     
         for time_title, time_bool, later_time, earlier_time in zip(
-            ["info_preprocessing_time", "clustering_time", "grouping_time", "cons_preprocessing_time", "encoding_time", "solving_time"], 
-            [info_preprocessing, cons_clustering, cons_grouping, cons_preprocessing, True, True],
-            [info_preprocessing_time, clustering_time, grouping_time, cons_preprocessing_time, encoding_time, solving_time], 
-            [start, info_preprocessing_time, clustering_time, grouping_time, cons_preprocessing_time, encoding_time]
+            ["info_preprocessing_time", "clustering_time", "grouping_time", "cons_preprocessing_time", "encoding_time", "solving_time", "total_time"], 
+            [info_preprocessing, cons_clustering, cons_grouping, cons_preprocessing, True, True, True],
+            [info_preprocessing_time, clustering_time, grouping_time, cons_preprocessing_time, encoding_time, solving_time, solving_time], 
+            [start, info_preprocessing_time, clustering_time, grouping_time, cons_preprocessing_time, encoding_time, start]
         ):
             if time_bool is not None:
                 test_data["timing"][time_title] = later_time - earlier_time
