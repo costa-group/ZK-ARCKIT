@@ -10,7 +10,7 @@ from bij_encodings.assignment import Assignment
 from r1cs_scripts.circuit_representation import Circuit
 
 from comparison.static_distance_preprocessing import _distances_to_signal_set
-from structural_analysis.graph_clustering.degree_clustering import _signal_data_from_cons_list
+from utilities import _signal_data_from_cons_list
 
 
 

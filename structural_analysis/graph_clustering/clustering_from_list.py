@@ -4,26 +4,10 @@ from functools import reduce
 import itertools
 
 from r1cs_scripts.constraint import Constraint
-
+from utilities import _signal_data_from_cons_list
 
 def getvars(con) -> set:
     return set(con.A.keys()).union(con.B.keys()).union(con.C.keys()).difference(set([0]))
-
-def _signal_data_from_cons_list(cons: List[Constraint]):
-    signal_to_cons = {}
-    signal_to_degree = {}
-
-    for i, con in enumerate(cons):
-        for signal in getvars(con):
-            signal_to_cons.setdefault(signal, []).append(i)
-            signal_to_degree[signal] = signal_to_degree.setdefault(signal, 0) + 1
-
-    degree_to_signal = {}
-
-    for signal, degree in signal_to_degree.items():
-        degree_to_signal.setdefault(degree, []).append(signal)
-
-    return degree_to_signal, signal_to_cons
 
 class UnionFind():
 

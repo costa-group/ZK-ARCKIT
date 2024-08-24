@@ -5,7 +5,7 @@ from functools import reduce
 from r1cs_scripts.circuit_representation import Circuit
 from r1cs_scripts.constraint import Constraint
 from bij_encodings.assignment import Assignment
-from structural_analysis.graph_clustering.degree_clustering import _signal_data_from_cons_list
+from utilities import _signal_data_from_cons_list
 
 def getvars(con: Constraint) -> set:
     return set(con.A.keys()).union(con.B.keys()).union(con.C.keys()).difference(set([0]))
