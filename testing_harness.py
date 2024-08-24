@@ -6,6 +6,7 @@ from r1cs_scripts.circuit_representation import Circuit
 from comparison_testing import get_circuits
 
 from comparison.compare_circuits import circuit_equivalence
+from bij_encodings.preprocessing.iterated_adj_reclassing import iterated_adjacency_reclassing
 
 def exception_catcher(
     in_pair,
@@ -105,18 +106,22 @@ def run_current_best_test(
     parse_r1cs(lfilename, circ)
     parse_r1cs(rfilename, circs)
 
+    in_pair = [("S1", circ), ("S2", circs)]
+
     if compiler == "O0": clustering = naive_removal_clustering
     else: clustering = twice_average_degree
 
     test_data = exception_catcher(
-        circ, circs,
+        in_pair,
         None,
         clustering,
         groups_from_clusters,
-        None,
+        iterated_adjacency_reclassing,
         OnlineInfoPassEncoder,
-        class_encoding = reduced_encoding_class,
-        signal_encoding = pseudoboolean_signal_encoder,
+        encoder_kwargs= {
+            "class_encoding" : reduced_encoding_class,
+            "signal_encoding" : pseudoboolean_signal_encoder
+        },
         debug=True
     )
 
