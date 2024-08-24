@@ -61,11 +61,13 @@ def hash_constraint(
         """
         if distances is None or name is None:
             return ""
-    
-        return str([
-            count_ints(map(distances[name].__getitem__, filter(lambda x : x != 0, dict_.keys())))
+        
+        distance_by_part = [[
+            count_ints(map(distances[name][source].__getitem__, filter(lambda x : x != 0, dict_.keys())))
             for dict_ in [C.A, C.B, C.C]
-        ])
+        ] for source in distances[name].keys()]
+    
+        return str(distance_by_part[0]) + ":" + str(distance_by_part[1])
     
     def norm_split(norms: List[Constraint]) -> str:
         """

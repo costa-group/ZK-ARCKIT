@@ -40,7 +40,10 @@ def groups_from_clusters(
         mapp: Assignment = None):
     
     signal_to_distance = {
-        name: _distances_to_signal_set(circ.constraints, range(circ.nPubOut+1, circ.nPubOut + circ.nPrvIn + circ.nPubIn + 1))
+        name: {
+            sourcename: _distances_to_signal_set(circ.constraints, source)
+            for sourcename, source in [("input", range(circ.nPubOut+1, circ.nPubOut + circ.nPrvIn + circ.nPubIn + 1)), ("output", range(1, circ.nPubOut+1))]
+        }
         for name, circ in in_pair
     }
 
