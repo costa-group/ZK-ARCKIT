@@ -17,7 +17,8 @@ from r1cs_scripts.modular_operations import multiplyP
 from r1cs_scripts.constraint import Constraint
 from r1cs_scripts.circuit_representation import Circuit
 from r1cs_scripts.read_r1cs import parse_r1cs
-from bij_encodings.singular_preprocessing import singular_class_preprocessing
+from bij_encodings.preprocessing.singular_preprocessing import singular_class_preprocessing
+from bij_encodings.preprocessing.iterated_adj_reclassing import iterated_adjacency_reclassing
 from bij_encodings.assignment import Assignment
 from bij_encodings.reduced_encoding.red_class_encoder import reduced_encoding_class
 from bij_encodings.reduced_encoding.red_natural_encoding import ReducedNaturalEncoder
@@ -30,7 +31,10 @@ from structural_analysis.graph_clustering.clustering_from_list import cluster_fr
 from structural_analysis.graph_clustering.topological_flow_clustering import circuit_topological_clusters
 from comparison.static_distance_preprocessing import distances_to_static_preprocessing
 from testing_harness import run_affirmative_test, run_current_best_test
+from structural_analysis.connected_preprocessing import connected_preporcessing
 from normalisation import r1cs_norm
+from utilities import count_ints, _signal_data_from_cons_list, getvars
+from comparison.static_distance_preprocessing import _distances_to_signal_set
 import itertools
 
 # REVEAL TEST TIMES (with singular preprocessing)
@@ -98,215 +102,106 @@ def cons_eq(C1: Constraint, C2: Constraint):
             +  [C1.B[key] == C2.B[key] for key in C1.B.keys()]
             +  [C1.C[key] == C2.C[key] for key in C1.C.keys()])
 
-def count_ints(lints : Iterable[int]) -> Dict[int, int]:
-    res = {}
-    for i in lints:
-        res[i] = res.setdefault(i, 0) + 1
-    return sorted(res.items())
-
 def get_absmax_lit(clauses):
     return max(map(max, map(lambda x : map(abs, x), clauses)))
 
-def getvars(con: Constraint) -> set:
-    return set(con.A.keys()).union(con.B.keys()).union(con.C.keys()).difference(set([0]))
     
 if __name__ == '__main__':
 
-    directory = "r1cs_files/"
-    tests = ["Reveal", "Move", "Biomebase"]
-    compilers = ["O0", "O1", "O2"]
-    RNG = np.random.default_rng(57)
-
-    i = 0
-    for test, comp in product(tests, compilers):
-
-        file = directory + test + comp + ".r1cs"
-
-        i += 1
-
-        # seed = RNG.integers(0, 25565)
-
-        print(file)
-
-        # in_pair = get_circuits(file, seed)
-        # clusters = circuit_clusters(in_pair, naive_removal_clustering)
-        # groups = groups_from_clusters(in_pair, clusters)
-
-        # print(max(map(len, groups["S1"].values())))
-
-        run_affirmative_test(
-            file,
-            "test_results/topological_cluster/" + test + comp + ".json",
-            int(RNG.integers(0, 25565)),
-            None,
-            circuit_topological_clusters,
-            groups_from_clusters,
-            None,
-            OnlineInfoPassEncoder,
-            clustering_kwargs={
-                "resistance": 40
-            },
-            encoder_kwargs={
-                "class_encoding": reduced_encoding_class,
-                "signal_encoding": pseudoboolean_signal_encoder
-            },
-            debug=True
-        )
-
-    # dir, compiler = "smtprocessor10_test", "O2"
-
-    # f1 = "../r1cs_circomlib_tests/" + dir + "/" + dir + "_" + compiler + "_.r1cs"
-    # f2 = "../r1cs_circomlib_tests/" + dir + "/" + dir + "_buses_" + compiler + ".r1cs"
-
-    # run_current_best_test(
-    #     f1, f2, "test.json", compiler
-    # )
-
-    # circ, circs = Circuit(), Circuit()
-
-    # parse_r1cs(f1, circ)
-    # parse_r1cs(f2, circs)
-
-    # in_pair = [("S1", circ), ("S2", circs)]
-
-    # mapp = Assignment()
-
-
-    # clusters = 
-    # groups = groups_from_clusters(in_pair, clusters, None, mapp)
-
-    
-    # tests_list_file = "../r1cs_circomlib_tests/_filenames.txt"
-    # f = open(tests_list_file, "r")
-    # tests = map(lambda st : st[:-1], f.readlines())
-    # f.close()
-
-    # tests = ["smtprocessor3_test"]
+    # filenames = ["Reveal", "Biomebase", "Move"]
     # compilers = ["O0", "O1", "O2"]
+    # RNG = np.random.default_rng(468)
 
-    # summary = {
-    #     True: [],
-    #     False: {}
+    # for test, comp in product(filenames, compilers):
+
+    #     print(test, comp)
+    #     file = "r1cs_files/"+ test + comp + ".r1cs"
+
+    #     run_affirmative_test(
+    #         file,
+    #         "test_results/iterated_reclassing/" + test + comp + ".json",
+    #         int(RNG.integers(0, 25565)),
+    #         None,
+    #         naive_removal_clustering if comp == "O0" else twice_average_degree,
+    #         groups_from_clusters,
+    #         iterated_adjacency_reclassing,
+    #         OnlineInfoPassEncoder,
+    #         encoder_kwargs={
+    #             "class_encoding": reduced_encoding_class,
+    #             "signal_encoding": pseudoboolean_signal_encoder
+    #         },
+    #         debug=False
+    #     )
+
+    # TODO: maybe integrate idea into a re-clustering step?
+
+    # TODO: at O1 starts slowing down but then finishes
+        #   at O0 starts slowing down for seemingly no discernable reason 
+        #   (likely memory but task manager shows very little disk usage... until ctrl+c then spike)
+        #   need to look into improving the memory still I suspect
+    
+    run_current_best_test(
+        "r1cs_files/test_ecdsaO0.r1cs",
+        "r1cs_files/test_ecdsaO0.r1cs",
+        "test_results/iterated_reclassing/ecdsaO0.json",
+        "O0"
+    )
+
+    # filename = "r1cs_files/RevealO0.r1cs"
+
+    # in_pair, cmapp = get_circuits(filename, seed=56, return_cmapping=True)
+
+    # for _, c in in_pair: connected_preporcessing(c)
+
+    # signal_to_distance = {
+    #     name: {
+    #         sourcename: _distances_to_signal_set(circ.constraints, source)
+    #         for sourcename, source in [("input", range(circ.nPubOut+1, circ.nPubOut + circ.nPrvIn + circ.nPubIn + 1)), ("output", range(1, circ.nPubOut+1))]
+    #     }
+    #     for name, circ in in_pair
     # }
 
-    # for dir, compiler in product(tests, compilers):
+    # clusters = circuit_clusters(in_pair, naive_removal_clustering)
 
-    #     try:
-
-    #         # f = open("test_results/update_tests/" + dir + "_" + compiler + ".json", "r")
-    #         # data = json.load(f)
-    #         # f.close()
-
-    #         # if data["result"]:
-
-    #         #     summary[data["result"]].append(f"{dir}_{compiler}")
-    #         # else:
-    #         #     summary[data["result"]][f"{dir}_{compiler}"] = data["result_explanation"]
-
-    #         print(f"############## TESTING {dir} {compiler} #################")
-    #         run_current_best_test(
-    #             "../r1cs_circomlib_tests/" + dir + "/" + dir + "_" + compiler + "_.r1cs",
-    #             "../r1cs_circomlib_tests/" + dir + "/" + dir + "_buses_" + compiler + ".r1cs",
-    #             "test_results/update_tests/" + dir + "_" + compiler + ".json",
-    #             compiler
-    #         )
-
-    #     except FileNotFoundError as e:
-    #         print(repr(e))
-    #         continue
-
-    # f = open("test_results/update_tests/_summary.json", "w")
-    # json.dump(summary, f, indent=4)
-    # f.close()
-
-    # dir, compiler = "babypbk_test", "O2"
-
-    # run_current_best_test(
-    #             "../r1cs_circomlib_tests/" + dir + "/" + dir + "_" + compiler + "_.r1cs",
-    #             "../r1cs_circomlib_tests/" + dir + "/" + dir + "_buses_" + compiler + ".r1cs",
-    #             "test_results/update_tests/" + dir + "_" + compiler + ".json",
-    #             compiler
-    #         )
-
-
-    
-
-    # circ, circs = get_circuits(
-    #     "r1cs_files/RevealO0.r1cs", seed=56, return_mapping=False
-    # )
-
-    # circuit_equivalence(circ, circs,
-    #             None,
-    #             naive_removal_clustering,
-    #             groups_from_clusters,
-    #             None,
-    #             OnlineInfoPassEncoder,
-    #             class_encoding = reduced_encoding_class,
-    #             signal_encoding = pseudoboolean_signal_encoder,
-    #             debug=True)
-
-    # circ, circs = get_circuits(
-    #     "r1cs_files/test_ecdsaO0.r1cs", seed=56, return_mapping=False
-    # )
+    # classes = groups_from_clusters(in_pair, clusters)
 
     # start = time.time()
 
-    # in_pair = list(zip(["S1", "S2"], [circ, circs]))
-    # mapp = Assignment()
-    # assumptions = set([])
-    # formula = CNF()
-    # ckmapp = Assignment(assignees=3, link = mapp)
-    # signal_info = None
+    # post_classes = iterated_adjacency_reclassing(in_pair, classes)
 
-    # clusters = circuit_clusters(in_pair, naive_removal_clustering, calculate_adjacency = True)
-    # classes = groups_from_clusters(in_pair, clusters, signal_info, mapp)
+    # print(time.time() - start)
 
-    # setup = time.time()
-    # print("setup time: ",setup - start)
+    # print(count_ints(map(len, classes["S1"].values())))
+    # print(count_ints(map(len, post_classes["S1"].values())))
 
-    # directories = ["batched_info", "online_info"]
-    # files = ["Poseidon", "Reveal", "Biomebase", "Move"]
-    # compilers = ["O0", "O1"]
+    # origin = classes["S1"]["*2112"][0]
+    # print(origin)
 
-    # for dir, file, com in itertools.product(directories, files, compilers):
-    #     f = open("test_results/"+dir + "/" + file + com + ".json", "rb")
-    #     result = json.load(f)
-    #     f.close()
-
-    #     for key in result["group_sizes"]:
-    #         comparisons = sum(map(lambda tup : tup[0] ** 2 * tup[1], result["group_sizes"][key]))
-    #         print(dir, file, com, key, "num of comparison: ", comparisons, np.log10(comparisons))
-
-
-    # files = ["Poseidon", "Reveal", "Biomebase", "Move"]
-    # # files = ["test_ecdsa", "test_ecdsa_verify"]
-    # optimisation = "O1"
-
-    # encoders = [OnlineInfoPassEncoder, BatchedInfoPassEncoder]
-    # encoder_names = ["online_info", "batched_info"]
-
-    # # was 56
-    # RNG = np.random.default_rng(seed = 42)
-
-    # for file in files:
-    #     for encoder, encoder_name in zip(encoders, encoder_names):
-    #         seed = int(RNG.integers(low = 1, high = 25565))
-
-    #         print("Testing: ", file + optimisation, encoder_name, "seed = ", seed)
-    #         run_affirmative_test(
-    #             "r1cs_files/" + file + optimisation + ".r1cs",
-    #             "test_results/" + encoder_name + "/" + file + optimisation + ".json",
-    #             seed,
-    #             None,
-    #             twice_average_degree,
-    #             groups_from_clusters,
-    #             None,
-    #             encoder,
-    #             class_encoding = reduced_encoding_class,
-    #             signal_encoding = pseudoboolean_signal_encoder,
-    #             debug=True
-    #         )
-
-
-
+    # con = in_pair[0][1].constraints[origin]
     
+    # # con.print_constraint_terminal()
+    # # print(hash_constraint(con, "S1", None, None, signal_to_distance))
+
+    # _, signal_to_coni = _signal_data_from_cons_list(in_pair[0][1].constraints)
+
+    # con_to_other_coni = {v : signal_to_coni[v] for v in  getvars(con)}
+    # print(con_to_other_coni)
+
+    # for coni in filter(lambda x : x != origin, itertools.chain(*con_to_other_coni.values())):
+    #     for key, item in classes["S1"].items():
+    #         if coni in item: 
+    #             print(coni, key)
+    #             break
+
+
+
+    # clusters = circuit_clusters(in_pair, naive_removal_clustering)
+
+    # classes = groups_from_clusters(in_pair, clusters)
+
+    # print(count_ints(map(len, classes["S1"].values())))
+
+    # *2112
+    # 4788
+
+    # TODO: we have proof of runs, but it doesn't seem useful right now
