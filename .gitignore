@@ -7,6 +7,9 @@
 !bij_encodings
 !bij_encodings/*.py
 
+!bij_encodings/preprocessing
+!bij_encodings/preprocessing/*.py
+
 !bij_encodings/reduced_encoding
 !bij_encodings/reduced_encoding/*.py
 
