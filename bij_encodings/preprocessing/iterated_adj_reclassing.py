@@ -18,7 +18,8 @@ def iterated_adjacency_reclassing(
         debug: bool = False
     ) -> Dict[str, List[int]]:
 
-    # TODO: prove to self and formally that it halts
+    # TODO: prove to self and formally that it halts and is correct
+
     signal_to_coni = {
         name : _signal_data_from_cons_list(circ.constraints)[1]
         for name, circ in in_pair
@@ -30,6 +31,7 @@ def iterated_adjacency_reclassing(
     }
 
     def update_coni_to_key():
+        # TODO: this could be trivially paralellised to be faster
 
         for name, _ in in_pair:
             for key, class_ in classes[name].items():
@@ -43,7 +45,7 @@ def iterated_adjacency_reclassing(
         renaming = Assignment(assignees=2)
         new_classes = {name: {} for name, _ in in_pair}
 
-        # TODO: make faster -- maps?
+        # TODO: make faster -- maps? -- parallelisation? the parallelisation is again trivial
         for key in classes[in_pair[0][0]].keys():
             for name, circ in in_pair:
                 if len(classes[name][key]) == 1:
