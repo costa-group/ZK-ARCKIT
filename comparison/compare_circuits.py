@@ -48,6 +48,7 @@ def circuit_equivalence(
         "result": None,
         "timing": {},
         "result_explanation": None,
+        "formula_size": None,
         "group_sizes": {}
     }
 
@@ -95,7 +96,7 @@ def circuit_equivalence(
                 "sizes": [x[0] for x in ints],
                 "counts": [x[1] for x in ints]
             }
-            if debug: print("Finished building classes", end='\r')
+            if debug: print("Finished building classes  ", end='\r')
         grouping_time = time.time()
 
         # classes early exit
@@ -128,6 +129,8 @@ def circuit_equivalence(
             formula = formula, mapp = mapp, ckmapp = ckmapp, assumptions = assumptions, signal_info = signal_info, 
             **encoder_kwargs
         )
+
+        test_data["formula_size"] = len(formula.clauses)    
 
         test_data["group_sizes"]["encoded_classes"] = {
             "sizes": [x[0] for x in encoded_classes],
