@@ -72,7 +72,7 @@ class OnlineInfoPassEncoder(Encoder):
 
                 for name, circ in in_pair:
                     for int_, coni in enumerate(class_[name]):
-                        print(f"For circ {name}, re-hashing class {int_} of {class_ind} of size {length} x {num_signals}")
+                        print(f"For circ {name}, re-hashing class {class_ind}: constraint {int_} of size {length} x {num_signals}", end='\r')
                         hash_ = known_split(r1cs_norm(circ.constraints[coni]), name, mapp, signal_info)
                         new_classes.setdefault(hash_, {name_: [] for name_, _ in in_pair})[name].append(coni)
 
