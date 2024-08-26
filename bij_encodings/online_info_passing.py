@@ -8,6 +8,7 @@ from comparison.constraint_preprocessing import known_split
 from bij_encodings.assignment import Assignment
 from bij_encodings.encoder import Encoder
 from normalisation import r1cs_norm
+from utilities import getvars
 
 def count_ints(lints : Iterable[int]) -> Dict[int, int]:
     res = {}
@@ -48,7 +49,9 @@ class OnlineInfoPassEncoder(Encoder):
         if return_encoded_classes: classes_encoded = []
             
         priorityq = [
-            (len(classes[in_pair[0][0]][key]), i, {name: classes[name][key] for name, _ in in_pair})
+            (len(classes[in_pair[0][0]][key]), 
+             len(getvars(in_pair[0][1].constraints[classes[in_pair[0][0]][key][0]])),
+             i, {name: classes[name][key] for name, _ in in_pair})
             for i, key in enumerate(classes[in_pair[0][0]].keys())
         ]
         next_class = len(priorityq)
@@ -59,14 +62,17 @@ class OnlineInfoPassEncoder(Encoder):
         del classes[in_pair[0][0]]
         del classes[in_pair[1][0]]
 
+        last_mapp_length = mapp.curr.val
+
         while len(priorityq) > 0:
-            length, class_ind, class_ = hp.heappop(priorityq)
+            length, num_signals, class_ind, class_ = hp.heappop(priorityq)
 
             if length > 1:
                 new_classes = {}
 
                 for name, circ in in_pair:
-                    for coni in class_[name]:
+                    for int_, coni in enumerate(class_[name]):
+                        print(f"For circ {name}, re-hashing class {int_} of {class_ind} of size {length} x {num_signals}")
                         hash_ = known_split(r1cs_norm(circ.constraints[coni]), name, mapp, signal_info)
                         new_classes.setdefault(hash_, {name_: [] for name_, _ in in_pair})[name].append(coni)
 
@@ -78,12 +84,12 @@ class OnlineInfoPassEncoder(Encoder):
                         assert all([name in new_class.keys() for name, _ in in_pair]) 
                         assert all([len(new_class[name]) == len(new_class[in_pair[0][0]]) for name, _ in in_pair])
 
-                        hp.heappush(priorityq, (len(new_class[in_pair[0][0]]), next_class, new_class))
+                        hp.heappush(priorityq, (len(new_class[in_pair[0][0]]), num_signals, next_class, new_class))
                         next_class += 1
                     
                     continue
-        
-            if debug: print(f"Encoding class {class_ind} of size {length}                           ", end="\r")
+
+            if debug: print(f"{mapp.curr.val}: Encoding class {class_ind} of size {length} x {num_signals}                   ", end="\r")
             if return_encoded_classes: classes_encoded.append(length)
 
             class_encoding(
@@ -92,6 +98,7 @@ class OnlineInfoPassEncoder(Encoder):
         
         # if debug and return_encoded_classes: print("Total Cons Encoded: ", sum(classes_encoded), "                                                             ")
         # if debug and return_encoded_classes: print("Classes Encoded: ", count_ints(classes_encoded))
+        print("Now encoding the signals          ", end='\r')
         signal_encoding(in_pair, mapp, formula, assumptions, signal_info)
 
         res = [formula, assumptions]
