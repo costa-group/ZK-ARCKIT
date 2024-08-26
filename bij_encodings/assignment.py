@@ -28,6 +28,7 @@ class Assignment():
 
             if res == None:
                 if not update: 
+                    raise KeyError(f"Attempting to get assignment for {args} when no such assignment exists")
                     del curr[args[-1]]
                     return None
                 # set value
