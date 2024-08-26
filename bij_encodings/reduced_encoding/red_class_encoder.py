@@ -37,8 +37,12 @@ def reduced_encoding_class(
     pipe = []
     def apply_intersection(i, name, signal, intersect_set):
         if signal_info[name].setdefault(signal, None) is None:
+
+            if len(intersect_set) == 0:
+                raise AssertionError(f"Attempted to apply empty set to {i, name, signal}")
             signal_info[name][signal] = intersect_set
         else:
+
             leftovers = signal_info[name][signal].symmetric_difference(intersect_set)
 
             pipe.extend(map(
@@ -47,70 +51,86 @@ def reduced_encoding_class(
             )
 
             assumptions.update(map(lambda x : -x, leftovers))
-            signal_info[name][signal].intersection_update(intersect_set)
-    
 
+            OG = set(signal_info[name][signal])
+            signal_info[name][signal].intersection_update(intersect_set)
+
+            if len(signal_info[name][signal]) == 0:
+                raise AssertionError(f"In applying {i, name, signal, intersect_set} to {OG} found no options")
 
     def extend_options(opset_possibilities, options):
         # take union of all options
         for name, _ in in_pair:
             for signal in options[name].keys():
-                opset_possibilities[name][signal] = opset_possibilities[name].setdefault(signal, set([])
-                                                                            ).union(options[name][signal])
+                opset_possibilities[name].setdefault(signal, set([])).update(options[name][signal])
         
         return opset_possibilities
     
     # Union of options inside of class
     for i in range(size):
-        potential_pairings = []
-        for j in range(size):
-            for k in range(len(right_normed[j])):
 
-                options = signal_options(left_normed[i], right_normed[j][k], mapp, assumptions, signal_info) 
+        def get_options(tup):
+            j, k = tup
+            return (j, k, signal_options([(in_pair[0][0], left_normed[i]), (in_pair[1][0], right_normed[j][k])], mapp, signal_info))
 
-                # is pairing non-viable
-                if any(map(
-                        lambda x : len(x) == 0,
-                        itertools.chain(*[options[name].values() for name, _ in in_pair])
-                    )):
-                    continue
+        options_by_jk = map(
+            get_options,
+            itertools.chain(*map(lambda j : itertools.product([j], range(len(right_normed[j]))), range(size)))
+        )
 
-                # if pairing is viable, add clauses to formula and update signal info
-                class_posibilities = extend_options(class_posibilities, options)    
+        viable_options = list(filter(
+            lambda tup: all(map(lambda opt: len(opt) != 0, 
+                                itertools.chain(*map(lambda pair: tup[2][pair[0]].values(), in_pair)))),
+            options_by_jk
+        ))
+
+        match len(viable_options):
+
+                case 0:
+                    raise AssertionError(f"Found constraint {class_[in_pair[0][0]][i]} in {in_pair[0][0]} that cannot be mapped to")
                 
-                ijk = ckmapp.get_assignment(class_[in_pair[0][0]][i], class_[in_pair[1][0]][j], k)
+                case 1:
+                    j, k, options = viable_options[0]
+                    class_posibilities = extend_options(class_posibilities, options)
 
-                    # signal clauses
-                clauses = map(
-                    lambda x : list(x) + [-ijk],
-                    itertools.chain(*[options[name].values() for name, _ in in_pair])
-                )
+                    for i, (name, _) in enumerate(in_pair):
+                        for signal in options[name].keys():
+                            # force signal to be one of the options available
+                            apply_intersection(i, name, signal, options[name][signal])
 
-                    # constraint clauses
-                potential_pairings.append(ijk)
-                formula.extend(clauses)
+                case _:
+                    # TODO: maybe update signals here because if viable_options in class_possibilities has only 1 viable set then 
+                    #   we can update info here
+                    
+                    potential_jk = []
 
-                    # used to force signal values if it's the only option
-                if len(potential_pairings) == 1: last_options = options
-                else: last_options = None
-        
-        if len(potential_pairings) == 0:
-            ## TODO: pass nonviable through encoding
-            raise AssertionError(f"Found constraint {class_[in_pair[0][0]][i]} that cannot be mapped to") 
-        
-        elif len(potential_pairings) == 1:
-            ## NOTE: this means that left has only 1 potential right pair, meaning it is that pair (if True)
-            for i, (name, _) in enumerate(in_pair):
-                for signal in last_options[name].keys():
-                    # force signal to be one of the options available
-                    apply_intersection(i, name, signal, last_options[name][signal])
-        formula.append(potential_pairings)
-    
-    # intersection accross classes
-    for i, (name, _) in enumerate(in_pair):
-        for signal in class_posibilities[name].keys():
-            apply_intersection(i, name, signal, class_posibilities[name][signal])
+                    class_posibilities[in_pair[0][0]] = {}
+
+                    for j, k, options in viable_options:
+
+                        class_posibilities = extend_options(class_posibilities, options)
+                
+                        ijk = ckmapp.get_assignment(class_[in_pair[0][0]][i], class_[in_pair[1][0]][j], k)
+
+                            # signal clauses
+                        clauses = map(
+                            lambda x : list(x) + [-ijk],
+                            itertools.chain(*[options[name].values() for name, _ in in_pair])
+                        )
+
+                            # constraint clauses
+                        potential_jk.append(ijk)
+                        formula.extend(clauses)
+                    
+                    for signal in class_posibilities[in_pair[0][0]].keys(): 
+                        apply_intersection(0, in_pair[0][0], signal, class_posibilities[in_pair[0][0]][signal])
+
+                    formula.append(potential_jk)
+
+    # intersection accross classes for other side
+    for signal in class_posibilities[in_pair[1][0]].keys():
+        apply_intersection(1, in_pair[1][0], signal, class_posibilities[in_pair[1][0]][signal])
     
     pipe.extend([(i, key) for i in range(2) for key in class_posibilities[in_pair[i][0]].keys()])
 
-    internal_consistency(in_pair, mapp, assumptions, signal_info, pipe)
+    internal_consistency(in_pair, mapp, assumptions, signal_info, list(set(pipe)))
