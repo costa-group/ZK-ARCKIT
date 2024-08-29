@@ -22,6 +22,8 @@ from bij_encodings.encoder import Encoder
 from bij_encodings.assignment import Assignment
 from bij_encodings.reduced_encoding.red_pseudoboolean_encoding import ReducedPseudobooleanEncoder
 
+from utilities import getvars
+
 def count_ints(lints : Iterable[int]) -> Dict[int, int]:
     res = {}
     for i in lints:
@@ -100,12 +102,12 @@ def circuit_equivalence(
         grouping_time = time.time()
 
         # classes early exit
-        for key in set(classes["S1"].keys()).union(classes["S2"].keys()):
+        for key in set(classes[in_pair[0][0]].keys()).union(classes[in_pair[1][0]].keys()):
             for name, _ in in_pair:
                 if key not in classes[name].keys():
                     raise AssertionError(f"EE: Group with fingerprint {key} not in circuit {name}")
             
-            if len(classes["S1"][key]) != len(classes["S2"][key]):
+            if len(classes[in_pair[0][0]][key]) != len(classes[in_pair[1][0]][key]):
                 raise AssertionError(f"EE: Group with fingerprint {key} has size {len(classes['S1'][key])} in 'S1', and {len(classes['S2'][key])} in 'S2'")
 
         if cons_preprocessing is not None: 
