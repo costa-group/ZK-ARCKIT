@@ -8,6 +8,10 @@ from bij_encodings.assignment import Assignment
 
 from utilities import _signal_data_from_cons_list, getvars
 
+"""
+Seems to provide literally the same info as iterated_adj_reclassing, makes sense since signals are the edges in the graph
+"""
+
 # Works as a cons preprocessing part of the function
 def signal_constraint_fingerprinting(
         in_pair: List[Tuple[str, Circuit]],
@@ -117,7 +121,7 @@ def signal_constraint_fingerprinting(
 
     for i, (name, _) in enumerate(in_pair):
         oname = in_pair[1-i][0]
-        
+
         for key in signal_classes[name].keys():
             for sig in signal_classes[name][key]:
 
