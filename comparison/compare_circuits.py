@@ -95,6 +95,7 @@ def circuit_equivalence(
             ints = count_ints(map(len, classes["S1"].values()))
 
             test_data["group_sizes"]["initial_sizes"] = {
+                "sqr_weight": sum([x[0]**2 * x[1] for x in ints]),
                 "sizes": [x[0] for x in ints],
                 "counts": [x[1] for x in ints]
             }
@@ -119,6 +120,7 @@ def circuit_equivalence(
             ints = count_ints(map(len, classes["S1"].values()))
 
             test_data["group_sizes"]["post_processing"] = {
+                "sqr_weight": sum([x[0]**2 * x[1] for x in ints]),
                 "sizes": [x[0] for x in ints],
                 "counts": [x[1] for x in ints]
             }
@@ -135,9 +137,10 @@ def circuit_equivalence(
         test_data["formula_size"] = len(formula.clauses)    
 
         test_data["group_sizes"]["encoded_classes"] = {
-            "sizes": [x[0] for x in encoded_classes],
-            "counts": [x[1] for x in encoded_classes]
-        }
+                "sqr_weight": sum([x[0]**2 * x[1] for x in encoded_classes]),
+                "sizes": [x[0] for x in encoded_classes],
+                "counts": [x[1] for x in encoded_classes]
+            }
 
         solver = Solver(name='cadical195', bootstrap_with=formula)
         encoding_time = time.time()
