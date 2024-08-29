@@ -52,11 +52,11 @@ def reduced_encoding_class(
 
             assumptions.update(map(lambda x : -x, leftovers))
 
-            OG = set(signal_info[name][signal])
+            og = set(signal_info[name][signal])
             signal_info[name][signal].intersection_update(intersect_set)
 
             if len(signal_info[name][signal]) == 0:
-                raise AssertionError(f"In applying {i, name, signal, intersect_set} to {OG} found no options")
+                raise AssertionError(f"In applying {i, name, signal, intersect_set} to {og} found no options")
 
     def extend_options(opset_possibilities, options):
         # take union of all options
