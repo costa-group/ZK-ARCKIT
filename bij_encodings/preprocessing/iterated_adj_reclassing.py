@@ -49,22 +49,25 @@ def iterated_adjacency_reclassing(
         for key in classes[in_pair[0][0]].keys():
             for name, circ in in_pair:
                 if len(classes[name][key]) == 1:
-                    new_classes[name][key] = classes[name][key]
+                    # Need this otherwise duplicate keys appear messing up classes 
+                    #   - doesn't make it incorrect as we're merging classes on both sides but slows it down
+                    hash_ = str(renaming.get_assignment(key, 0))
+                    new_classes[name][hash_] = classes[name][key]
                     continue
 
                 for coni in classes[name][key]:
                     adj_coni = filter(lambda x : x != coni, 
                                     itertools.chain(*map(signal_to_coni[name].__getitem__, 
                                                         getvars(circ.constraints[coni]))))
-                    hash_ = str(renaming.get_assignment(str(sorted(map(coni_to_key[name].__getitem__, adj_coni))), key))
-                    new_classes[name].setdefault(hash_, []).append(coni)        
-        
+                    hash_ = str(renaming.get_assignment(key, str(sorted(map(coni_to_key[name].__getitem__, adj_coni)))))
+                    new_classes[name].setdefault(hash_, []).append(coni) 
+
         if len(new_classes[in_pair[0][0]]) == len(classes[in_pair[0][0]]):
             break
 
         classes = new_classes
         update_coni_to_key()
-    
+
     return classes, signal_info
 
 
