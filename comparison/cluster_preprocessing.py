@@ -4,6 +4,7 @@ from typing import List, Tuple, Dict, Set, Callable
 from collections import defaultdict
 
 from bij_encodings.assignment import Assignment
+from bij_encodings.preprocessing.iterated_adj_reclassing import iterated_label_propagation
 from r1cs_scripts.circuit_representation import Circuit
 from r1cs_scripts.constraint import Constraint
 from comparison.constraint_preprocessing import hash_constraint
@@ -89,18 +90,25 @@ def groups_from_clusters(
 
     if clusters[in_pair[0][0]]["adjacency"] != {}:
 
-        re_cluster_hashmapp = Assignment(assignees=1)
+        hashed_clusters = iterated_label_propagation(
+            [name for name, _ in in_pair],
+            {name: clusters[name]["clusters"].keys() for name, _ in in_pair},
+            {name: clusters[name]["adjacency"] for name, _ in in_pair},
+            hashed_clusters
+        )
 
-        hashed_clusters = {
-            name: {
-                # sorting is important to remain order agnostic
+        # re_cluster_hashmapp = Assignment(assignees=1)
 
-                # TODO: maybe don't use setdefault
-                key: re_cluster_hashmapp.get_assignment(f"{hashed_clusters[name][key]}:{sorted([hashed_clusters[name][adj] for adj in clusters[name]['adjacency'].setdefault(key, [])])}")
-                for key in clusters[name]["clusters"].keys()
-            }
-            for name, _ in in_pair
-        }
+        # hashed_clusters = {
+        #     name: {
+        #         # sorting is important to remain order agnostic
+
+        #         # TODO: maybe don't use setdefault
+        #         key: re_cluster_hashmapp.get_assignment(f"{hashed_clusters[name][key]}:{sorted([hashed_clusters[name][adj] for adj in clusters[name]['adjacency'].setdefault(key, [])])}")
+        #         for key in clusters[name]["clusters"].keys()
+        #     }
+        #     for name, _ in in_pair
+        # }
 
     for name, _ in in_pair:
         clusters[name]["clusters_to_hash"] = hashed_clusters[name]
