@@ -18,8 +18,6 @@ def iterated_adjacency_reclassing(
         debug: bool = False
     ) -> Dict[str, List[int]]:
 
-    # TODO: prove to self and formally that it halts and is correct
-
     signal_to_coni = {
         name : _signal_data_from_cons_list(circ.constraints)[1]
         for name, circ in in_pair
@@ -29,46 +27,64 @@ def iterated_adjacency_reclassing(
         name: [None for _ in range(circ.nConstraints)]
         for name, circ in in_pair
     }
+    
+    def remove_lone_classes(classes: Dict[str, Dict[any, List[int]]]) -> Dict[str, Dict[int, List[int]]]:
+        non_singular_classes = []
 
-    def update_coni_to_key():
-        # TODO: this could be trivially paralellised to be faster
+        for key in classes[in_pair[0][0]].keys():
+            if len(classes[in_pair[0][0]][key]) == 1:
+                ## remove from pool
+                for name, _ in in_pair:
 
-        for name, _ in in_pair:
-            for key, class_ in classes[name].items():
-                for coni in class_:
-                    coni_to_key[name][coni] = key
+                    for coni in classes[name][key]: coni_to_key[name][coni] = len(lone_classes[name])
+                    lone_classes[name][len(lone_classes[name])] = classes[name][key]
+            else:          
+                non_singular_classes.append(key)
+        
+        # TODO: more efficient way to remove conflicts with new_classes? 
+        #       (could always add +len(classes) to right but that causes problems with int comparison)
 
-    update_coni_to_key()
+        new_classes = {name: {} for name, _ in in_pair}
+        
+        for i, key in enumerate(non_singular_classes):
+            for name, _ in in_pair:
+                new_classes[name][i + len(lone_classes[in_pair[0][0]])] = classes[name][key]
+                for coni in classes[name][key]: coni_to_key[name][coni] = i + len(lone_classes[in_pair[0][0]])
+
+        return new_classes
+
+    # remove lone classes from new_classes
+    lone_classes = {name: {} for name, _ in in_pair}
+    classes = remove_lone_classes(classes)
 
     while True:
 
-        renaming = Assignment(assignees=2)
+        renaming = Assignment(assignees=2, offset = len(lone_classes[in_pair[0][0]]))
         new_classes = {name: {} for name, _ in in_pair}
 
         # TODO: make faster -- maps? -- parallelisation? the parallelisation is again trivial
+        #   not trivial due to get_assignment, need a lock on assignment...
+        #   could assign each thread a modularity and always increase by that modularity...?
         for key in classes[in_pair[0][0]].keys():
             for name, circ in in_pair:
-                if len(classes[name][key]) == 1:
-                    # Need this otherwise duplicate keys appear messing up classes 
-                    #   - doesn't make it incorrect as we're merging classes on both sides but slows it down
-                    hash_ = str(renaming.get_assignment(key, 0))
-                    new_classes[name][hash_] = classes[name][key]
-                    continue
-
                 for coni in classes[name][key]:
                     adj_coni = filter(lambda x : x != coni, 
                                     itertools.chain(*map(signal_to_coni[name].__getitem__, 
                                                         getvars(circ.constraints[coni]))))
-                    hash_ = str(renaming.get_assignment(key, str(sorted(map(coni_to_key[name].__getitem__, adj_coni)))))
+                    # need conversion to tuple for hashable
+                    hash_ = str(renaming.get_assignment(key, tuple(sorted(map(coni_to_key[name].__getitem__, adj_coni)))))
                     new_classes[name].setdefault(hash_, []).append(coni) 
 
         if len(new_classes[in_pair[0][0]]) == len(classes[in_pair[0][0]]):
             break
 
-        classes = new_classes
-        update_coni_to_key()
+        classes = remove_lone_classes(new_classes)
 
-    return classes, signal_info
+    for key in classes[in_pair[0][0]].keys():
+        for name, _ in in_pair:
+            lone_classes[name][key] = classes[name][key]
+
+    return lone_classes, signal_info
 
 
 
