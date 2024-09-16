@@ -38,6 +38,7 @@ def circuit_equivalence(
         cons_grouping: Callable[["In_pair", "Clusters", "Signal_Info", Assignment], "Classes"] = None,
         cons_preprocessing: Callable = None,
         encoder: Encoder = ReducedPseudobooleanEncoder,
+        test_data: Dict[str, any] = {},
         debug: bool = False,
         clustering_kwargs: dict = {},
         encoder_kwargs: dict = {}
@@ -46,13 +47,8 @@ def circuit_equivalence(
     Currently assumes A*B + C = 0, where each A, B, C are equivalent up to renaming/factor
     """
 
-    test_data = {
-        "result": None,
-        "timing": {},
-        "result_explanation": None,
-        "formula_size": None,
-        "group_sizes": {}
-    }
+    for key, init in [("result", None), ("timing", {}), ("result_explanation", None), ("formula_size", None), ("group_sizes", {})]:
+        test_data[key] = init
 
     start = time.time()
     S1 = in_pair[0][1]

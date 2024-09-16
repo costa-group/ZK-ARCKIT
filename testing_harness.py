@@ -2,6 +2,7 @@ import time
 import json
 import signal # NOTE: use of signal as a timeout handler requires unix
 from contextlib import contextmanager
+from typing import Dict
 
 from r1cs_scripts.circuit_representation import Circuit
 
@@ -30,6 +31,7 @@ def exception_catcher(
     cons_grouping,
     cons_preprocessing,
     encoder,
+    test_data: Dict[str, any] = {},
     debug: bool = False,
     time_limit_seconds: int = 0, # 0 means no limit
     clustering_kwargs: dict = {},
@@ -39,25 +41,23 @@ def exception_catcher(
     start = time.time()
     try:
         with time_limit(time_limit_seconds):
-            test_data = circuit_equivalence(
+            circuit_equivalence(
                 in_pair,
                 info_preprocessing,
                 cons_clustering,
                 cons_grouping,
                 cons_preprocessing,
                 encoder,
+                test_data,
                 debug,
                 clustering_kwargs,
                 encoder_kwargs
             )
     except Exception as e:
-        print(e)
-        test_data = {
-            "result": "Error",
-            "result_explanation": repr(e),
-            "timing": {"error_time": time.time() - start}
-        }
-    test_data["test_type"] = "Affirmative"
+        # print(e)
+        test_data["result"] = "Error"
+        test_data["result_explanation"] = repr(e)
+        test_data["timing"]["error_time"] = time.time() - start
 
     return test_data
     
@@ -80,20 +80,24 @@ def run_affirmative_test(
     in_pair = get_circuits(filename, seed = seed, 
         const_factor=True, shuffle_sig=True, shuffle_const=True)
 
-    test_data = exception_catcher(
+    test_data = {
+        "test_type": "affirmative",
+        "seed": seed
+    }
+
+    exception_catcher(
         in_pair,
         info_preprocessing,
         cons_clustering,
         cons_grouping,
         cons_preprocessing,
         encoder,
+        test_data,
         debug,
         time_limit,
         clustering_kwargs,
         encoder_kwargs
     )
-
-    test_data["seed"] = seed
 
     # TODO: check result?
 
