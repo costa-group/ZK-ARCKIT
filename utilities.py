@@ -1,5 +1,5 @@
 from r1cs_scripts.constraint import Constraint
-from typing import Iterable, Dict, List
+from typing import Iterable, Dict, List, Set
 from itertools import chain
 
 def getvars(con: Constraint) -> set:
@@ -26,4 +26,37 @@ def _signal_data_from_cons_list(cons: List[Constraint]):
         degree_to_signal.setdefault(degree, []).append(signal)
 
     return degree_to_signal, signal_to_cons
+
+class UnionFind():
+
+    def __init__(self):
+
+        self.parent = {}
+        self.representatives = set([])
+    
+    def find(self, i:int) -> int:
+        assert i >= 0, "invalid i"
+        
+        if i not in self.parent.keys(): self.representatives.add(i)
+
+        if self.parent.setdefault(i, -1) < 0:
+            return i
+        else:
+            # path compression optimisation
+            self.parent[i] = self.find(self.parent[i])
+            return self.parent[i]
+
+    def union(self, *args: int) -> None:
+
+        representatives = sorted(set([self.find(i) for i in args]), key = lambda x: self.parent[x])
+
+        if len(representatives) > 1 and self.parent[representatives[0]] == self.parent[representatives[1]]:
+            self.parent[representatives[0]] -= 1
+
+        for repr in representatives[1:]:
+            self.representatives.remove(repr)
+            self.parent[repr] = representatives[0]
+    
+    def get_representatives(self) -> Set[int]:
+        return self.representatives
     

@@ -4,44 +4,8 @@ from functools import reduce
 import itertools
 
 from r1cs_scripts.constraint import Constraint
-from utilities import _signal_data_from_cons_list
+from utilities import _signal_data_from_cons_list, getvars, UnionFind
 
-def getvars(con) -> set:
-    return set(con.A.keys()).union(con.B.keys()).union(con.C.keys()).difference(set([0]))
-
-class UnionFind():
-
-    def __init__(self):
-
-        self.parent = {}
-        self.representatives = set([])
-    
-    def find(self, i:int) -> int:
-        assert i >= 0, "invalid i"
-        
-        if i not in self.parent.keys(): self.representatives.add(i)
-
-        if self.parent.setdefault(i, -1) < 0:
-            return i
-        else:
-            # path compression optimisation
-            self.parent[i] = self.find(self.parent[i])
-            return self.parent[i]
-
-    def union(self, *args: int) -> None:
-
-        representatives = sorted(set([self.find(i) for i in args]), key = lambda x: self.parent[x])
-
-        if len(representatives) > 1 and self.parent[representatives[0]] == self.parent[representatives[1]]:
-            self.parent[representatives[0]] -= 1
-
-        for repr in representatives[1:]:
-            self.representatives.remove(repr)
-            self.parent[repr] = representatives[0]
-    
-    def get_representatives(self) -> Set[int]:
-        return self.representatives
-    
 def cluster_from_list(
         cons: List[Constraint],
         constraints_to_ignore: List[int] = [],
