@@ -7,7 +7,7 @@ from typing import List
 import itertools
 from functools import reduce
 
-from structural_analysis.graph_clustering.clustering_from_list import cluster_from_list, cluster_from_list_old
+from structural_analysis.graph_clustering.clustering_from_list import cluster_from_list, cluster_from_list_old, cluster_by_ignore
 from r1cs_scripts.circuit_representation import Circuit
 from r1cs_scripts.constraint import Constraint
 from structural_analysis.signal_graph import shared_constraint_graph
@@ -31,6 +31,8 @@ def naive_all_removal(circ: Circuit) -> nx.Graph:
 
 def naive_removal_clustering(circ: Circuit, clustering_method: int = 1, **kwargs) -> List[List[int]]:
 
-    if   clustering_method == 0: return cluster_from_list(circ.constraints, ignore_func=is_signal_equivalence_constraint, **kwargs)
-    elif clustering_method == 1: return cluster_from_list_old(circ.constraints, ignore_func=is_signal_equivalence_constraint, **kwargs)
-
+    # testing found, oddly, that the cluster_from_list_old is way better ~3 seconds on clustering and it gets adjacency almost instantly
+    match clustering_method:
+        case 0: return cluster_by_ignore(circ.constraints, 2, is_signal_equivalence_constraint, **kwargs)
+        case 1: return cluster_from_list_old(circ.constraints, ignore_func=is_signal_equivalence_constraint, **kwargs)
+        case _: raise AssertionError(f"Invalid method {clustering_method} in naive cluster")
