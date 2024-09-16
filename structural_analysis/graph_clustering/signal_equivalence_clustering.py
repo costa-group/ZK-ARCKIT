@@ -33,6 +33,6 @@ def naive_removal_clustering(circ: Circuit, clustering_method: int = 1, **kwargs
 
     # testing found, oddly, that the cluster_from_list_old is way better ~3 seconds on clustering and it gets adjacency almost instantly
     match clustering_method:
-        case 0: return cluster_by_ignore(circ.constraints, 2, is_signal_equivalence_constraint, **kwargs)
-        case 1: return cluster_from_list_old(circ.constraints, ignore_func=is_signal_equivalence_constraint, **kwargs)
+        case 0: return cluster_by_ignore(circ, 2, is_signal_equivalence_constraint, **kwargs)
+        case 1: return cluster_from_list_old(circ, ignore_func=is_signal_equivalence_constraint, **kwargs)
         case _: raise AssertionError(f"Invalid method {clustering_method} in naive cluster")

@@ -67,7 +67,7 @@ def twice_average_degree(
         signalset = degree_to_signal[2 * avg_num_signals]
 
     # Testing found no significant difference between methods, so simplest method chosen
-    return cluster_by_ignore(circ.constraints, 0, signalset, **kwargs)
+    return cluster_by_ignore(circ, 0, signalset, **kwargs)
 
 # NOT SURE IF ONLY USING DARKFOREST CIRCUITS IS THE BEST IDEA FOR THIS BUT TESTING SHOWS 0.36 signal ratio
 
@@ -104,4 +104,4 @@ def ratio_of_signals(circ: Circuit, nSignals = None, signal_ratio=0.36, **kwargs
         set([])
     )
 
-    return cluster_by_ignore(circ.constraints, 1, coniset, **kwargs)
+    return cluster_by_ignore(circ, 1, coniset, **kwargs)

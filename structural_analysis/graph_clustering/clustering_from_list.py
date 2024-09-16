@@ -3,6 +3,7 @@ from typing import List, Tuple, Dict, Callable, Set, Iterable
 from functools import reduce
 import itertools
 
+from r1cs_scripts.circuit_representation import Circuit
 from r1cs_scripts.constraint import Constraint
 from utilities import _signal_data_from_cons_list, getvars, UnionFind
 
@@ -59,53 +60,87 @@ def cluster_by_ignoring_signals(
     return cluster_lists, adjacency, []
 
 def cluster_by_ignoring_constraints(
-        cons: List[Constraint],
+        circ: Circuit,
         ignore_func: Callable[[int], bool],
         calculate_adjacency: bool
     ) -> Tuple[List[List[int]], List[List[int]], List[int]]:
 
-    signal_to_coni = _signal_data_from_cons_list(cons)
+    # TODO: this version seems correct but seems to cause errors in the it_adj_recl done in the clustering stage. dunno why.
 
     keep_func = lambda coni : not ignore_func(coni)
 
-    vertices = list(filter(keep_func, range(len(cons))))
-    complete_subgraphs = {sig: filter(keep_func, k_n) for sig, k_n in signal_to_coni.items()}
-
-    clusters = cluster(vertices, complete_subgraphs.values())
+    vertices = list(filter(keep_func, range(circ.nConstraints)))
     adjacency = {}
-    removed = list(filter(ignore_func, range(len(cons))))
+    removed = list(filter(ignore_func, range(circ.nConstraints)))
+
+    sig_vertices = range(circ.nWires)
+    sig_complete_subgraphs = [getvars(circ.constraints[coni]) for coni in vertices]
+
+    sig_clusters = cluster(sig_vertices, sig_complete_subgraphs)
+    
+    cluster_lists = {} 
+    for coni in vertices: cluster_lists.setdefault(sig_clusters.find(next(iter(getvars(circ.constraints[coni])))), []).append(coni)
 
     if calculate_adjacency:
-        # cluster_adjacency only possible over ignored constraints
 
-        # get clusters of removed -- these provide adjacencies 
-        removed_complete_subgraphs = map(lambda k_n : filter(ignore_func, k_n), signal_to_coni.values())
-        removed_clusters = cluster(removed, removed_complete_subgraphs, return_lists=True)
+            # TODO: retest with power plugged in and later? -- seems same as old (but cleaner so valuable)
 
-        # each cluster of removed is an provides adjacencies of prev
-        # repr -> removed coni -> signals -> kept complete_subgraphs -> remove duplicates
-        cluster_to_complete_subgraph = lambda repr: set(itertools.chain(
-            *map(
-                complete_subgraphs.__getitem__,
-                itertools.chain(*map(
-                    getvars,
-                    map(cons.__getitem__, removed_clusters[repr])
-                ))
-            )
-        ))
+        unclustered_sig = cluster(sig_vertices, [map(sig_clusters.find, getvars(circ.constraints[coni])) for coni in removed])
+        unclustered_sig_lists = {}
+        for repr in cluster_lists.keys():
+            unclustered_sig_lists.setdefault(unclustered_sig.find(repr), []).append(repr)
 
-        for repr in removed_clusters.keys():
-            complete_subgraph = cluster_to_complete_subgraph(repr)
-
-            for coni in complete_subgraph:
-                adjacency.setdefault(coni, []).extend(filter(lambda oconi: oconi != coni, complete_subgraph))
+        for complete_subgraph in unclustered_sig_lists.values():
+            for repr in complete_subgraph:
+                adjacency.setdefault(repr, []).extend(filter(lambda orepr : orepr != repr, complete_subgraph))
         
-        for coni, adj in adjacency.items():
+        for repr, adj in adjacency.items():
             # remove duplicates
-            adjacency[coni] = set(adj)
+            adjacency[repr] = set(adj)
+
+    # cons = circ.constraints
+    # signal_to_coni = _signal_data_from_cons_list(cons)
+
+    # keep_func = lambda coni : not ignore_func(coni)
+
+    # vertices = list(filter(keep_func, range(len(cons))))
+    # complete_subgraphs = {sig: filter(keep_func, k_n) for sig, k_n in signal_to_coni.items()}
+
+    # clusters = cluster(vertices, complete_subgraphs.values())
+    # adjacency = {}
+    # removed = list(filter(ignore_func, range(len(cons))))
+
+    # if calculate_adjacency:
+    #     # cluster_adjacency only possible over ignored constraints
+
+    #     # get clusters of removed -- these provide adjacencies 
+    #     removed_complete_subgraphs = map(lambda k_n : filter(ignore_func, k_n), signal_to_coni.values())
+    #     removed_clusters = cluster(removed, removed_complete_subgraphs, return_lists=True)
+
+    #     # each cluster of removed is an provides adjacencies of prev
+    #     # repr -> removed coni -> signals -> kept complete_subgraphs -> remove duplicates
+    #     cluster_to_complete_subgraph = lambda repr: set(itertools.chain(
+    #         *map(
+    #             complete_subgraphs.__getitem__,
+    #             itertools.chain(*map(
+    #                 getvars,
+    #                 map(cons.__getitem__, removed_clusters[repr])
+    #             ))
+    #         )
+    #     ))
+
+    #     for repr in removed_clusters.keys():
+    #         complete_subgraph = cluster_to_complete_subgraph(repr)
+
+    #         for coni in complete_subgraph:
+    #             adjacency.setdefault(coni, []).extend(filter(lambda oconi: oconi != coni, complete_subgraph))
+        
+    #     for coni, adj in adjacency.items():
+    #         # remove duplicates
+    #         adjacency[coni] = set(adj)
     
-    cluster_lists = {}
-    for coni in vertices: cluster_lists.setdefault(clusters.find(coni), []).append(coni)
+    # cluster_lists = {}
+    # for coni in vertices: cluster_lists.setdefault(clusters.find(coni), []).append(coni)
 
     return cluster_lists, adjacency, removed
 
@@ -116,7 +151,7 @@ class IgnoreMethod():
     ignore_constraint_from_function = 2
 
 def cluster_by_ignore(
-        cons: List[Constraint],
+        circ: Circuit,
         ignore_method: IgnoreMethod,
         ignore_tool: List[int] | Callable[[Constraint], bool],
         calculate_adjacency: bool = True
@@ -128,16 +163,16 @@ def cluster_by_ignore(
 
     match ignore_method:
 
-        case IgnoreMethod.ignore_signal_from_list: return cluster_by_ignoring_signals(cons, ignore_tool, calculate_adjacency)
+        case IgnoreMethod.ignore_signal_from_list: return cluster_by_ignoring_signals(circ.constraints, ignore_tool, calculate_adjacency)
         case IgnoreMethod.ignore_constraint_from_list:
-            to_ignore = [False for _ in cons]
+            to_ignore = [False for _ in circ.constraints]
             for coni in ignore_tool: to_ignore[coni] == True
-            return cluster_by_ignoring_constraints(cons, to_ignore.__getitem__, calculate_adjacency)
+            return cluster_by_ignoring_constraints(circ, to_ignore.__getitem__, calculate_adjacency)
         case IgnoreMethod.ignore_constraint_from_function: 
-            return cluster_by_ignoring_constraints(cons, lambda coni: ignore_tool(cons[coni]), calculate_adjacency)
+            return cluster_by_ignoring_constraints(circ, lambda coni: ignore_tool(circ.constraints[coni]), calculate_adjacency)
         case _: raise AssertionError(f"invalid ignore method: {ignore_method}")
 
-def cluster_from_list_old(cons: List[Constraint], 
+def cluster_from_list_old(circ: Circuit, 
                       to_ignore: List[int] = None, 
                       ignore_func: Callable[[Constraint], bool] = None,
                       calculate_adjacency: bool = True) -> List[List[int]]:
@@ -147,7 +182,7 @@ def cluster_from_list_old(cons: List[Constraint],
 
     # TODO: calculate adjacency information
 
-    next = 0
+    cons = circ.constraints
     signal_to_cluster = {}
     clusters = UnionFind()
 
