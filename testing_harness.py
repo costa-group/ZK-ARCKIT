@@ -1,5 +1,7 @@
 import time
 import json
+import signal # NOTE: use of signal as a timeout handler requires unix
+from contextlib import contextmanager
 
 from r1cs_scripts.circuit_representation import Circuit
 
@@ -7,6 +9,19 @@ from comparison_testing import get_circuits
 
 from comparison.compare_circuits import circuit_equivalence
 from bij_encodings.preprocessing.iterated_adj_reclassing import iterated_adjacency_reclassing
+
+class TimeoutException(Exception): pass
+
+@contextmanager
+def time_limit(seconds):
+    def signal_handler(signum, frame):
+        raise TimeoutException(f"Timed Out after {seconds} seconds")
+    signal.signal(signal.SIGALRM, signal_handler)
+    signal.alarm(seconds)
+    try:
+        yield
+    finally:
+        signal.alarm(0)
 
 def exception_catcher(
     in_pair,
@@ -16,25 +31,26 @@ def exception_catcher(
     cons_preprocessing,
     encoder,
     debug: bool = False,
+    time_limit_seconds: int = 0, # 0 means no limit
     clustering_kwargs: dict = {},
     encoder_kwargs: dict = {}
     ):   
 
     start = time.time()
     try:
-        test_data = circuit_equivalence(
-            in_pair,
-            info_preprocessing,
-            cons_clustering,
-            cons_grouping,
-            cons_preprocessing,
-            encoder,
-            debug,
-            clustering_kwargs,
-            encoder_kwargs
-        )
+        with time_limit(time_limit_seconds):
+            test_data = circuit_equivalence(
+                in_pair,
+                info_preprocessing,
+                cons_clustering,
+                cons_grouping,
+                cons_preprocessing,
+                encoder,
+                debug,
+                clustering_kwargs,
+                encoder_kwargs
+            )
     except Exception as e:
-        raise e
         print(e)
         test_data = {
             "result": "Error",
@@ -56,6 +72,7 @@ def run_affirmative_test(
         cons_preprocessing,
         encoder,
         debug: bool = False,
+        time_limit: int = 0,
         clustering_kwargs: dict = {},
         encoder_kwargs: dict = {}
     ):
@@ -71,6 +88,7 @@ def run_affirmative_test(
         cons_preprocessing,
         encoder,
         debug,
+        time_limit,
         clustering_kwargs,
         encoder_kwargs
     )
@@ -98,7 +116,8 @@ def run_current_best_test(
     lfilename: str,
     rfilename: str,
     outfile: str,
-    compiler: str
+    compiler: str,
+    time_limit: int = 0
     ):
 
     circ, circs = Circuit(), Circuit()
@@ -122,7 +141,8 @@ def run_current_best_test(
             "class_encoding" : reduced_encoding_class,
             "signal_encoding" : pseudoboolean_signal_encoder
         },
-        debug=True
+        debug=True,
+        time_limit_seconds=time_limit
     )
 
     f = open(outfile, "w")
