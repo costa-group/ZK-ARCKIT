@@ -21,7 +21,7 @@ def connected_preporcessing(circ: Circuit) -> Circuit:
     Doesn't modify nLabels, since am unsure what this is
     """
 
-    _, signal_to_conis = _signal_data_from_cons_list(circ.constraints)
+    signal_to_conis = _signal_data_from_cons_list(circ.constraints)
 
     inputs = range(circ.nPubOut+1, circ.nPubOut + circ.nPrvIn + circ.nPubIn + 1)
     outputs = range(1, circ.nPubOut+1)

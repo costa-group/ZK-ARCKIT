@@ -16,7 +16,7 @@ from structural_analysis.graph_clustering.clustering_from_list import UnionFind
 from utilities import _signal_data_from_cons_list
 
 def undirected_adjacency(circ: Circuit, unweighted: bool = False) -> List[List[int]]:
-    _, signal_to_coni = _signal_data_from_cons_list(circ.constraints)
+    signal_to_coni = _signal_data_from_cons_list(circ.constraints)
 
     adjacency = [{} for _ in range(circ.nConstraints)]
 

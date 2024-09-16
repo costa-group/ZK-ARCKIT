@@ -109,7 +109,7 @@ def iterated_adjacency_reclassing(
     ) -> Dict[str, List[int]]:
 
     signal_to_coni = {
-        name : _signal_data_from_cons_list(circ.constraints)[1]
+        name : _signal_data_from_cons_list(circ.constraints)
         for name, circ in in_pair
     }
 

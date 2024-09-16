@@ -33,7 +33,7 @@ def cluster_by_ignoring_signals(
         calculate_adjacency: bool
     ) -> Tuple[List[List[int]], List[List[int]], List[int]]:
 
-    _, signal_to_coni = _signal_data_from_cons_list(cons)
+    signal_to_coni = _signal_data_from_cons_list(cons)
 
     vertices = range(len(cons))
     complete_subgraphs = [signal_to_coni[sig] for sig in set(signal_to_coni.keys()).difference(signals_to_ignore)]
@@ -64,7 +64,7 @@ def cluster_by_ignoring_constraints(
         calculate_adjacency: bool
     ) -> Tuple[List[List[int]], List[List[int]], List[int]]:
 
-    _, signal_to_coni = _signal_data_from_cons_list(cons)
+    signal_to_coni = _signal_data_from_cons_list(cons)
 
     keep_func = lambda coni : not ignore_func(coni)
 

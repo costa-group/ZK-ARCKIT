@@ -13,7 +13,7 @@ def getvars(con: Constraint) -> set:
 def _distances_to_signal_set(cons: List[Circuit], source_set: Set[int], signal_to_conis = None):
     # just BFS
 
-    if signal_to_conis is None: _, signal_to_conis = _signal_data_from_cons_list(cons)
+    if signal_to_conis is None: signal_to_conis = _signal_data_from_cons_list(cons)
     
     distances = {sig: 0 for sig in source_set}
     checked = {sig: True for sig in source_set}

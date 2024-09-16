@@ -3,7 +3,7 @@ from functools import reduce
 
 from r1cs_scripts.circuit_representation import Circuit
 from r1cs_scripts.constraint import Constraint
-from structural_analysis.graph_clustering.clustering_from_list import cluster_from_list, cluster_from_list_old, _signal_data_from_cons_list, cluster_by_ignore
+from structural_analysis.graph_clustering.clustering_from_list import cluster_from_list_old, _signal_data_from_cons_list, cluster_by_ignore
 
 def getvars(con) -> set:
     return set(con.A.keys()).union(con.B.keys()).union(con.C.keys()).difference(set([0]))
@@ -26,7 +26,12 @@ def twice_average_degree(
         and_up: bool = True, 
         **kwargs) -> List[List[int]]:
     
-    degree_to_signal, signal_to_cons = _signal_data_from_cons_list(circ.constraints)
+    signal_to_conis = _signal_data_from_cons_list(circ.constraints)
+
+    degree_to_signal = {}
+
+    for signal, conis in signal_to_conis.items():
+        degree_to_signal.setdefault(len(conis), []).append(signal)
 
     match avg_type:
         case Average.mean:
@@ -78,7 +83,12 @@ def ratio_of_signals(circ: Circuit, nSignals = None, signal_ratio=0.36, **kwargs
         
         nSignals = len(signals)
 
-    degree_to_signal, signal_to_cons = _signal_data_from_cons_list(circ.constraints)
+    signal_to_conis = _signal_data_from_cons_list(circ.constraints)
+
+    degree_to_signal = {}
+
+    for signal, conis in signal_to_conis.items():
+        degree_to_signal.setdefault(len(conis), []).append(signal)
 
     signalset = set([])
 
@@ -89,7 +99,7 @@ def ratio_of_signals(circ: Circuit, nSignals = None, signal_ratio=0.36, **kwargs
             break
 
     coniset = reduce(
-        lambda acc, signal : acc.union(signal_to_cons[signal]),
+        lambda acc, signal : acc.union(signal_to_conis[signal]),
         signalset,
         set([])
     )

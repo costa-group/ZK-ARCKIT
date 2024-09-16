@@ -27,7 +27,7 @@ def signal_constraint_fingerprinting(
 
     # First round of classes clustering done beforehand
     signal_to_coni = {
-        name: _signal_data_from_cons_list(circ.constraints)[1]
+        name: _signal_data_from_cons_list(circ.constraints)
         for name, circ in in_pair
     }
 

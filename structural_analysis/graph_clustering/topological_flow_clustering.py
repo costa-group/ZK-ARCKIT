@@ -97,7 +97,7 @@ def constraint_topological_order(circ: Circuit, unweighted: bool = False):
         maybe add weights to flow into modularity stuff easier -- or at least option for weights
     """
 
-    _, signal_to_coni = _signal_data_from_cons_list(circ.constraints)
+    signal_to_coni = _signal_data_from_cons_list(circ.constraints)
 
     # outputs = range(1, circ.nPubOut+1)
     # distances_to_output = _distances_to_signal_set(circ.constraints, outputs, signal_to_coni)

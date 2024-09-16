@@ -14,7 +14,7 @@ def getvars(con: Constraint) -> set:
 def shared_signal_graph(cons: List[Circuit]) -> nx.Graph:
 
     graph = nx.Graph()
-    _, signal_to_coni = _signal_data_from_cons_list(cons)
+    signal_to_coni = _signal_data_from_cons_list(cons)
 
     for signal in signal_to_coni.keys():
 
