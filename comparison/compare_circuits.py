@@ -51,6 +51,7 @@ def circuit_equivalence(
         test_data[key] = init
 
     start = time.time()
+    last_time = start
     S1 = in_pair[0][1]
     S2 = in_pair[1][1]
 
@@ -74,29 +75,43 @@ def circuit_equivalence(
 
         signal_info = None
 
-        if info_preprocessing is not None: signal_info = info_preprocessing(in_pair, mapp)
-        if info_preprocessing and debug: print("Finished info preprocessing", end='\r')
-        info_preprocessing_time = time.time()
+        if info_preprocessing is not None: 
+            signal_info = info_preprocessing(in_pair, mapp)
+            info_preprocessing_time = time.time()
+
+            test_data["timing"]["info_preprocessing_time"] = info_preprocessing_time - last_time
+            last_time = info_preprocessing_time
+      
+            if debug: print("Finished info preprocessing", end='\r')
 
         clusters = None
 
-        if cons_clustering is not None: clusters = circuit_clusters(in_pair, cons_clustering, calculate_adjacency = True, **clustering_kwargs)
-        if cons_clustering and debug: print("Finished circuit clustering", end='\r')
-        clustering_time = time.time()
+        if cons_clustering is not None: 
+            
+            clusters = circuit_clusters(in_pair, cons_clustering, calculate_adjacency = True, **clustering_kwargs)
+            clustering_time = time.time()
+
+            test_data["timing"]["clustering_time"] = clustering_time - last_time
+            last_time = clustering_time
+
+            if debug: print("Finished circuit clustering", end='\r')
 
         classes = {name: {"1": circ.constraints} for name, circ in in_pair}
 
         if cons_grouping is not None: 
             classes = cons_grouping(in_pair, clusters, signal_info, mapp)
-            ints = count_ints(map(len, classes["S1"].values()))
+            grouping_time = time.time()
 
+            test_data["timing"]["grouping_time"] = grouping_time - last_time
+            last_time = grouping_time
+
+            ints = count_ints(map(len, classes["S1"].values()))
             test_data["group_sizes"]["initial_sizes"] = {
                 "sqr_weight": sum([x[0]**2 * x[1] for x in ints]),
                 "sizes": [x[0] for x in ints],
                 "counts": [x[1] for x in ints]
             }
             if debug: print("Finished building classes  ", end='\r')
-        grouping_time = time.time()
 
         # classes early exit
         for key in set(classes[in_pair[0][0]].keys()).union(classes[in_pair[1][0]].keys()):
@@ -113,6 +128,11 @@ def circuit_equivalence(
                 ckmapp, assumptions, formula, signal_info,
                 debug = debug
             )
+
+            cons_preprocessing_time = time.time()
+            test_data["timing"]["cons_preprocessing_time"] = cons_preprocessing_time - last_time
+            last_time = cons_preprocessing_time
+
             ints = count_ints(map(len, classes["S1"].values()))
 
             test_data["group_sizes"]["post_processing"] = {
@@ -122,13 +142,21 @@ def circuit_equivalence(
             }
 
             if debug: print("Finished preprocessing constraint classes", end='\r')
-        cons_preprocessing_time = time.time()
 
         formula, assumptions, encoded_classes = encoder().encode(
             in_pair, classes, clusters, return_signal_mapping = False, return_constraint_mapping = False, return_encoded_classes = True, debug = debug,
             formula = formula, mapp = mapp, ckmapp = ckmapp, assumptions = assumptions, signal_info = signal_info, 
             **encoder_kwargs
         )
+
+        result = solver.solve(assumptions)
+        solving_time = time.time()
+
+        test_data["result"] = result
+        test_data["result_explanation"] = "" if result else "Unsatisfiable Formula"
+
+        test_data["timing"]["solving_time"] = solving_time - last_time
+        test_data["timing"]["total_time"] = solving_time - start
 
         test_data["formula_size"] = len(formula.clauses)    
 
@@ -141,25 +169,6 @@ def circuit_equivalence(
         solver = Solver(name='cadical195', bootstrap_with=formula)
         encoding_time = time.time()
         if debug: print("Finished encoding                                     ", end='\r')
-
-        result = solver.solve(assumptions)
-        solving_time = time.time()
-
-        test_data["result"] = result
-
-        if result:
-            test_data["result_explanation"] = ""
-        else:
-            test_data["result_explanation"] = "Unsatisfiable Formula"
-    
-        for time_title, time_bool, later_time, earlier_time in zip(
-            ["info_preprocessing_time", "clustering_time", "grouping_time", "cons_preprocessing_time", "encoding_time", "solving_time", "total_time"], 
-            [info_preprocessing, cons_clustering, cons_grouping, cons_preprocessing, True, True, True],
-            [info_preprocessing_time, clustering_time, grouping_time, cons_preprocessing_time, encoding_time, solving_time, solving_time], 
-            [start, info_preprocessing_time, clustering_time, grouping_time, cons_preprocessing_time, encoding_time, start]
-        ):
-            if time_bool is not None:
-                test_data["timing"][time_title] = later_time - earlier_time
 
     except AssertionError as e:
 
