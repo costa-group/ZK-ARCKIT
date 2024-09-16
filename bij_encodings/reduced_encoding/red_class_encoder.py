@@ -25,6 +25,7 @@ def reduced_encoding_class(
 
     size = len(class_[in_pair[0][0]])
 
+    # TODO: have an "only 1 norm" function
     left_normed = list(map(lambda coni : r1cs_norm(in_pair[0][1].constraints[coni])[0],  class_[in_pair[0][0]]))
 
     right_normed = list(map(lambda coni: r1cs_norm(in_pair[1][1].constraints[coni]), class_[in_pair[1][0]]))
@@ -99,8 +100,8 @@ def reduced_encoding_class(
                             apply_intersection(i, name, signal, options[name][signal])
 
                 case _:
-                    # TODO: maybe update signals here because if viable_options in class_possibilities has only 1 viable set then 
-                    #   we can update info here
+                    # updating left hand side info, since info requires entire constraint options for logic to work
+                    #   right hand side is not guaranteed to have checked every viable cons option for RHS so that is done after as before
                     
                     potential_jk = []
 

@@ -95,10 +95,11 @@ class OnlineInfoPassEncoder(Encoder):
             class_encoding(
                 class_, in_pair, mapp, ckmapp, formula, assumptions, signal_info
             )  
-        
+        # TODO: return some 'broken down' counter so we can better compare equivalent times.
+
         # if debug and return_encoded_classes: print("Total Cons Encoded: ", sum(classes_encoded), "                                                             ")
         # if debug and return_encoded_classes: print("Classes Encoded: ", count_ints(classes_encoded))
-        print("Now encoding the signals          ", end='\r')
+        if debug: print("Now encoding the signals          ", end='\r')
         signal_encoding(in_pair, mapp, formula, assumptions, signal_info)
 
         res = [formula, assumptions]

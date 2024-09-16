@@ -22,6 +22,7 @@ def cluster(
 
     for k_n in complete_subraphs: clusters.union(*k_n)
 
+    # TODO: maybe try to do this again, but without looping over everything? -- will cause problems at larger circuit sizes
     if not return_lists: return clusters
     else:
         cluster_lists = {}
@@ -37,7 +38,7 @@ def cluster_by_ignoring_signals(
     signal_to_coni = _signal_data_from_cons_list(cons)
 
     vertices = range(len(cons))
-    complete_subgraphs = [signal_to_coni[sig] for sig in set(signal_to_coni.keys()).difference(signals_to_ignore)]
+    complete_subgraphs = map(signal_to_coni.__getitem__, set(signal_to_coni.keys()).difference(signals_to_ignore))
 
     clusters = cluster(vertices, complete_subgraphs)
     adjacency = {}

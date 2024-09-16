@@ -43,7 +43,6 @@ def iterated_label_propagation(
             if len(classes[names[0]][key]) == 1:
                 ## remove from pool
                 for name in names:
-
                     for coni in classes[name][key]: vertex_to_label[name][coni] = len(singular_classes[name])
                     singular_classes[name][len(singular_classes[name])] = classes[name][key]
             else:          
@@ -67,18 +66,21 @@ def iterated_label_propagation(
         renaming = Assignment(assignees=2, offset = len(singular_classes[names[0]]))
         new_label_to_vertex = {name: {} for name in names}
 
-        # TODO: make faster -- maps? -- parallelisation? the parallelisation is again trivial
+        # TODO: make faster -- maps? -- parallelisation?
         #   not trivial due to get_assignment, need a lock on assignment...
         #   could assign each thread a modularity and always increase by that modularity...?
-        for key in label_to_vertex[names[0]].keys():
-            for name in names:
-                for coni in label_to_vertex[name][key]:
-                    # need conversion to tuple for hashable
-                    hash_ = str(renaming.get_assignment(
-                        key, 
-                        tuple(sorted(map(vertex_to_label[name].__getitem__, vertex_to_adjacent[name][coni])))
-                    ))
-                    new_label_to_vertex[name].setdefault(hash_, []).append(coni) 
+
+        # hash_ = lambda tup : new_label_to_vertex[tup[1]].setdefault(renaming.get_assignment(tup[0], tuple(sorted(map(vertex_to_label[tup[1]].__getitem__, vertex_to_adjacent[tup[1]][tup[2]])))), []).append(tup[2])
+        
+        for key, name in itertools.product(label_to_vertex[names[0]].keys(), names):
+            for coni in label_to_vertex[name][key]:
+                # need conversion to tuple for hashable
+                # TODO: test/check whether not converting to str here doesn't break anything (shouldn't but lets not risk it)
+                hash_ = renaming.get_assignment(
+                    key, 
+                    tuple(sorted(map(vertex_to_label[name].__getitem__, vertex_to_adjacent[name][coni])))
+                )
+                new_label_to_vertex[name].setdefault(hash_, []).append(coni) 
 
         if len(new_label_to_vertex[names[0]]) == len(label_to_vertex[names[0]]):
             break
