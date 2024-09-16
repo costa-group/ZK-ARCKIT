@@ -149,6 +149,7 @@ def circuit_equivalence(
             **encoder_kwargs
         )
 
+        solver = Solver(name='cadical195', bootstrap_with=formula)
         result = solver.solve(assumptions)
         solving_time = time.time()
 
@@ -166,8 +167,6 @@ def circuit_equivalence(
                 "counts": [x[1] for x in encoded_classes]
             }
 
-        solver = Solver(name='cadical195', bootstrap_with=formula)
-        encoding_time = time.time()
         if debug: print("Finished encoding                                     ", end='\r')
 
     except AssertionError as e:
