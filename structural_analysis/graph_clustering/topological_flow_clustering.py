@@ -250,7 +250,7 @@ def dag_cluster_speed_priority(
 
     takes about 22s for reveal
     """
-    clusters = UnionFind()
+    clusters = UnionFind(representative_tracking=True)
     for sig in topological_order: clusters.find(sig)
 
     if resistance > 0: directed_add_resistance(resistance, in_neighbours, out_neighbours)

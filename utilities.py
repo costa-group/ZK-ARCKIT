@@ -22,15 +22,16 @@ def _signal_data_from_cons_list(cons: List[Constraint]):
 
 class UnionFind():
 
-    def __init__(self):
+    def __init__(self, representative_tracking: bool = False):
 
         self.parent = {}
-        self.representatives = set([])
+
+        self.representatives = set([]) if representative_tracking else None
     
     def find(self, i:int) -> int:
         assert i >= 0, "invalid i"
         
-        if i not in self.parent.keys(): self.representatives.add(i)
+        if self.representatives is not None and i not in self.parent.keys(): self.representatives.add(i)
 
         if self.parent.setdefault(i, -1) < 0:
             return i
@@ -47,7 +48,7 @@ class UnionFind():
             self.parent[representatives[0]] -= 1
 
         for repr in representatives[1:]:
-            self.representatives.remove(repr)
+            if self.representatives is not None : self.representatives.remove(repr)
             self.parent[repr] = representatives[0]
     
     def get_representatives(self) -> Set[int]:

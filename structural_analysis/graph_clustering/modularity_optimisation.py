@@ -55,7 +55,7 @@ def abs_stable_louvain(
         #   given low estimates of ~2-3min..
     """
 
-    clusters = UnionFind()
+    clusters = UnionFind(representative_tracking=True)
     list(map(clusters.find, range(N)))
 
     singular = [True for _ in range(N)]
