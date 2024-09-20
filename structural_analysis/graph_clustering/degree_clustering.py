@@ -24,6 +24,7 @@ def twice_average_degree(
         circ: Circuit, 
         avg_type: int = Average.mode, 
         and_up: bool = True, 
+        clustering_method: int = 0,
         **kwargs) -> List[List[int]]:
     
     signal_to_conis = _signal_data_from_cons_list(circ.constraints)
@@ -52,8 +53,6 @@ def twice_average_degree(
 
         case _:
             raise ValueError("Invalid Avg Type")
-    
-    to_remove = set([])
 
     if and_up:
 
