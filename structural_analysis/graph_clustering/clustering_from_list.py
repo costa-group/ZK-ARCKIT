@@ -2,15 +2,15 @@
 from typing import List, Tuple, Dict, Callable, Set, Iterable
 from functools import reduce
 import itertools
+import tracemalloc
 
 from r1cs_scripts.circuit_representation import Circuit
 from r1cs_scripts.constraint import Constraint
 from utilities import _signal_data_from_cons_list, getvars, UnionFind
 
 def cluster(
-    vertices: Iterable[int],
     complete_subraphs: Iterable[List[int]],
-    return_lists: bool = False
+    vertices: Iterable[int] = None,
     ) -> UnionFind:
     """
     The complete_subraphs provide every complete subgraph in the graph on the vertices, note this improves the traditional unionfind clustering
@@ -23,40 +23,59 @@ def cluster(
     for k_n in complete_subraphs: clusters.union(*k_n)
 
     # TODO: maybe try to do this again, but without looping over everything? -- will cause problems at larger circuit sizes
-    if not return_lists: return clusters
+    if vertices is None: return clusters
     else:
         cluster_lists = {}
         for v in vertices: cluster_lists.setdefault(clusters.find(v), []).append(v)
         return cluster_lists
 
 def cluster_by_ignoring_signals(
-        cons: List[Constraint],
+        circ: Circuit,
         signals_to_ignore: List[int],
         calculate_adjacency: bool
     ) -> Tuple[List[List[int]], List[List[int]], List[int]]:
 
+    cons = circ.constraints
+    ignore_signal_list = [False for _ in range(circ.nWires)]
+    for sig in signals_to_ignore: ignore_signal_list[sig] = True
+
     signal_to_coni = _signal_data_from_cons_list(cons)
 
-    vertices = range(len(cons))
     complete_subgraphs = map(signal_to_coni.__getitem__, set(signal_to_coni.keys()).difference(signals_to_ignore))
 
-    clusters = cluster(vertices, complete_subgraphs)
+    clusters = cluster(complete_subgraphs)
     adjacency = {}
 
-    if calculate_adjacency:
-        # only possible adjacencies are via removed signals
-        
-        for sig in signals_to_ignore:
-            complete_subgraph = set(map(clusters.find, signal_to_coni[sig]))
-            for coni in complete_subgraph:
-                adjacency.setdefault(coni, []).extend(filter(lambda oconi : oconi != coni, complete_subgraph))
-        
-        for coni, adj in adjacency.items():
-            # remove duplicates
-            adjacency[coni] = set(adj)
-
     cluster_lists = {}
-    for coni in vertices: cluster_lists.setdefault(clusters.find(coni), []).append(coni)
+    for coni in range(len(cons)): cluster_lists.setdefault(clusters.find(coni), []).append(coni)
+
+    if calculate_adjacency:
+        # only possible adjacencies are via removed signals -- seems like the adjacency calc is too memory intensive
+        #   specifically the adjacency matrix tends to be near n^2 i.e. the clusters are completely connected
+
+        # 476 -> 3929 (in 2 steps?) then starts memory swapping so it gets killed. (million) -- is the below one wrong? how is it more?
+        
+        # for sig in signals_to_ignore:
+        #     complete_subgraph = set(map(clusters.find, signal_to_coni[sig]))
+        #     for coni in complete_subgraph:
+        #         adjacency.setdefault(coni, set([])).update(filter(lambda oconi : oconi != coni, complete_subgraph))
+
+        # this ver goes 376 -> 3384 (million) on O1, but the O2 test_ecdsa_verify still goes to memory swaps.
+        coni_to_adjacent_coni = lambda coni : set(map(
+                clusters.find, 
+                itertools.chain(*map(
+                    signal_to_coni.__getitem__,
+                    filter(ignore_signal_list.__getitem__,
+                    getvars(cons[coni]))
+                ))
+            ))
+
+        for key, value in cluster_lists.items():
+            
+            adjacency[key] = list(filter(lambda repr : repr != key, set(itertools.chain(*map(
+                coni_to_adjacent_coni,
+                value
+            )))))
 
     return cluster_lists, adjacency, []
 
@@ -164,7 +183,7 @@ def cluster_by_ignore(
 
     match ignore_method:
 
-        case IgnoreMethod.ignore_signal_from_list: return cluster_by_ignoring_signals(circ.constraints, ignore_tool, calculate_adjacency)
+        case IgnoreMethod.ignore_signal_from_list: return cluster_by_ignoring_signals(circ, ignore_tool, calculate_adjacency)
         case IgnoreMethod.ignore_constraint_from_list:
             to_ignore = [False for _ in circ.constraints]
             for coni in ignore_tool: to_ignore[coni] == True
