@@ -50,13 +50,16 @@ def circuit_equivalence(
     for key, init in [("result", None), ("timing", {}), ("result_explanation", None), ("formula_size", None), ("group_sizes", {})]:
         test_data[key] = init
 
-    start = time.time()
-    last_time = start
     S1 = in_pair[0][1]
     S2 = in_pair[1][1]
+    start = time.time()
 
     connected_preporcessing(S1)
     connected_preporcessing(S2)
+
+    connected_preprocessing_time = time.time()
+    last_time = connected_preprocessing_time
+    test_data["timing"]["connected_preprocessing"] = connected_preprocessing_time - start
 
     try: 
         N = S1.nConstraints
@@ -88,7 +91,7 @@ def circuit_equivalence(
 
         if cons_clustering is not None: 
             
-            clusters = circuit_clusters(in_pair, cons_clustering, calculate_adjacency = True, **clustering_kwargs)
+            clusters = circuit_clusters(in_pair, cons_clustering, **clustering_kwargs)
             clustering_time = time.time()
 
             test_data["timing"]["clustering_time"] = clustering_time - last_time
@@ -150,13 +153,18 @@ def circuit_equivalence(
         )
 
         solver = Solver(name='cadical195', bootstrap_with=formula)
+
+        encoding_time = time.time()
+
+        test_data["timing"]["encoding_time"] = encoding_time - last_time
+
         result = solver.solve(assumptions)
         solving_time = time.time()
 
         test_data["result"] = result
         test_data["result_explanation"] = "" if result else "Unsatisfiable Formula"
 
-        test_data["timing"]["solving_time"] = solving_time - last_time
+        test_data["timing"]["solving_time"] = solving_time - encoding_time
         test_data["timing"]["total_time"] = solving_time - start
 
         test_data["formula_size"] = len(formula.clauses)    
