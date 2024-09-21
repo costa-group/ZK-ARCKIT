@@ -85,82 +85,44 @@ def cluster_by_ignoring_constraints(
         calculate_adjacency: bool
     ) -> Tuple[List[List[int]], List[List[int]], List[int]]:
 
-    # TODO: this version seems correct but seems to cause errors in the it_adj_recl done in the clustering stage. dunno why.
+    # also causes problems with the ignoring signals where it seems to use more memory, and I don't know why
 
-    keep_func = lambda coni : not ignore_func(coni)
-
-    vertices = list(filter(keep_func, range(circ.nConstraints)))
     adjacency = {}
-    removed = list(filter(ignore_func, range(circ.nConstraints)))
+    vertices, removed = [], []
+    for i in range(circ.nConstraints): (removed if ignore_func(i) else vertices).append(i)
 
-    sig_vertices = range(circ.nWires)
-    sig_complete_subgraphs = [getvars(circ.constraints[coni]) for coni in vertices]
-
-    sig_clusters = cluster(sig_vertices, sig_complete_subgraphs)
+    sig_clusters = cluster(map(lambda coni : getvars(circ.constraints[coni]), vertices))
     
     cluster_lists = {} 
-    for coni in vertices: cluster_lists.setdefault(sig_clusters.find(next(iter(getvars(circ.constraints[coni])))), []).append(coni)
+    for coni in vertices: 
+        cluster_lists.setdefault(sig_clusters.find(next(iter(getvars(circ.constraints[coni])))), []).append(coni)
 
     if calculate_adjacency:
 
-            # TODO: retest with power plugged in and later? -- seems same as old (but cleaner so valuable)
+        # want repr -> adjacent repr
 
-        unclustered_sig = cluster(sig_vertices, [map(sig_clusters.find, getvars(circ.constraints[coni])) for coni in removed])
+        # unclustered_sig uses removed constraints to build unionfind
+        #   by using original sig values we keep adjacencies, where the only connectives are the internal removed
+
+        unclustered_sig = cluster(map(lambda coni : getvars(circ.constraints[coni]), removed))
+
+        sig_clusters_list = {}
         unclustered_sig_lists = {}
-        for repr in cluster_lists.keys():
-            unclustered_sig_lists.setdefault(unclustered_sig.find(repr), []).append(repr)
 
-        for complete_subgraph in unclustered_sig_lists.values():
-            for repr in complete_subgraph:
-                adjacency.setdefault(repr, []).extend(filter(lambda orepr : orepr != repr, complete_subgraph))
-        
-        for repr, adj in adjacency.items():
-            # remove duplicates
-            adjacency[repr] = set(adj)
+        for sig in sig_clusters.parent.keys():
+            sig_clusters_list.setdefault(sig_clusters.find(sig), []).append(sig)
+            unclustered_sig_lists.setdefault(unclustered_sig.find(sig), []).append(sig_clusters.find(sig))
 
-    # cons = circ.constraints
-    # signal_to_coni = _signal_data_from_cons_list(cons)
+        # every value is in repr -> has unclustered_sig repr -> get elements of unclustered_sig repr
 
-    # keep_func = lambda coni : not ignore_func(coni)
-
-    # vertices = list(filter(keep_func, range(len(cons))))
-    # complete_subgraphs = {sig: filter(keep_func, k_n) for sig, k_n in signal_to_coni.items()}
-
-    # clusters = cluster(vertices, complete_subgraphs.values())
-    # adjacency = {}
-    # removed = list(filter(ignore_func, range(len(cons))))
-
-    # if calculate_adjacency:
-    #     # cluster_adjacency only possible over ignored constraints
-
-    #     # get clusters of removed -- these provide adjacencies 
-    #     removed_complete_subgraphs = map(lambda k_n : filter(ignore_func, k_n), signal_to_coni.values())
-    #     removed_clusters = cluster(removed, removed_complete_subgraphs, return_lists=True)
-
-    #     # each cluster of removed is an provides adjacencies of prev
-    #     # repr -> removed coni -> signals -> kept complete_subgraphs -> remove duplicates
-    #     cluster_to_complete_subgraph = lambda repr: set(itertools.chain(
-    #         *map(
-    #             complete_subgraphs.__getitem__,
-    #             itertools.chain(*map(
-    #                 getvars,
-    #                 map(cons.__getitem__, removed_clusters[repr])
-    #             ))
-    #         )
-    #     ))
-
-    #     for repr in removed_clusters.keys():
-    #         complete_subgraph = cluster_to_complete_subgraph(repr)
-
-    #         for coni in complete_subgraph:
-    #             adjacency.setdefault(coni, []).extend(filter(lambda oconi: oconi != coni, complete_subgraph))
-        
-    #     for coni, adj in adjacency.items():
-    #         # remove duplicates
-    #         adjacency[coni] = set(adj)
-    
-    # cluster_lists = {}
-    # for coni in vertices: cluster_lists.setdefault(clusters.find(coni), []).append(coni)
+        for repr, values in sig_clusters_list.items():
+            adjacency[repr] = set(filter(lambda orepr: orepr != repr, 
+                itertools.chain(
+                *map(
+                    lambda sig : unclustered_sig_lists[unclustered_sig.find(sig)],
+                    values
+                ))
+            ))
 
     return cluster_lists, adjacency, removed
 
