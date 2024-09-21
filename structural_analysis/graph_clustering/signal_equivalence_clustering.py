@@ -29,10 +29,9 @@ def naive_all_removal(circ: Circuit) -> nx.Graph:
 
     return list(nx.connected_components(g)), [[i] for i in to_remove]
 
-def naive_removal_clustering(circ: Circuit, clustering_method: int = 1, **kwargs) -> List[List[int]]:
+def naive_removal_clustering(circ: Circuit, clustering_method: int = 0, **kwargs) -> List[List[int]]:
 
     # testing found, oddly, that the cluster_from_list_old is way better ~3 seconds on clustering and it gets adjacency almost instantly
     match clustering_method:
         case 0: return cluster_by_ignore(circ, 2, is_signal_equivalence_constraint, **kwargs)
-        case 1: return cluster_from_list_old(circ, ignore_func=is_signal_equivalence_constraint, **kwargs)
         case _: raise AssertionError(f"Invalid method {clustering_method} in naive cluster")
