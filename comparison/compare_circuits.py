@@ -33,9 +33,9 @@ def count_ints(lints : Iterable[int]) -> Dict[int, int]:
 # Typing throwing warnings for unknown classes, I think this is easier for a human to read though
 def circuit_equivalence(
         in_pair: List[Tuple[str, Circuit]],
-        info_preprocessing: Callable[["In_pair", Assignment], "Signal_Info"] = None,
-        cons_clustering: Callable = None,
-        cons_grouping: Callable[["In_pair", "Clusters", "Signal_Info", Assignment], "Classes"] = None,
+        info_preprocessing: Callable[["In_Pair", Assignment], "Signal_Info"] = None,
+        cons_clustering: Callable[["In_Pair"], Tuple["Clusters", "Adjacency", "Removed"]] = None,
+        cons_grouping: Callable[["In_Pair", "Clusters", "Signal_Info", Assignment], "Classes"] = None,
         cons_preprocessing: Callable = None,
         encoder: Encoder = ReducedPseudobooleanEncoder,
         test_data: Dict[str, any] = {},
@@ -44,7 +44,11 @@ def circuit_equivalence(
         encoder_kwargs: dict = {}
         ) -> Tuple[bool, List[Tuple[int, int]]]:
     """
-    Currently assumes A*B + C = 0, where each A, B, C are equivalent up to renaming/factor
+    The manager function for circuit comparison
+
+    Takes as input the input pair of circuits to compare, and a set of functions that will perform each step of the equivalence comparison
+    Returns a dictionary in json format that contains the test data, all timings, intermediate class sizes and the result/reason of the comparison
+    
     """
 
     for key, init in [("result", None), ("timing", {}), ("result_explanation", None), ("formula_size", None), ("group_sizes", {})]:
