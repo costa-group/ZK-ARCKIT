@@ -49,6 +49,8 @@ def O0_tree_clustering(
         #   look at signal_to_coni and check for non_included constraints
 
         # TODO: check efficiency... maybe have some hidden variables?
+        # TODO:     change to have some global array with - for each constraints - it's current (latest) layer repr
+        #           can maybe replace coni_to_key thing -- makes this whole thing much faster
         def get_internal_constraints(node: dict) -> List[int]:
             return list(itertools.chain(node["constraints"], *map(get_internal_constraints, node["subcomponents"])))
 
@@ -83,7 +85,14 @@ def O0_tree_clustering(
 
     # in --O0 we can try do more components based on 'removed' signals that don't have adjacencies to any others
 
-    while len(removed) > 0:
+    while len(removed) > 0: 
+        # TODO: misses edges between nodes of the same layer.
+        #   -- can merge nodes after keys are registered?
+        #       -- could also move one down a layer (i.e. make one a subcomponent of the other) - seems a bit arbitrary - distance?
+        #       -- good questions..
+
+        # TODO: How to deal with nodes with 1 subcomponent
+
         # idea is for each iteration to add another layer, final iteration will add 'root' layer which is then returned
 
         # Look at 'removed' constraints
@@ -154,8 +163,13 @@ def O0_tree_clustering(
         
         for key, cluster in unionfind_results.items():
             nodes[key] = make_node(key, cluster, subcomponents = list(map(nodes.__getitem__, repr_to_children[key])))
+            for coni in cluster: constraint_to_key[coni] = key
 
         removed = not_included
+    
+    print(len(unionfind_results.keys()))
+    from utilities import count_ints
+    print(count_ints(map(len, [node["subcomponents"] for node in nodes.values()])))
 
     if outfile is not None:
         f = open(outfile, "w")
