@@ -148,7 +148,7 @@ def cluster_by_ignore(
         case IgnoreMethod.ignore_signal_from_list: return cluster_by_ignoring_signals(circ, ignore_tool, calculate_adjacency)
         case IgnoreMethod.ignore_constraint_from_list:
             to_ignore = [False for _ in circ.constraints]
-            for coni in ignore_tool: to_ignore[coni] == True
+            for coni in ignore_tool: to_ignore[coni] = True
             return cluster_by_ignoring_constraints(circ, to_ignore.__getitem__, calculate_adjacency)
         case IgnoreMethod.ignore_constraint_from_function: 
             return cluster_by_ignoring_constraints(circ, lambda coni: ignore_tool(circ.constraints[coni]), calculate_adjacency)
