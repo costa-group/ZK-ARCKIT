@@ -7,7 +7,7 @@ from typing import List
 import itertools
 from functools import reduce
 
-from structural_analysis.graph_clustering.clustering_from_list import cluster_by_ignore
+from structural_analysis.clustering_methods.naive.clustering_from_list import cluster_by_ignore
 from r1cs_scripts.circuit_representation import Circuit
 from r1cs_scripts.constraint import Constraint
 from structural_analysis.signal_graph import shared_constraint_graph

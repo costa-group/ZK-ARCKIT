@@ -8,11 +8,7 @@ from bij_encodings.preprocessing.iterated_adj_reclassing import iterated_label_p
 from r1cs_scripts.circuit_representation import Circuit
 from r1cs_scripts.constraint import Constraint
 from comparison.constraint_preprocessing import hash_constraint
-# from structural_analysis.graph_clustering.HCS_clustering import HCS
-# from structural_analysis.graph_clustering.nx_clustering_builtins import Louvain, Label_propagation
-from structural_analysis.constraint_graph import shared_signal_graph
-from structural_analysis.graph_clustering.stepped_girvan_newman import stepped_girvan_newman
-from structural_analysis.graph_clustering.signal_equivalence_clustering import naive_removal_clustering
+from structural_analysis.clustering_methods.naive.signal_equivalence_clustering import naive_removal_clustering
 from comparison.static_distance_preprocessing import _distances_to_signal_set
 
 def circuit_clusters(

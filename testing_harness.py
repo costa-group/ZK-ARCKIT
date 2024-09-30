@@ -109,8 +109,8 @@ def run_affirmative_test(
 
 from r1cs_scripts.read_r1cs import parse_r1cs
 
-from structural_analysis.graph_clustering.degree_clustering import twice_average_degree
-from structural_analysis.graph_clustering.signal_equivalence_clustering import naive_removal_clustering
+from structural_analysis.clustering_methods.naive.degree_clustering import twice_average_degree
+from structural_analysis.clustering_methods.naive.signal_equivalence_clustering import naive_removal_clustering
 from comparison.cluster_preprocessing import groups_from_clusters
 from bij_encodings.online_info_passing import OnlineInfoPassEncoder
 from bij_encodings.reduced_encoding.red_class_encoder import reduced_encoding_class

@@ -3,7 +3,7 @@ from functools import reduce
 
 from r1cs_scripts.circuit_representation import Circuit
 from r1cs_scripts.constraint import Constraint
-from structural_analysis.graph_clustering.clustering_from_list import _signal_data_from_cons_list, cluster_by_ignore
+from structural_analysis.clustering_methods.naive.clustering_from_list import _signal_data_from_cons_list, cluster_by_ignore
 
 def getvars(con) -> set:
     return set(con.A.keys()).union(con.B.keys()).union(con.C.keys()).difference(set([0]))

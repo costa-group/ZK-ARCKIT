@@ -78,9 +78,8 @@ from r1cs_scripts.constraint import Constraint
 
 from comparison.static_distance_preprocessing import _distances_to_signal_set
 
-from structural_analysis.graph_clustering.clustering_from_list import UnionFind
-from utilities import _signal_data_from_cons_list
-from structural_analysis.graph_clustering.modularity_optimisation import stable_directed_louvain, directed_add_resistance, directed_calculate_mod_change, directed_get_adjacent_to, directed_inner_update_adjacency, directed_outer_update_adjacency
+from utilities import _signal_data_from_cons_list, UnionFind
+from structural_analysis.clustering_methods.modularity.modularity_optimisation import stable_directed_louvain, directed_add_resistance, directed_calculate_mod_change, directed_get_adjacent_to, directed_inner_update_adjacency, directed_outer_update_adjacency
 
 def getvars(con: Constraint) -> set:
     return set(con.A.keys()).union(con.B.keys()).union(con.C.keys()).difference(set([0]))

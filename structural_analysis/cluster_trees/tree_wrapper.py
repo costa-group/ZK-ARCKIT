@@ -5,7 +5,7 @@ from functools import reduce
 
 from r1cs_scripts.circuit_representation import Circuit
 from utilities import _signal_data_from_cons_list, getvars, UnionFind
-from structural_analysis.graph_clustering.signal_equivalence_clustering import naive_removal_clustering
+from structural_analysis.clustering_methods.naive.signal_equivalence_clustering import naive_removal_clustering
 from comparison.static_distance_preprocessing import _distances_to_signal_set
 
 def O0_tree_clustering(

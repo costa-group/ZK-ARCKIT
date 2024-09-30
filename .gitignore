@@ -16,8 +16,19 @@
 !structural_analysis
 !structural_analysis/*.py
 
-!structural_analysis/graph_clustering
-!structural_analysis/graph_clustering/*.py
+!structural_analysis/cluster_trees
+!structural_analysis/cluster_trees/*.py
+
+!structural_analysis/clustering_methods
+
+!structural_analysis/clustering_methods/modularity
+!structural_analysis/clustering_methods/modularity/*.py
+
+!structural_analysis/clustering_methods/naive
+!structural_analysis/clustering_methods/naive/*.py
+
+!structural_analysis/clustering_methods/networkx
+!structural_analysis/clustering_methods/networkx/*.py
 
 !deprecated
 !deprecated/*
