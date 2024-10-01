@@ -6,6 +6,8 @@ from r1cs_scripts.modular_operations import divideP
 from normalisation import r1cs_norm
 from bij_encodings.assignment import Assignment
 from utilities import count_ints
+from comparison.static_distance_preprocessing import _distances_to_signal_set
+import itertools
 
 constSignal = 0
 
@@ -103,7 +105,8 @@ def hash_constraint(
 
     return ':'.join(hashes)
 
-def constraint_classes(in_pair: List[ Tuple[str, Circuit] ]):
+
+def constraint_classes(in_pair: List[ Tuple[str, Circuit] ], clusters: None, signal_info: None, mapp: None):
     assert len(in_pair) > 0, "empty comparisons"
     
     N = in_pair[0][1].nConstraints
@@ -114,12 +117,26 @@ def constraint_classes(in_pair: List[ Tuple[str, Circuit] ]):
         for name, _ in in_pair
     }
     # separate by constant/quadtratic term
-        
+    
+    signal_to_distance = {
+        name: {
+            sourcename: _distances_to_signal_set(circ.constraints, source)
+            for sourcename, source in [("input", range(circ.nPubOut+1, circ.nPubOut + circ.nPrvIn + circ.nPubIn + 1)), ("output", range(1, circ.nPubOut+1))]
+        }
+        for name, circ in in_pair
+    }
+
+    hashmapp = Assignment(assignees=1)
+
+    # iterator = itertools.starmap(
+    #     lambda i, name, circ = groups[name].setdefault( 
+    #         hashmapp.get_assignment(hash_constraint( circ.constraints[i], name, mapp, signal_info, signal_to_distance )), []).append(i),
+    #     ...
+    # )
 
     # python loops are really slow... ~22s for 818 simple const 10^4 times..
     for i in range(N):
-        for name, circ in in_pair:
-            
-            groups[name].setdefault( hash_constraint( circ.constraints[i] ), []).append(i)
+        for name, circ in in_pair:  
+            groups[name].setdefault( hashmapp.get_assignment(hash_constraint( circ.constraints[i], name, mapp, signal_info, signal_to_distance )), []).append(i)
 
     return groups

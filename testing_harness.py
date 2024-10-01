@@ -9,6 +9,7 @@ from r1cs_scripts.circuit_representation import Circuit
 from comparison_testing import get_circuits
 
 from comparison.compare_circuits import circuit_equivalence
+from comparison.constraint_preprocessing import constraint_classes
 from bij_encodings.preprocessing.iterated_adj_reclassing import iterated_adjacency_reclassing
 
 class TimeoutException(Exception): pass
@@ -120,7 +121,6 @@ def run_current_best_test(
     lfilename: str,
     rfilename: str,
     outfile: str,
-    compiler: str,
     time_limit: int = 0
     ):
 
@@ -131,14 +131,11 @@ def run_current_best_test(
 
     in_pair = [("S1", circ), ("S2", circs)]
 
-    if compiler == "O0": clustering = naive_removal_clustering
-    else: clustering = twice_average_degree
-
     test_data = exception_catcher(
         in_pair,
         None,
-        clustering,
-        groups_from_clusters,
+        None,
+        constraint_classes,
         iterated_adjacency_reclassing,
         OnlineInfoPassEncoder,
         encoder_kwargs= {
