@@ -11,10 +11,10 @@ def count_ints(lints : Iterable[int]) -> Dict[int, int]:
         res[i] = res.setdefault(i, 0) + 1
     return sorted(res.items())
 
-def _signal_data_from_cons_list(cons: List[Constraint]):
+def _signal_data_from_cons_list(cons: List[Constraint], names: List[int] = None):
     signal_to_cons = {}
 
-    for i, con in enumerate(cons):
+    for i, con in zip(names if names is not None else range(len(cons)), cons):
         for signal in getvars(con):
             signal_to_cons.setdefault(signal, []).append(i)
 
@@ -28,6 +28,15 @@ class UnionFind():
 
         self.representatives = set([]) if representative_tracking else None
     
+    def find_noupdate(self, i: int) -> bool:
+        """
+        If key in parents, returns the key, otherwise returns i
+        """
+        if i in self.parent.keys():
+            return self.find(i)
+        else:
+            return i
+
     def find(self, i:int) -> int:
         assert i >= 0, "invalid i"
         
@@ -53,4 +62,10 @@ class UnionFind():
     
     def get_representatives(self) -> Set[int]:
         return self.representatives
-    
+
+def is_not_none(x) -> bool: 
+    """
+    Returns if x is not None.
+    Just used to make some maps/filters nicer to read
+    """
+    return x is not None
