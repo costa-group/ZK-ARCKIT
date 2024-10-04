@@ -10,7 +10,10 @@ def r1cs_distance_tree(
         clustering_method: Callable[[Circuit], Tuple[Dict[int,List[int]], any, List[int]]] = naive_removal_clustering,
     ) -> Tuple[Dict[int, List[int]], List[Tuple[int, int]]]:
     """
-    Uses constraint removal clustering techniques to generate a tree of clusters
+    Given an r1cs as input it first attempts to identify and removed all 'link' constraints, those that separate between components, 
+    clustering the remaning constraint according to shared signals.
+        Then it defines new clusters from the removed constraints based on adjacencies to existing constraints, recursively doing so
+    until all constraints are in cluster. It additionally returns the tree adjacencies of this structure.
     """
 
     clusters, _, removed = naive_removal_clustering(circ, calculate_adjacency = False)
