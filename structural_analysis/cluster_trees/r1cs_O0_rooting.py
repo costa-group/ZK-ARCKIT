@@ -1,7 +1,8 @@
 
 from typing import Tuple, List, Dict
+import itertools
 
-from utilities import getvars
+from utilities import getvars, BFS_shortest_path
 from r1cs_scripts.circuit_representation import Circuit
 
 class TreeNode():
@@ -33,23 +34,32 @@ def r1cs_O0_rooting(
     input_coni = list(filter(lambda coni : len(getvars(circ.constraints[coni]).intersection(inputs)) > 0, range(circ.nConstraints)))
     input_vert = list(filter(lambda repr : any([l in vertices[repr] for l in input_coni]), vertices.keys()))
 
-    if len(input_vert) > 1:
-        raise NotImplementedError(f"Handling multiple input_ver: {input_vert} not currently supported")
-        # merge
-
-        # find shortest path and merge all nodes along shortest path, repeat until all nodes merged
-        # define new vertices/adjacencies so it works
-        # TODO
-        pass
-    else:
-        root = input_vert[0]
-
     # define rooted tree structure
     vert_to_adjacent_vert = {}
     for l, r in adjacencies:
         vert_to_adjacent_vert.setdefault(l, []).append(r)
         vert_to_adjacent_vert.setdefault(r, []).append(l)
-    
+    vert_to_adjacent_vert = {k: set(v) for k,v in vert_to_adjacent_vert.items()}
+
+    counter = max(vertices.keys()) + 1
+
+    while len(input_vert) > 1:
+
+        # TODO: maybe think about doing choosing s,t to do less BFS searches e.g. should be furthest distance from each other?
+        to_merge = BFS_shortest_path(*input_vert[:2], vert_to_adjacent_vert)
+
+        vertices[to_merge[0]].extend(itertools.chain(map(vertices.__getitem__, to_merge[1:])))
+        
+        adjacent_to_root = set(filter(lambda v : v not in to_merge, itertools.chain(*map(vert_to_adjacent_vert.__getitem__, to_merge))))
+        for v in to_merge[1:]:
+            for u in vert_to_adjacent_vert[v]:
+                vert_to_adjacent_vert[u].remove(v)
+            del vert_to_adjacent_vert[v]
+
+        vert_to_adjacent_vert[to_merge[0]] = adjacent_to_root
+        input_vert = [v for v in input_vert if v not in to_merge[1:]]
+
+    root = input_vert[0]
     root_node = TreeNode(root, None, vertices[root])
     pipe = [root_node]
 
