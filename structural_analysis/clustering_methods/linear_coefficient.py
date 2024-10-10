@@ -55,6 +55,7 @@ def cluster_by_linear_coefficient(circ: Circuit, coefs: Iterable[int] = [1, -1],
             filter(lambda sig : sig != 0 and circ.constraints[coni].C[sig] in coefs, circ.constraints[coni].C.keys())))
 
     # if taking too long refactor so only loops once
+    candidate_pair_not_in_queue = {}
     signal_to_candidate_coni = {}
     coni_to_num_candidates = {}
     pipe = []
@@ -62,15 +63,15 @@ def cluster_by_linear_coefficient(circ: Circuit, coefs: Iterable[int] = [1, -1],
     for coni, sig in itertools.chain(*map(_get_candidate_pairs, candidates)):
         signal_to_candidate_coni.setdefault(sig, set([])).add(coni) # slow..
         coni_to_num_candidates[coni] = coni_to_num_candidates.setdefault(coni, 0) + 1
+        
+        candidate_pair_not_in_queue[(coni, sig)] = False # TODO: to more A/B testing for speed here
         pipe.append((coni, sig))
 
-    i = 0
     while len(pipe) > 0:
-        i += 1
-        print(i, end='\r')
-
-        # TODO: try not to double check so much
         coni, sig = pipe.pop()
+
+        candidate_pair_not_in_queue[(coni, sig)] = True
+        if coni_to_num_candidates[coni] == 0: continue
 
         if any(map(lambda osig : sig != osig and noncandidate_uf.find(sig) == noncandidate_uf.find(osig), getvars(circ.constraints[coni]))):
             coni_to_num_candidates[coni] -= 1
@@ -81,12 +82,14 @@ def cluster_by_linear_coefficient(circ: Circuit, coefs: Iterable[int] = [1, -1],
             if coni_to_num_candidates[coni] == 0:
                 noncandidate_uf.union(*getvars(circ.constraints[coni]))
 
-                # check any candidate pairs that have been merged
-                pipe.extend(itertools.chain(
+                candidates_to_add = list(filter(candidate_pair_not_in_queue.__getitem__, itertools.chain(
                     *map( lambda osig : itertools.product(signal_to_candidate_coni[osig], [osig]),
                     filter(lambda osig : noncandidate_uf.find(sig) == noncandidate_uf.find(osig), signal_to_candidate_coni.keys())
-                    )))
+                    ))))
+
+                # check any candidate pairs that have been merged
+                for p in candidates_to_add: candidate_pair_not_in_queue[p] = False
+                pipe.extend(candidates_to_add)
 
     links = list(filter(lambda coni : coni_to_num_candidates[coni] > 0, coni_to_num_candidates.keys()))
-    print("")
     return cluster_by_ignore(circ, IgnoreMethod.ignore_constraint_from_list, removed + links, **clustering_kwargs)
