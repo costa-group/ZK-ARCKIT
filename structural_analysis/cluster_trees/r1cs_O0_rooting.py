@@ -34,26 +34,31 @@ def r1cs_O0_rooting(
     input_coni = list(filter(lambda coni : len(getvars(circ.constraints[coni]).intersection(inputs)) > 0, range(circ.nConstraints)))
     input_vert = list(filter(lambda repr : any([l in vertices[repr] for l in input_coni]), vertices.keys()))
 
+    if input_vert == []: raise AssertionError("No Input nodes")
+
     # define rooted tree structure
-    vert_to_adjacent_vert = {}
+    vert_to_adjacent_vert = [[] for _ in range(len(vertices))]
     for l, r in adjacencies:
-        vert_to_adjacent_vert.setdefault(l, []).append(r)
-        vert_to_adjacent_vert.setdefault(r, []).append(l)
-    vert_to_adjacent_vert = {k: set(v) for k,v in vert_to_adjacent_vert.items()}
+        vert_to_adjacent_vert[l].append(r)
+        vert_to_adjacent_vert[r].append(l)
+    vert_to_adjacent_vert = [set(v) for v in vert_to_adjacent_vert]
 
     while len(input_vert) > 1:
 
         # TODO: maybe think about doing choosing s,t to do less BFS searches e.g. should be furthest distance from each other?
         path = BFS_shortest_path(*input_vert[:2], vert_to_adjacent_vert)
+        if path == []: path = input_vert[:2]
+
         root, to_merge = path[0], path[1:]
 
         vertices[root].extend(itertools.chain(map(vertices.__getitem__, to_merge)))
         
         adjacent_to_root = set(filter(lambda v : v not in path, itertools.chain(*map(vert_to_adjacent_vert.__getitem__, path))))
+
         for v in to_merge:
-            for u in vert_to_adjacent_vert[v]:
+            for u in filter(lambda ver : ver != root, vert_to_adjacent_vert[v]):
                 vert_to_adjacent_vert[u].remove(v)
-            del vert_to_adjacent_vert[v] # more memory efficient
+                vert_to_adjacent_vert[u].add(root)
 
         vert_to_adjacent_vert[root] = adjacent_to_root
         input_vert = [v for v in input_vert if v not in to_merge]
@@ -66,7 +71,7 @@ def r1cs_O0_rooting(
         node = pipe.pop()
         node_id = node.node_id
 
-        children_ids = filter(lambda id : node.parent is None or id != node.parent.node_id, vert_to_adjacent_vert.setdefault(node_id, []))
+        children_ids = filter(lambda id : node.parent is None or id != node.parent.node_id, vert_to_adjacent_vert[node_id])
         node.children = list(map(lambda id : TreeNode(id, node, vertices[id]),children_ids))
         pipe.extend(node.children)
 
