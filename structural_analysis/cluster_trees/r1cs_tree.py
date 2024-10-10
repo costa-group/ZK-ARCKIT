@@ -16,7 +16,7 @@ def r1cs_distance_tree(
     until all constraints are in cluster. It additionally returns the tree adjacencies of this structure.
     """
 
-    clusters, _, removed = naive_removal_clustering(circ, calculate_adjacency = False)
+    clusters, _, removed = clustering_method(circ, calculate_adjacency = False)
 
     signal_to_repr = [None for _ in range(circ.nWires)] # worse memory up front but better memory over runtime
     adjacencies = []
