@@ -1,6 +1,7 @@
 from r1cs_scripts.constraint import Constraint
 from typing import Iterable, Dict, List, Set
 from itertools import chain
+from collections import deque
 
 def getvars(con: Constraint) -> set:
     return set(filter(lambda x : x != 0, chain(con.A.keys(), con.B.keys(), con.C.keys())))
@@ -69,3 +70,25 @@ def is_not_none(x) -> bool:
     Just used to make some maps/filters nicer to read
     """
     return x is not None
+
+def BFS_shortest_path(s: int, t: int, adjacencies: List[List[int]]) -> List[int]:
+    """
+    simple implementation of targeted BFS that assumes adjacencies only contains the adjacent indices
+    """
+
+    parent = {s: None}
+    reached_t = False
+    queue = deque([s])
+
+    while not reached_t:
+        curr = queue.popleft()
+        queue.extend(filter(lambda adj : parent.setdefault(adj, curr) == curr, adjacencies[curr]))
+        reached_t = t in parent.keys()
+
+        if len(queue) == 0:
+            return []
+    
+    path = [t]
+    while path[-1] != s:
+        path.append(parent[path[-1]])
+    return path[::-1]
