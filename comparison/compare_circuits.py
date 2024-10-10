@@ -16,7 +16,7 @@ from comparison.cluster_preprocessing import circuit_clusters
 
 from r1cs_scripts.circuit_representation import Circuit
 
-from structural_analysis.connected_preprocessing import connected_preporcessing
+from structural_analysis.connected_preprocessing import connected_preprocessing
 
 from bij_encodings.encoder import Encoder
 from bij_encodings.assignment import Assignment
@@ -58,8 +58,8 @@ def circuit_equivalence(
     S2 = in_pair[1][1]
     start = time.time()
 
-    connected_preporcessing(S1)
-    connected_preporcessing(S2)
+    connected_preprocessing(S1)
+    connected_preprocessing(S2)
 
     connected_preprocessing_time = time.time()
     last_time = connected_preprocessing_time

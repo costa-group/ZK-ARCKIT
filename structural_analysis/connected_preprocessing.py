@@ -3,6 +3,7 @@
 Fixes compiler bug where some circuits aren't a single connected component
 
 """
+import itertools
 from utilities import getvars
 
 from bij_encodings.assignment import Assignment
@@ -14,7 +15,7 @@ from utilities import _signal_data_from_cons_list
 
 
 
-def connected_preporcessing(circ: Circuit) -> Circuit:
+def connected_preprocessing(circ: Circuit) -> Circuit:
     """
     modifies input circ, and constraints contained
 
@@ -26,17 +27,16 @@ def connected_preporcessing(circ: Circuit) -> Circuit:
     inputs = range(circ.nPubOut+1, circ.nPubOut + circ.nPrvIn + circ.nPubIn + 1)
     outputs = range(1, circ.nPubOut+1)
 
-    starting = set([next(iter(inputs))])
-
-    dist_from_inputs = _distances_to_signal_set(circ.constraints, starting, signal_to_conis)
+    dist_from_inputs = _distances_to_signal_set(circ.constraints, inputs, signal_to_conis)
+    dist_from_outputs = _distances_to_signal_set(circ.constraints, outputs, signal_to_conis)
 
     # Theoreticall all inputs/outputs should be in the same connected component
 
-    if set(inputs).difference(dist_from_inputs.keys()) != set([]):
-        raise AssertionError(f"Inputs {set(inputs).difference(dist_from_inputs.keys())} not connected to starting input {starting}")
+    # if set(inputs).difference(dist_from_inputs.keys()) != set([]):
+    #     raise AssertionError(f"Inputs {set(inputs).difference(dist_from_inputs.keys())} not connected to starting input {starting}")
 
-    if set(outputs).difference(dist_from_inputs.keys()) != set([]):
-        raise AssertionError(f"Output {set(outputs).difference(dist_from_inputs.keys())} not connected to starting input {starting}")
+    # if set(outputs).difference(dist_from_inputs.keys()) != set([]):
+    #     raise AssertionError(f"Output {set(outputs).difference(dist_from_inputs.keys())} not connected to starting input {starting}")
     
     ## If this is true, we remap
 
@@ -44,7 +44,7 @@ def connected_preporcessing(circ: Circuit) -> Circuit:
     remapp[0] = 0
 
     curr = 1
-    for sig in sorted(dist_from_inputs.keys()):
+    for sig in set(itertools.chain(dist_from_inputs.keys(), dist_from_outputs.keys())):
         
         remapp[sig] = curr
         curr += 1
