@@ -3,7 +3,7 @@ Clustering based around the fact that almost always a template being called is c
 """
 
 import networkx as nx
-from typing import List
+from typing import List, Callable
 import itertools
 from functools import reduce
 
@@ -15,7 +15,10 @@ from structural_analysis.constraint_graph import shared_signal_graph, getvars
 from normalisation import r1cs_norm
 
 def is_signal_equivalence_constraint(con: Constraint) -> bool:
-        return len(con.A) + len(con.B) == 0 and len(con.C) == 2 and sorted(r1cs_norm(con)[0].C.values()) == [1, con.p - 1]
+    return len(con.A) + len(con.B) == 0 and len(con.C) == 2 and sorted(r1cs_norm(con)[0].C.values()) == [1, con.p - 1]
+
+def nonorm_relaxes_signal_equivalence_constraint(con: Constraint) -> bool:
+    return len(con.A) + len(con.B) == 0 and len(getvars(con)) == 2 and all(map(lambda sig : con.C[sig] in [1, con.p-1], getvars(con)))
 
 def naive_all_removal(circ: Circuit) -> nx.Graph:
 
@@ -29,9 +32,9 @@ def naive_all_removal(circ: Circuit) -> nx.Graph:
 
     return list(nx.connected_components(g)), [[i] for i in to_remove]
 
-def naive_removal_clustering(circ: Circuit, clustering_method: int = 0, **kwargs) -> List[List[int]]:
+def naive_removal_clustering(circ: Circuit, clustering_method: int = 0, ignore_pattern: Callable[[Constraint], bool] = is_signal_equivalence_constraint, **kwargs) -> List[List[int]]:
 
     # testing found, oddly, that the cluster_from_list_old is way better ~3 seconds on clustering and it gets adjacency almost instantly
     match clustering_method:
-        case 0: return cluster_by_ignore(circ, 2, is_signal_equivalence_constraint, **kwargs)
+        case 0: return cluster_by_ignore(circ, 2, ignore_pattern, **kwargs)
         case _: raise AssertionError(f"Invalid method {clustering_method} in naive cluster")
