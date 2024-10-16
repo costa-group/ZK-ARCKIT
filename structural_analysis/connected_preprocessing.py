@@ -18,15 +18,19 @@ def connected_preprocessing(circ: Circuit, return_mapping: bool = False) -> Circ
     Given an input circuit removes all constraints not connected to any inputs
     """
 
+    outputs = range(1, 1+circ.nPubOut)
     inputs = range(circ.nPubOut+1, circ.nPubOut + circ.nPrvIn + circ.nPubIn + 1)
 
-    dist_from_inputs = _distances_to_signal_set(circ.constraints, inputs)
+    sig_to_coni = _signal_data_from_cons_list(circ.constraints)
+
+    dist_from_inputs = _distances_to_signal_set(circ.constraints, inputs, sig_to_coni)
+    dist_from_outputs = _distances_to_signal_set(circ.constraints, outputs, sig_to_coni)
 
     remapp = [None for _ in range(circ.nWires)]
     remapp[0] = 0
 
     curr = 1
-    for sig in sorted(dist_from_inputs.keys()):
+    for sig in sorted(set(dist_from_inputs.keys()).intersection(dist_from_outputs.keys())):
         
         remapp[sig] = curr
         curr += 1
@@ -44,7 +48,7 @@ def connected_preprocessing(circ: Circuit, return_mapping: bool = False) -> Circ
               [circ.constraints[coni].A, circ.constraints[coni].B, circ.constraints[coni].C]],
             circ.constraints[coni].p))
     
-    pubOuts = range(1, 1+circ.nPubOut)
+    
     pubInts = range(1+circ.nPubOut, 1+circ.nPubOut+circ.nPubIn)
     prvInts = range(1+circ.nPubOut+circ.nPubIn, 1+circ.nPubOut+circ.nPubIn+circ.nPrvIn)
 
@@ -52,14 +56,14 @@ def connected_preprocessing(circ: Circuit, return_mapping: bool = False) -> Circ
 
     new_circ.update_header(
         circ.field_size, circ.prime_number, curr,
-        nPubOut=len(list(filter(in_next_circuit, pubOuts))),
+        nPubOut=len(list(filter(in_next_circuit, outputs))),
         nPubIn=len(list(filter(in_next_circuit, pubInts))),
         nPrvIn=len(list(filter(in_next_circuit, prvInts))),
         nLabels=None, # ??
         nConstraints=len(new_circ.constraints)
         )
 
-    return circ if not return_mapping else (circ, remapp)
+    return new_circ if not return_mapping else (new_circ, remapp)
 
 def componentwise_preprocessing(circ: Circuit) -> Tuple[List[Circuit], List[Tuple[int,int] | None], List[Tuple[int,int] | None]]:
     """
