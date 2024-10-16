@@ -16,8 +16,6 @@ from utilities import _signal_data_from_cons_list
 def connected_preprocessing(circ: Circuit, return_mapping: bool = False) -> Circuit | Tuple[Circuit, List[int | None]]:
     """
     Given an input circuit removes all constraints not connected to any inputs
-    Modifies the input circ, and constraints contained within
-    Doesn't modify nLabels, since am unsure what this is
     """
 
     inputs = range(circ.nPubOut+1, circ.nPubOut + circ.nPrvIn + circ.nPubIn + 1)
@@ -28,12 +26,12 @@ def connected_preprocessing(circ: Circuit, return_mapping: bool = False) -> Circ
     remapp[0] = 0
 
     curr = 1
-    for sig in dist_from_inputs.keys():
+    for sig in sorted(dist_from_inputs.keys()):
         
         remapp[sig] = curr
         curr += 1
 
-    new_constraints = []
+    new_circ = Circuit()
 
     for coni in range(circ.nConstraints):
 
@@ -41,17 +39,25 @@ def connected_preprocessing(circ: Circuit, return_mapping: bool = False) -> Circ
         if all(map(lambda sig : remapp[sig] == None, getvars(circ.constraints[coni]))):          
             continue
 
-        cons = circ.constraints[coni]
-
-        cons.A = {remapp[sig]:value for sig, value in cons.A.items()}
-        cons.B = {remapp[sig]:value for sig, value in cons.B.items()}
-        cons.C = {remapp[sig]:value for sig, value in cons.C.items()}
-
-        new_constraints.append(cons)
+        new_circ.constraints.append(Constraint(
+            *[{remapp[sig]:value for sig, value in dict_.items()} for dict_ in 
+              [circ.constraints[coni].A, circ.constraints[coni].B, circ.constraints[coni].C]],
+            circ.constraints[coni].p))
     
-    circ.constraints = new_constraints
-    circ.nConstraints = len(new_constraints)
-    circ.nWires = curr
+    pubOuts = range(1, 1+circ.nPubOut)
+    pubInts = range(1+circ.nPubOut, 1+circ.nPubOut+circ.nPubIn)
+    prvInts = range(1+circ.nPubOut+circ.nPubIn, 1+circ.nPubOut+circ.nPubIn+circ.nPrvIn)
+
+    in_next_circuit = lambda sig : remapp[sig] is not None
+
+    new_circ.update_header(
+        circ.field_size, circ.prime_number, curr,
+        nPubOut=len(list(filter(in_next_circuit, pubOuts))),
+        nPubIn=len(list(filter(in_next_circuit, pubInts))),
+        nPrvIn=len(list(filter(in_next_circuit, prvInts))),
+        nLabels=None, # ??
+        nConstraints=len(new_circ.constraints)
+        )
 
     return circ if not return_mapping else (circ, remapp)
 
