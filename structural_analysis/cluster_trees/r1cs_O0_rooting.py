@@ -11,12 +11,16 @@ class TreeNode():
         self.node_id = node_id
         self.parent = parent # can be None for root
         self.constraints = constraints
+        self.proven_external_signals = []
+        self.unproven_external_signals = []
         self.children = children
     
     def to_json(self) -> dict:
         return {
             "node_id": self.node_id,
             "constraints": self.constraints,
+            "unique_incoming_signals": self.proven_external_signals,
+            "outgoing_signals": self.unproven_external_signals,
             "subcomponents":list(map(lambda n : n.to_json(), self.children))
         }
 
@@ -47,11 +51,11 @@ def r1cs_O0_rooting(
 
         # TODO: maybe think about doing choosing s,t to do less BFS searches e.g. should be furthest distance from each other?
         path = BFS_shortest_path(*input_vert[:2], vert_to_adjacent_vert)
-        if path == []: path = input_vert[:2]
+        if path == []: raise ValueError
 
         root, to_merge = path[0], path[1:]
 
-        vertices[root].extend(itertools.chain(map(vertices.__getitem__, to_merge)))
+        vertices[root].extend(itertools.chain(*map(vertices.__getitem__, to_merge)))
         
         adjacent_to_root = set(filter(lambda v : v not in path, itertools.chain(*map(vert_to_adjacent_vert.__getitem__, path))))
 
