@@ -17,18 +17,31 @@ def node_signals(circ: Circuit, R: TreeNode):
         node = stack.pop()
 
         # a signal is external if it appears only once in amongst the listed constraints of the subcomponents
+        #   only true if every subcomponent passoff has an x = ... constraint
+        #   results in a lot of leaf subcomponents having only input signals, (doesn't make sense for input signals to be external)
+        # instead should be, appears in constraint not in node
 
-        external_signals = filter(
-            lambda sig : sum(map(lambda coni: coni in node.constraints, signal_to_coni[sig])) == 1,
-            set(itertools.chain(*map(getvars, map(circ.constraints.__getitem__, node.constraints))))
-        )
+        signals = set(itertools.chain(*map(getvars, map(circ.constraints.__getitem__, node.constraints))))
 
-        for sig in external_signals:
-            if seen.setdefault(sig, False): 
-                node.proven_external_signals.append(sig)
-            else: 
-                seen[sig] = True
-                node.unproven_external_signals.append(sig)
+        node.proven_external_signals = list(filter(lambda sig : seen.setdefault(sig, False), signals))
+        node.unproven_external_signals = list(filter(
+            lambda sig : not seen[sig] and len(set(signal_to_coni[sig]).difference(node.constraints)) > 0,
+            signals
+        ))
+
+        for sig in node.unproven_external_signals: seen[sig] = True
+
+        # external_signals = filter(
+        #     lambda sig : sum(map(lambda coni: coni in node.constraints, signal_to_coni[sig])) == 1,
+            
+        # )
+
+        # for sig in external_signals:
+        #     if seen.setdefault(sig, False): 
+        #         node.proven_external_signals.append(sig)
+        #     else: 
+        #         seen[sig] = True
+        #         node.unproven_external_signals.append(sig)
         
         stack.extend(node.children)
     
