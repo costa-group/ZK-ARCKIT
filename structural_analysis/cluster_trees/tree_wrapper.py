@@ -6,10 +6,16 @@ from functools import reduce
 from r1cs_scripts.circuit_representation import Circuit
 from utilities import _signal_data_from_cons_list, getvars, UnionFind
 from structural_analysis.clustering_methods.naive.signal_equivalence_clustering import naive_removal_clustering
+from structural_analysis.clustering_methods.linear_coefficient import cluster_by_linear_coefficient
 from comparison.static_distance_preprocessing import _distances_to_signal_set
+
+"""
+DEPRECATED
+"""
 
 def O0_tree_clustering(
         circ: Circuit,
+        clustering_method = cluster_by_linear_coefficient,
         outfile: str | None = None
     ) -> "Tree":
     """
@@ -18,6 +24,7 @@ def O0_tree_clustering(
         Not sure how to do this in general? modularity maybe?
     
     """
+    # TODO: fix public outputs not being placed correctly.
     counter = 0
 
     inputs = list(range(circ.nPubOut+1, circ.nPubOut + circ.nPrvIn + circ.nPubIn + 1))
@@ -27,7 +34,7 @@ def O0_tree_clustering(
     distance_to_input = _distances_to_signal_set(circ.constraints, inputs, signal_to_coni)
     # distance_to_output = _distances_to_signal_set(circ.constraints, outputs, signal_to_coni)
 
-    clusters, _, removed = naive_removal_clustering(circ)
+    clusters, _, removed = clustering_method(circ, calculate_adjacency=False)
 
     def make_node(key, cluster, subcomponents: List[dict] = []):
 
@@ -66,9 +73,9 @@ def O0_tree_clustering(
         #   still seems like we'll need to make some arbitrary decision...
 
         # for now just have minimum distance being inpu
-        
-        min_dist = min(map(distance_to_input.__getitem__, external_signals))
-        for sig in external_signals: (node["inputs"] if distance_to_input[sig] == min_dist else node["outputs"]).append(sig)
+        if external_signals != []:
+            min_dist = min(map(distance_to_input.__getitem__, external_signals))
+            for sig in external_signals: (node["inputs"] if distance_to_input[sig] == min_dist else node["outputs"]).append(sig)
         
         return node
 
@@ -85,95 +92,88 @@ def O0_tree_clustering(
 
     # in --O0 we can try do more components based on 'removed' signals that don't have adjacencies to any others
 
+    # IDEA: shift to pipe system instead of layers ... ?
+        # super-components are arbitrarily defined on a layer-by-layer basis though...
+
+    coni_to_adjacent_repr = lambda coni : set(
+        map(constraint_to_key.__getitem__, 
+        filter(lambda oconi : oconi != coni, 
+            itertools.chain(*map(signal_to_coni.__getitem__, getvars(circ.constraints[coni]))))
+        )
+    )
+
+    # TODO: need to have parent defined recursively and persistently
+    parents_uf = UnionFind(representative_tracking=True)
+
     while len(removed) > 0: 
+        
         # TODO: misses edges between nodes of the same layer.
         #   -- can merge nodes after keys are registered?
         #       -- could also move one down a layer (i.e. make one a subcomponent of the other) - seems a bit arbitrary - distance?
         #       -- good questions..
-
-        # TODO: How to deal with nodes with 1 subcomponent
+        #   -- as in, if a constraint links two clusters of the current layer, we wait until the higher to bridge, but this seems fine
+        #       -- If we don't separate by layer then we can theoretically just call all removed a single cluster.
 
         # idea is for each iteration to add another layer, final iteration will add 'root' layer which is then returned
 
         # Look at 'removed' constraints
-        #   - if they have 1 adjacent cluster (including None) - they should be in that cluster
         #   - if they have no adjacent clusters (only None) - they should be ignored for this layer
         #   - if they have 2 adjacent clusters (non-None) - they should form a current layer cluster
 
         not_included = []
-        parents = {}
-        parents_uf= UnionFind()
-        parent_key_to_removed = {}
-        repr_to_children = {}
+        parent_key_to_removed = {}  # this should be fine to reset, since it's only used in node creation
+        repr_to_children = {}       #  ^^
 
-        # UNION FIND?
+        # TODO: look into linear clustering not providing a proper hierarchy
+        #   I think this could happen with the other clustering (and might've with reveal)
+        #   but I just didn't notice until now -- discuss how to deal with this
 
         for coni in removed:
 
-            adjacent_repr = set(
-                map(constraint_to_key.__getitem__, 
-                    itertools.chain(*map(signal_to_coni.__getitem__, getvars(circ.constraints[coni]))))
-            )
+            adjacent_repr = coni_to_adjacent_repr(coni)
 
-            if len(adjacent_repr) == 1:
-                adjacent_cluster = next(iter(adjacent_repr))
-
-                if adjacent_cluster is None:
-                    not_included.append(coni)
-                else:
-                    ## add to that cluster
-                    nodes[adjacent_cluster]["constraints"].append(coni)
-                    # TODO: maybe update the signals?
-            else:   
+            if len(adjacent_repr) == 1 and next(iter(adjacent_repr)) == None:
+                not_included.append(coni)
+            else:
+                # TODO: how to detect new layer though --?
                 parent_nodes = set(
                     map(parents_uf.find,
-                    filter(lambda repr: repr is not None,
-                    map(lambda repr: parents.setdefault(repr, None), 
-                        filter(lambda repr : repr is not None, adjacent_repr)
-                ))))
+                    filter(lambda repr : repr is not None, adjacent_repr)
+                ))
 
-                match len(parent_nodes):
-                    case 0: 
-                        parent_key = counter
-                        counter += 1
-                        parent_key_to_removed[parent_key] = [coni]
-                        
-                    case 1:
-                        parent_key = next(iter(parent_nodes))
-                        parent_key_to_removed[parent_key].append(coni)
-                    case _: 
-                        parent_key = counter
-                        counter += 1
+                if len(parent_nodes) == 0 and next(iter(parent_nodes)) in parent_key_to_removed.keys():
+                    parent_key = next(iter(parent_nodes))
+                    parent_key_to_removed[parent_key].append(coni)
+                else:
+                    parent_key = counter
+                    counter += 1
 
-                        # print(coni, adjacent_repr, parent_nodes, parents, parent_key_to_removed)
+                    parent_key_to_removed[parent_key] = [coni]
+                    parents_uf.union(parent_key, *parent_nodes)
 
-                        parent_key_to_removed[parent_key] = [coni]
-                        parents_uf.union(parent_key, *parent_nodes)
-
-                        # TODO: fix not updating old parent keys being updated ...
-                        # for key in parent_nodes: del parent_key_to_removed[key] # Maybe don't bother with this?
-                
-                parents_uf.find(parent_key)
-                for repr in filter(lambda repr : repr is not None, adjacent_repr): parents[repr] = parent_key
                 repr_to_children.setdefault(parent_key, set([])).update(filter(lambda repr : repr is not None, adjacent_repr))
 
         unionfind_results = {}
-        for key in parents_uf.parent.keys():
+        for key in parent_key_to_removed.keys():
             unionfind_results.setdefault(parents_uf.find(key), []).extend(parent_key_to_removed[key])
-        
-        for key, cluster in unionfind_results.items():
-            nodes[key] = make_node(key, cluster, subcomponents = list(map(nodes.__getitem__, repr_to_children[key])))
-            for coni in cluster: constraint_to_key[coni] = key
 
+        for key, cluster in unionfind_results.items():
+            nodes[key] = make_node(key, cluster, subcomponents = list(map(nodes.__getitem__, repr_to_children[key]))) #TODO: KeyError
+            for coni in cluster: constraint_to_key[coni] = key
+        
         removed = not_included
+
+    print("\n")
+    print(nodes.keys())
+    print({key: nodes[key]["constraints"] for key in nodes.keys()})
     
-    print(len(unionfind_results.keys()))
+    print(len(parents_uf.get_representatives()))
     from utilities import count_ints
     print(count_ints(map(len, [node["subcomponents"] for node in nodes.values()])))
 
     if outfile is not None:
         f = open(outfile, "w")
-        json.dump({key: nodes[key] for key in unionfind_results.keys()}, f, indent=4)
+        json.dump({key: nodes[key] for key in parents_uf.get_representatives()}, f, indent=4)
         f.close()
     else:
         return nodes
