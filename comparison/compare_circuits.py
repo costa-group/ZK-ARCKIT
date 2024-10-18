@@ -61,7 +61,7 @@ def circuit_equivalence(
     S1 = connected_preprocessing(S1)
     S2 = connected_preprocessing(S2)
 
-    in_pair = [(in_pair[0][0], S1), (in_pair[0][1], S2)]
+    in_pair = [(in_pair[0][0], S1), (in_pair[1][0], S2)]
 
     connected_preprocessing_time = time.time()
     last_time = connected_preprocessing_time
