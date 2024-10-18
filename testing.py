@@ -31,7 +31,7 @@ from structural_analysis.clustering_methods.naive.signal_equivalence_clustering 
 from structural_analysis.clustering_methods.modularity.topological_flow_clustering import circuit_topological_clusters
 from comparison.static_distance_preprocessing import distances_to_static_preprocessing
 from testing_harness import run_affirmative_test, run_current_best_test
-from structural_analysis.connected_preprocessing import connected_preporcessing
+from structural_analysis.connected_preprocessing import connected_preprocessing
 from normalisation import r1cs_norm
 from utilities import count_ints, _signal_data_from_cons_list, getvars
 from comparison.static_distance_preprocessing import _distances_to_signal_set
@@ -57,16 +57,17 @@ if __name__ == '__main__':
     filenames = ["Reveal", "Biomebase", "Move", "test_ecdsa", "test_ecdsa_verify"]
     compilers = ["O0", "O1", "O2"]
 
-    filenames = filenames[:]
-    compilers = compilers[:]
+    filenames = filenames[-1:]
+    compilers = compilers[1:]
 
-    RNG = np.random.default_rng(562)
+    RNG = np.random.default_rng(312)
 
     # test_dir = "no_preprocessing/"
     # preprocessing = None
 
-    # test_dir = "iterated_reclassing/"
-    # preprocessing = iterated_adjacency_reclassing
+    # TODO: memory optimisation
+    test_dir = "nocluster/"
+    preprocessing = iterated_adjacency_reclassing
 
     # test_dir = "method_tests/"
 
@@ -74,33 +75,23 @@ if __name__ == '__main__':
 
         print(test, comp, "                                      ")
         file = "r1cs_files/"+ test + comp +".r1cs"
-
-        circ = Circuit()
-        parse_r1cs(file, circ)
-
-        old = circ.nConstraints
-
-        connected_preporcessing(circ)
-
-        if old != circ.nConstraints:
-            print("Disconnected")
-
-        # run_affirmative_test(
-        #     file,
-        #     "test_results/" + test_dir + test + comp + "50min.json",
-        #     int(RNG.integers(0, 25565)),
-        #     None,
-        #     naive_removal_clustering if comp == "O0" else twice_average_degree,
-        #     groups_from_clusters,
-        #     preprocessing,
-        #     OnlineInfoPassEncoder,
-        #     encoder_kwargs={
-        #         "class_encoding": reduced_encoding_class,
-        #         "signal_encoding": pseudoboolean_signal_encoder
-        #     },
-        #     debug=False,
-        #     time_limit= 30 * 60
-        # )
+ 
+        run_affirmative_test(
+            file,
+            "test_results/" + test_dir + test + comp + "_60min.json",
+            int(RNG.integers(0, 25565)),
+            None,
+            None, # naive_removal_clustering if comp == "O0" else twice_average_degree,
+            constraint_classes, # groups_from_clusters,
+            preprocessing,
+            OnlineInfoPassEncoder,
+            encoder_kwargs={
+                "class_encoding": reduced_encoding_class,
+                "signal_encoding": pseudoboolean_signal_encoder
+            },
+            debug=False,
+            time_limit= 60 * 60
+        )
 
     # NOTE: previous slowdowns likely due to overuse of memory bc of not itersection with known info at signal level
         # TODO: investigate weirdly slow encodings of small classes (e.g. 4 x 3)

@@ -12,7 +12,7 @@ if __name__ == '__main__':
     from r1cs_scripts.read_r1cs import parse_r1cs
     from comparison.cluster_preprocessing import groups_from_clusters, circuit_clusters
     from structural_analysis.connected_preprocessing import connected_preprocessing, componentwise_preprocessing
-    # from structural_analysis.signal_graph import shared_constraint_graph
+    from structural_analysis.signal_graph import shared_constraint_graph
     # from structural_analysis.connected_preprocessing import connected_preporcessing
     from structural_analysis.constraint_graph import shared_signal_graph
     # from structural_analysis.graph_clustering.HCS_clustering import HCS
@@ -27,6 +27,7 @@ if __name__ == '__main__':
     from structural_analysis.cluster_trees.r1cs_tree import r1cs_distance_tree
     from structural_analysis.clustering_methods.linear_coefficient import cluster_by_linear_coefficient
     from structural_analysis.cluster_trees.r1cs_O0_rooting import r1cs_O0_rooting
+    from structural_analysis.cluster_trees.node_signals import node_signals
 
     def recursive_search(path):
         for opt in map(lambda opt : path + "/" + opt, os.listdir(path)):
@@ -43,58 +44,65 @@ if __name__ == '__main__':
     #   results in graphs of length 1
     # TODO: improve linear clustering
 
-    for filename in recursive_search(parent):
-        print(filename)
+    # for filename in recursive_search(parent):
 
-        circ = Circuit()
-        try:
-            parse_r1cs(filename, circ)
-        except:
-            continue
+    #     print(filename)
 
-        circs, sigmapp, conmapp = componentwise_preprocessing(circ)
+    #     circ = Circuit()
+    #     try:
+    #         parse_r1cs(filename, circ)
+    #     except:
+    #         continue
 
-        if len(circs) == 0: print("No input nodes")
-        elif len(circs) == 1:
+    #     print("outputs", circ.nPubOut)
 
-            start = time.time()
+    #     circs, sigmapp, conmapp = componentwise_preprocessing(circ)
 
-            circ = circs[0]
-            T = r1cs_distance_tree(circ, clustering_method)
-            N = r1cs_O0_rooting(circ, *T)
+    #     if len(circs) == 0: print("No input nodes")
+    #     elif len(circs) == 1:
 
-            print(time.time() - start)
+    #         start = time.time()
 
-            f = open(filename[:filename.index(".")] + file_suffix + ".json", 'w')
-            json.dump(N.to_json(), f, indent = 4)
-            f.close()
-        else:
+    #         circ = circs[0]
+    #         T = r1cs_distance_tree(circ, clustering_method)
+
+    #         print(len(T[0]))
+    #         N = r1cs_O0_rooting(circ, *T)
+    #         node_signals(circ, N)
+
+    #         print(time.time() - start)
+
+    #         f = open(filename[:filename.index(".")] + file_suffix + ".json", 'w')
+    #         json.dump(N.to_json(), f, indent = 4)
+    #         f.close()
+    #     else:
             
-            dir = filename[:filename.index(".")]
-            total_time = 0
+    #         dir = filename[:filename.index(".")]
+    #         total_time = 0
 
-            try: os.mkdir(dir) 
-            except FileExistsError: pass
-            f = open(dir + "/mapping.txt", 'w')
-            json.dump({"sigmapp": sigmapp, "conmapp" : conmapp}, f)
-            f.close()
-            for i, circ in enumerate(circs):
+    #         try: os.mkdir(dir) 
+    #         except FileExistsError: pass
+    #         f = open(dir + "/mapping.txt", 'w')
+    #         json.dump({"sigmapp": sigmapp, "conmapp" : conmapp}, f)
+    #         f.close()
+    #         for i, circ in enumerate(circs):
 
-                start = time.time()
+    #             start = time.time()
 
-                T = r1cs_distance_tree(circ, clustering_method)
-                N = r1cs_O0_rooting(circ, *T)
+    #             T = r1cs_distance_tree(circ, clustering_method)
+    #             N = r1cs_O0_rooting(circ, *T)
+    #             node_signals(circ, N)
 
-                total_time += time.time() - start
+    #             total_time += time.time() - start
 
-                f = open(dir + f"/circuit{i}" + file_suffix + ".json", 'w')
-                json.dump(N.to_json(), f, indent = 4)
-                f.close()
-            print(total_time)
+    #             f = open(dir + f"/circuit{i}" + file_suffix + ".json", 'w')
+    #             json.dump(N.to_json(), f, indent = 4)
+    #             f.close()
+    #         print(total_time)
 
-    # filename = "r1cs_files/RevealO0.r1cs"
-    # circ = Circuit()
-    # parse_r1cs(filename, circ)
+    filename = "r1cs_files/PoseidonO0.r1cs"
+    circ = Circuit()
+    parse_r1cs(filename, circ)
     # connected_preprocessing(circ)
 
     # start = time.time()
@@ -112,7 +120,20 @@ if __name__ == '__main__':
     # json.dump(N.to_json(), f, indent = 4)
     # f.close()
 
-    # nx.nx_pydot.to_pydot(shared_signal_graph(circ.constraints)).write_png("test.png")
+    outputs = range(1, circ.nPubOut+1)
+    inputs = range(circ.nPubOut+1, circ.nPubOut+1+circ.nPrvIn+circ.nPubIn)
+
+    for coni, con in enumerate(circ.constraints):
+        if any(map(lambda sig : sig in inputs, getvars(con))):
+            print(coni, "in")
+
+        if any(map(lambda sig : sig in outputs, getvars(con))):
+            print(coni, "out")
+
+        if len(con.A) != 0 and len(con.B) != 0:
+            print(coni)
+
+    nx.nx_pydot.to_pydot(shared_signal_graph(circ.constraints)).write_png("test.png")
 
     
 
