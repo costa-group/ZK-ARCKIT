@@ -121,7 +121,8 @@ def run_current_best_test(
     lfilename: str,
     rfilename: str,
     outfile: str,
-    time_limit: int = 0
+    time_limit: int = 0,
+    debug: bool = True
     ):
 
     circ, circs = Circuit(), Circuit()
@@ -142,7 +143,7 @@ def run_current_best_test(
             "class_encoding" : reduced_encoding_class,
             "signal_encoding" : pseudoboolean_signal_encoder
         },
-        debug=True,
+        debug=debug,
         time_limit_seconds=time_limit
     )
 
