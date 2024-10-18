@@ -16,6 +16,8 @@ def shared_signal_graph(cons: List[Circuit]) -> nx.Graph:
     graph = nx.Graph()
     signal_to_coni = _signal_data_from_cons_list(cons)
 
+    weights = {}
+
     for signal in signal_to_coni.keys():
 
         if len(signal_to_coni[signal]) == 1:
@@ -23,6 +25,11 @@ def shared_signal_graph(cons: List[Circuit]) -> nx.Graph:
             continue
 
         for i, j in combinations(signal_to_coni[signal], r = 2):
-            graph.add_edge(i, j)
+            if i >= j: continue
+
+            weights[(i, j)] = weights.setdefault((i, j), 0) + 1
+
+    for i, j in weights.keys():
+        graph.add_edge(i, j, weight = weights[(i, j)])
 
     return graph
