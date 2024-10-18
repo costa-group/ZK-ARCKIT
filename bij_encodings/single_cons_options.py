@@ -1,48 +1,77 @@
 from functools import reduce
-from itertools import chain
-from typing import Dict, List, Tuple
+from itertools import chain, starmap, product
+from typing import Dict, List, Tuple, Set
 
 from r1cs_scripts.constraint import Constraint
 from bij_encodings.assignment import Assignment
 from utilities import getvars
 
-def signal_options(in_pair: List[Tuple[str, Constraint]], mapp: Assignment,
-                   signal_bijection: Dict[str, Dict[int, int]] = None) -> dict:
-    ## TODO: this is the holdup now.
-    # problems come from constraints with 257 different variables, basically all of them with 1.. this causes a lot of assignment calls
+def _compare_norms_with_unordered_parts(dicts: List[List[Dict[int, int]]], allkeys: List[List[int]]) -> Tuple[List[List[Dict[int, List[int]]]], List[Dict[int, List[int]]]]:
 
+    # inv[Ci][I][value] = set({keys in Ci with value I})
+    #   if I == 0, key in both A, B, if I == 1, key in A xor B, if I == 2, key in C
+    inv = list(map(lambda _ : list(map(lambda _ : dict(), range(3))), range(2)))
+    
+    # app[Ci][key] = [I for key appearance in Ci]
+    #   if I == 0, key in both A, B, if I == 1, key in A xor B, if I == 2, key in C  
+    app = list(map(lambda _ : dict(), range(2)))
 
-    ## Assume input constraints are in a comparable canonical form
+    for i, key in chain(*map(lambda i : product([i], allkeys[i]), range(2))):
 
-    # iterator for dicts in a constraint
-    dicts = [ 
-        [d.A, d.B, d.C] for _, d in in_pair
-    ]
+        val = sum(map(lambda j : (j+1) * key in dicts[i][j].keys(), range(2)))
+        inC = key in dicts[i][2].keys()
 
-    allkeys = [getvars(d) for _, d in in_pair]
+        # fills in app
+        if val != 0: app[i][key].append(0 if val == 3 else 1)
+        if inC: app[i][key].append(2)
+
+        # fills in inv
+        match val:
+            case 0: pass
+            case 3:
+                # two values, need to agree on both but not necessarily order
+                inv[i][0].setdefault(tuple(sorted(map(lambda j : dicts[i][j][key], range(2)))), []).append(key)
+            case _:
+                inv[i][1].setdefault(dicts[i][val-1][key], []).append(key)
+
+        if inC: inv[i][2].setdefault(dicts[i][2][key], []).append(key)
+
+    return app, inv
+        
+
+def _compare_norms_with_ordered_parts(dicts: List[List[Dict[int, int]]]) -> Tuple[List[List[Dict[int, List[int]]]], List[Dict[int, List[int]]]]:
 
     # inv[Ci][part][value] = set({keys in Ci with value in Ci.part})
-    inv = [
-        [
-            {} 
-            for _ in range(3)
-        ] 
-        for _ in range(2)
-    ]
-
+    inv = list(map(lambda _ : list(map(lambda _ : dict(), range(3))), range(2)))
+    
     # app[Ci][key] = [parts in Ci that key appears in]
-    app = [
-        {} 
-        for _ in range(2)
-    ]
+    app = list(map(lambda _ : dict(), range(2)))
 
-    for i in range(2):
-        for j, dict_ in enumerate(dicts[i]):
-            for key in dict_.keys():
-                if key == 0:
-                    continue
-                inv[i][j].setdefault(dict_[key], []).append(key)
-                app[i].setdefault(key, []).append( j )
+    for i, j in product(range(2), range(3)):
+        part = dicts[i][j]
+        for key in part.keys():
+            if key == 0: continue
+            inv[i][j].setdefault(part[key], []).append(key)
+            app[i].setdefault(key, []).append(j)
+
+    return app, inv
+
+
+def signal_options(in_pair: List[Tuple[str, Constraint]], mapp: Assignment,
+                   signal_bijection: Dict[str, Dict[int, int]] = None) -> dict:
+    ## Assume input constraints are in a comparable canonical form
+    #   canonical form is normalised w.t. to normalisation.py
+    #   thus we cannot assume that A*B are the same, specifically if A, B have the same ordered parts they are different
+
+    unordered_parts = in_pair[0][1].A.values() == in_pair[0][1].B.values()
+
+    # iterator for dicts in a constraint
+    norms = list(starmap(lambda _, norm : norm, in_pair))
+
+    dicts = list(map(lambda norm : [norm.A, norm.B, norm.C], norms))
+    allkeys = list(map(getvars, norms))
+
+    inv, app = _compare_norms_with_ordered_parts(dicts) if not unordered_parts else _compare_norms_with_unordered_parts(dicts, allkeys)
     
     for j in range(3):
         if len( set(inv[0][j].keys()).symmetric_difference(inv[1][j].keys()) ) != 0:
