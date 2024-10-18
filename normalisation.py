@@ -150,13 +150,12 @@ def r1cs_norm(C: Constraint) -> List[Constraint]:
 
     def normalise_with_choices(a, b, c) -> Constraint:
         res = Constraint(
-            A = {key: divideP(C.A[key], a, C.p) for key in C.A.keys()},
-            B = {key: divideP(C.B[key], b, C.p) for key in C.B.keys()},
+            *sorted([{key: divideP(val, a, C.p) for key, val in part.items()} for part in [C.A, C.B]],
+                     key = lambda part: sorted(part.values())),
             C = {key: divideP(C.C[key], c, C.p) for key in C.C.keys()},
             p = C.p
         )
         ## sorting
-        
         res.A = {key: res.A[key] for key in sorted(res.A.keys(), key = lambda x : res.A[x])}
         res.B = {key: res.B[key] for key in sorted(res.B.keys(), key = lambda x : res.B[x])}
         res.C = {key: res.C[key] for key in sorted(res.C.keys(), key = lambda x : res.C[x])}
