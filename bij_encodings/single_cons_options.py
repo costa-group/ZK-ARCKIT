@@ -16,30 +16,31 @@ def _compare_norms_with_unordered_parts(dicts: List[List[Dict[int, int]]], allke
     #   if I == 0, key in both A, B, if I == 1, key in A xor B, if I == 2, key in C  
     app = list(map(lambda _ : dict(), range(2)))
 
-    for i, key in chain(*map(lambda i : product([i], allkeys[i]), range(2))):
+    for i in range(2):
+        for key in allkeys[i]:
 
-        val = sum(map(lambda j : (j+1) * key in dicts[i][j].keys(), range(2)))
-        inC = key in dicts[i][2].keys()
+            val = sum(map(lambda j : (j+1) * (key in dicts[i][j].keys()), range(2)))
+            inC = key in dicts[i][2].keys()
 
-        # fills in app
-        if val != 0: app[i][key].append(0 if val == 3 else 1)
-        if inC: app[i][key].append(2)
+            # fills in app
+            if val != 0: app[i].setdefault(key, []).append(0 if val == 3 else 1)
+            if inC: app[i].setdefault(key, []).append(2)
 
-        # fills in inv
-        match val:
-            case 0: pass
-            case 3:
-                # two values, need to agree on both but not necessarily order
-                inv[i][0].setdefault(tuple(sorted(map(lambda j : dicts[i][j][key], range(2)))), []).append(key)
-            case _:
-                inv[i][1].setdefault(dicts[i][val-1][key], []).append(key)
+            # fills in inv
+            match val:
+                case 0: pass
+                case 3:
+                    # two values, need to agree on both but not necessarily order
+                    inv[i][0].setdefault(tuple(sorted(map(lambda j : dicts[i][j][key], range(2)))), []).append(key)
+                case _:
+                    inv[i][1].setdefault(dicts[i][val-1][key], []).append(key)
 
-        if inC: inv[i][2].setdefault(dicts[i][2][key], []).append(key)
+            if inC: inv[i][2].setdefault(dicts[i][2][key], []).append(key)
 
     return app, inv
         
 
-def _compare_norms_with_ordered_parts(dicts: List[List[Dict[int, int]]]) -> Tuple[List[List[Dict[int, List[int]]]], List[Dict[int, List[int]]]]:
+def _compare_norms_with_ordered_parts(dicts: List[List[Dict[int, int]]], _) -> Tuple[List[List[Dict[int, List[int]]]], List[Dict[int, List[int]]]]:
 
     # inv[Ci][part][value] = set({keys in Ci with value in Ci.part})
     inv = list(map(lambda _ : list(map(lambda _ : dict(), range(3))), range(2)))
@@ -63,16 +64,16 @@ def signal_options(in_pair: List[Tuple[str, Constraint]], mapp: Assignment,
     #   canonical form is normalised w.t. to normalisation.py
     #   thus we cannot assume that A*B are the same, specifically if A, B have the same ordered parts they are different
 
-    unordered_parts = in_pair[0][1].A.values() == in_pair[0][1].B.values()
-
+    unordered_parts = any(map(lambda i : len(in_pair[i][1].A) > 0 and list(in_pair[i][1].A.values()) == list(in_pair[i][1].B.values()),range(2)))
+    
     # iterator for dicts in a constraint
     norms = list(starmap(lambda _, norm : norm, in_pair))
 
     dicts = list(map(lambda norm : [norm.A, norm.B, norm.C], norms))
     allkeys = list(map(getvars, norms))
 
-    inv, app = _compare_norms_with_ordered_parts(dicts) if not unordered_parts else _compare_norms_with_unordered_parts(dicts, allkeys)
-    
+    app, inv = (_compare_norms_with_ordered_parts if not unordered_parts else _compare_norms_with_unordered_parts)(dicts, allkeys)
+
     for j in range(3):
         if len( set(inv[0][j].keys()).symmetric_difference(inv[1][j].keys()) ) != 0:
             # These are not equivalent constraints, hence the option is inviable
@@ -87,11 +88,17 @@ def signal_options(in_pair: List[Tuple[str, Constraint]], mapp: Assignment,
         for name, _ in in_pair
     }
 
+    def _get_values_for_key(i, j, key) -> int | Tuple[int, int]:
+        if not unordered_parts or j == 2: return dicts[i][j][key]
+        if j == 0: return tuple(sorted(map(lambda j : dicts[i][j][key], range(2))))
+        return next(iter([dicts[i][j][key] for j in range(2) if key in dicts[i][j].keys()]))
+
     for i, (name, _) in enumerate(in_pair):
         for key in allkeys[i]:
+
             oset = reduce(
                 lambda x, y : x.intersection(y),
-                [ inv[1-i][j][dicts[i][j][key]] for j in app[i][key] ], 
+                [ inv[1-i][j][_get_values_for_key(i, j, key)] for j in app[i][key] ], 
                 allkeys[1-i]
             )
 

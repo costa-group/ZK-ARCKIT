@@ -1,4 +1,4 @@
-from typing import List, Tuple, Dict, Set
+from typing import List, Tuple, Dict, Set, Callable
 
 from r1cs_scripts.circuit_representation import Circuit
 from r1cs_scripts.constraint import Constraint
@@ -11,6 +11,33 @@ import itertools
 
 constSignal = 0
 
+def sorted_list_handling(LList: List[Tuple], RList: List[Tuple], both_handle: Callable) -> Tuple[List[Tuple], List[Tuple]]:
+
+    in_LR, in_LorR = [], []
+    i, j = 0, 0
+    while 0 <= i < len(LList) and 0 <= j < len(RList):
+        lkey, lval = LList[i]
+        rkey, rval = RList[j]
+
+        if lkey < rkey: 
+            in_LorR.append(LList[i])
+            i += 1
+        elif rkey < lkey: 
+            in_LorR.append(RList[j])
+            j += 1
+        else:
+            both_val, single_val = both_handle(lval, rval)
+            in_LR.append((lkey, both_val))
+            if single_val is not None: in_LorR.append((lkey, single_val))
+            i += 1
+            j += 1
+    
+    # only actually doing 1, since at least 1 is finished
+    in_LorR.extend(itertools.chain(LList[i:], RList[j:]))
+    
+    return in_LR, in_LorR
+        
+
 def known_split(norms: List[Constraint], name, mapp, signal_info) -> str:
         """
         """
@@ -21,13 +48,15 @@ def known_split(norms: List[Constraint], name, mapp, signal_info) -> str:
 
         for norm in norms:
 
+            unordered_AB = len(norm.A) > 0 and list(norm.A.values()) == list(norm.B.values())
+
             sects = []
 
             for dict_ in [norm.A, norm.B, norm.C]:
 
                 curr = sorted(
                     map(
-                        lambda tup : (list(signal_info[name][tup[0]])[0], tup[1]),
+                        lambda tup : (next(iter(signal_info[name][tup[0]])), tup[1]),
                         filter(
                             lambda tup : tup[0] in signal_info[name].keys() and len(signal_info[name][tup[0]]) == 1,
                             dict_.items()
@@ -37,6 +66,13 @@ def known_split(norms: List[Constraint], name, mapp, signal_info) -> str:
 
                 sects.append(curr)
             
+            if unordered_AB:
+
+                sects[0], sects[1] = sorted_list_handling(
+                    sects[0], sects[1],
+                    lambda l, r : ((min(l,r),max(l,r)), None)
+                )
+
             parts.append(f"{sects[0]}*{sects[1]}+{sects[2]}")
 
         return str(sorted(parts))
@@ -53,9 +89,10 @@ def hash_constraint(
         returns 3 bits
             - 1-3rd bits are 1 if A,B,C resp has const. factor
         """
-        const_pos = ''.join( [ str(1 if int(constSignal in D.keys()) else 0) for D in [C.A, C.B, C.C]] ) # maybe reduce hash len?
 
-        return const_pos
+        const_pos = [int(constSignal in part.keys()) for part in [C.A, C.B, C.C]]
+        if unordered_AB: const_pos = [const_pos[0] & const_pos[1], const_pos[0] ^ const_pos[1], const_pos[2]]
+        return ''.join(map(str,const_pos))
 
     def distances_split(C: Constraint) -> str:
         """
@@ -68,8 +105,15 @@ def hash_constraint(
             count_ints(map(distances[name][source].__getitem__, filter(lambda x : x != 0, dict_.keys())))
             for dict_ in [C.A, C.B, C.C]
         ] for source in distances[name].keys()]
+
+        if unordered_AB:
+            for source in range(2):
+                distance_by_part[source][0], distance_by_part[source][1] = sorted_list_handling(
+                    distance_by_part[source][0], distance_by_part[source][1],
+                    lambda l, r : (min(l,r), abs(l-r) if l != r else None)
+                )
     
-        return str(distance_by_part[0]) + ":" + str(distance_by_part[1])
+        return str(distance_by_part[0]) + "," + str(distance_by_part[1])
     
     def norm_split(norms: List[Constraint]) -> str:
         """
@@ -96,12 +140,14 @@ def hash_constraint(
     norms = r1cs_norm(cons)
     if len(norms) > 1: norms = sorted(norms, key = return_coefs) ## need canonical order for returned normed constraints
     
-    hashes = [
-        constant_split(cons),
-        distances_split(cons),
-        known_split(norms, name, mapp, signal_info),
-        norm_split(norms,)
-    ]
+    unordered_AB = any(map(lambda norm : list(norm.A.values()) == list(norm.B.values()) and len(norm.A) > 0, norms))
+
+    hashes = itertools.chain(
+        map(constant_split, norms),
+        map(distances_split, norms),
+        [known_split(norms, name, mapp, signal_info)],
+        [norm_split(norms)]
+    )
 
     return ':'.join(hashes)
 
@@ -138,5 +184,22 @@ def constraint_classes(in_pair: List[ Tuple[str, Circuit] ], clusters: None, sig
     for i in range(N):
         for name, circ in in_pair:  
             groups[name].setdefault( hashmapp.get_assignment(hash_constraint( circ.constraints[i], name, mapp, signal_info, signal_to_distance )), []).append(i)
+
+    # group_id = 51
+
+    # print(hashmapp.get_inv_assignment(group_id))
+
+    # LHS = groups["S1"][group_id]
+    # RHS = groups["S2"][group_id]
+    # print(len(LHS), len(RHS))
+
+    # coni = next(iter(LHS))
+    # cons = in_pair[0][1].constraints[coni]
+    # norms = r1cs_norm(cons)
+    # print(norms[0].A.values(), norms[0].B.values(), norms[0].A.values() == norms[0].B.values(), list(norms[0].A.values()) == list(norms[0].B.values()))
+    # print(coni)
+    # cons.print_constraint_terminal()
+
+    # raise ValueError
 
     return groups
