@@ -16,7 +16,7 @@ from comparison.cluster_preprocessing import circuit_clusters
 
 from r1cs_scripts.circuit_representation import Circuit
 
-from structural_analysis.connected_preprocessing import connected_preprocessing
+from structural_analysis.utilities.connected_preprocessing import connected_preprocessing
 
 from bij_encodings.encoder import Encoder
 from bij_encodings.assignment import Assignment

@@ -10,8 +10,8 @@ from functools import reduce
 from structural_analysis.clustering_methods.naive.clustering_from_list import cluster_by_ignore
 from r1cs_scripts.circuit_representation import Circuit
 from r1cs_scripts.constraint import Constraint
-from structural_analysis.signal_graph import shared_constraint_graph
-from structural_analysis.constraint_graph import shared_signal_graph, getvars
+from structural_analysis.utilities.signal_graph import shared_constraint_graph
+from structural_analysis.utilities.constraint_graph import shared_signal_graph, getvars
 from normalisation import r1cs_norm
 
 def is_signal_equivalence_constraint(con: Constraint) -> bool:

@@ -11,10 +11,10 @@ if __name__ == '__main__':
     from r1cs_scripts.circuit_representation import Circuit
     from r1cs_scripts.read_r1cs import parse_r1cs
     from comparison.cluster_preprocessing import groups_from_clusters, circuit_clusters
-    from structural_analysis.connected_preprocessing import connected_preprocessing, componentwise_preprocessing
-    from structural_analysis.signal_graph import shared_constraint_graph
+    from structural_analysis.utilities.connected_preprocessing import connected_preprocessing, componentwise_preprocessing
+    from structural_analysis.utilities.signal_graph import shared_constraint_graph
     # from structural_analysis.connected_preprocessing import connected_preporcessing
-    from structural_analysis.constraint_graph import shared_signal_graph
+    from structural_analysis.utilities.constraint_graph import shared_signal_graph
     # from structural_analysis.graph_clustering.HCS_clustering import HCS
     # from structural_analysis.graph_clustering.nx_clustering_builtins import *
     # from structural_analysis.graph_clustering.stepped_girvan_newman import stepped_girvan_newman
