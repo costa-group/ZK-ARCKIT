@@ -6,7 +6,7 @@ if __name__ == '__main__':
     from functools import reduce
     from itertools import product
 
-    from utilities import count_ints, getvars
+    from utilities import count_ints, getvars, UnionFind, _signal_data_from_cons_list
     from comparison_testing import get_circuits
     from r1cs_scripts.circuit_representation import Circuit
     from r1cs_scripts.read_r1cs import parse_r1cs
@@ -100,12 +100,35 @@ if __name__ == '__main__':
     #             f.close()
     #         print(total_time)
 
-    filename = "r1cs_files/PoseidonO0.r1cs"
+    filename = "r1cs_files/binsub_test.r1cs"
     circ = Circuit()
     parse_r1cs(filename, circ)
-    # connected_preprocessing(circ)
+    connected_preprocessing(circ)
+
+    g = shared_signal_graph(circ.constraints)
+
+    comm = nx.algorithms.community.louvain_communities(g)
+
+    print(comm)
 
     # start = time.time()
+
+    # def cluster_by_nonlinear_constraints(circ: Circuit):
+    #     nonlinear_constraints, removed = [], []
+    #     for coni, con in enumerate(circ.constraints):
+    #         (nonlinear_constraints if len(con.A) > 0 else removed).append(coni)
+    #     nonlinear_uf = UnionFind()
+    #     for coni in nonlinear_constraints: nonlinear_uf.find(coni)
+
+    #     signal_to_coni = _signal_data_from_cons_list(circ.constraints)
+    #     for complete_graph in signal_to_coni.values():
+    #         nonlinear_uf.union(*filter(lambda coni : len(circ.constraints[coni].A) > 0, complete_graph))
+        
+    #     clusters = {}
+    #     for coni in nonlinear_constraints:
+    #         clusters.setdefault(nonlinear_uf.find(coni), []).append(coni)
+        
+    #     return clusters, None, removed
 
     # T = r1cs_distance_tree(circ, clustering_method = cluster_by_linear_coefficient)
     # print("finished tree in", time.time() - start)
@@ -116,24 +139,26 @@ if __name__ == '__main__':
 
     # print(time.time() - start)
 
-    # f = open(filename[:filename.index(".")] + "_linear.json", 'w')
+    # f = open("test.json", 'w')
     # json.dump(N.to_json(), f, indent = 4)
     # f.close()
 
-    outputs = range(1, circ.nPubOut+1)
-    inputs = range(circ.nPubOut+1, circ.nPubOut+1+circ.nPrvIn+circ.nPubIn)
+    # list(map(lambda con : con.print_constraint_terminal(), map(circ.constraints.__getitem__, [20, 5, 18])))
 
-    for coni, con in enumerate(circ.constraints):
-        if any(map(lambda sig : sig in inputs, getvars(con))):
-            print(coni, "in")
+    # outputs = range(1, circ.nPubOut+1)
+    # inputs = range(circ.nPubOut+1, circ.nPubOut+1+circ.nPrvIn+circ.nPubIn)
 
-        if any(map(lambda sig : sig in outputs, getvars(con))):
-            print(coni, "out")
+    # for coni, con in enumerate(circ.constraints):
+    #     if any(map(lambda sig : sig in inputs, getvars(con))):
+    #         print(coni, "in")
 
-        if len(con.A) != 0 and len(con.B) != 0:
-            print(coni)
+    #     if any(map(lambda sig : sig in outputs, getvars(con))):
+    #         print(coni, "out")
 
-    nx.nx_pydot.to_pydot(shared_signal_graph(circ.constraints)).write_png("test.png")
+    #     if len(con.A) != 0 and len(con.B) != 0:
+    #         print(coni)
+
+    # nx.nx_pydot.to_pydot(shared_signal_graph(circ.constraints)).write_png("test.png")
 
     
 

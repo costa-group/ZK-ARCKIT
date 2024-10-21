@@ -30,6 +30,9 @@
 !structural_analysis/clustering_methods/networkx
 !structural_analysis/clustering_methods/networkx/*.py
 
+!structural_analysis/clustering_methods/utilities
+!structural_analysis/clustering_methods/utilities/*.py
+
 !deprecated
 !deprecated/*
 
