@@ -58,14 +58,17 @@ def shuffle_internals(circ: Circuit, seed: int = None) -> None:
     for con in circ.constraints:
         conA = list(con.A.items())
         RNG.shuffle(conA)
-        con.A = dict(conA)
+        conA = dict(conA)
 
         conB = list(con.B.items())
-        RNG.shuffle(conA)
-        con.B = dict(conB)
+        RNG.shuffle(conB)
+        conB = dict(conB)
+
+        # also shuffles A/B order
+        con.A, con.B = (conA, conB) if RNG.random() >= 0.5 else (conB, conA)
 
         conC = list(con.C.items())
-        RNG.shuffle(conA)
+        RNG.shuffle(conC)
         con.C = dict(conC)
 
 def get_circuits(file, seed = None, 
@@ -97,29 +100,3 @@ def get_circuits(file, seed = None,
     if len(res) == 1: return res[0]
 
     return res
-
-if __name__ == '__main__':
-    circ, circ_shuffled, mapping = get_circuits("r1cs_files/Reveal.r1cs", 42)
-
-    # NOTE: seems can verify equivalence if there is no scalar overflow in multiplyP
-
-    import time
-    print(circ.nConstraints, circ.nWires)
-    start = time.time()
-
-    from bij_encodings.natural_encoding import NaturalEncoder
-    from bij_encodings.red_natural_encoding import ReducedNaturalEncoder
-    from bij_encodings.prop_encoding import PropagatorEncoder
-
-    # takes forever...
-    for _ in range(10**0):
-        bool, mapp = circuit_equivalence(circ, circ_shuffled, ReducedNaturalEncoder, timing=True)
-        print(bool)
-        if bool: 
-            print("Number of mapping disagreements: ", len( [map for map in mapp if map[1] != mapping[map[0]]]))
-            print([( map, (map[0], mapping[map[0]])) for map in mapp if map[1] != mapping[map[0]]])
-        else: print(mapp)
-
-        # NOTE: correctly returns true fir circ, circ_shuffled but mappings don't agree
-        #   TODO: check whether this is a mistake or if the returned mapping is also correct
-    print(time.time() - start)
