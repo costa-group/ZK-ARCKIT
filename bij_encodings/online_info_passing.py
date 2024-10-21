@@ -82,7 +82,7 @@ class OnlineInfoPassEncoder(Encoder):
                     for new_class in new_classes.values():
 
                         assert all([name in new_class.keys() for name, _ in in_pair]) 
-                        assert all([len(new_class[name]) == len(new_class[in_pair[0][0]]) for name, _ in in_pair])
+                        assert len(new_class[in_pair[0][0]]) == len(new_class[in_pair[1][0]]), f"New class had size {len(new_class[in_pair[0][0]])} in S1 and {len(new_class[in_pair[1][0]])} in S2"
 
                         hp.heappush(priorityq, (len(new_class[in_pair[0][0]]), num_signals, next_class, new_class))
                         next_class += 1
