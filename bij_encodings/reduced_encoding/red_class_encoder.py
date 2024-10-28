@@ -7,6 +7,7 @@ from pysat.formula import CNF
 import itertools
 
 from r1cs_scripts.circuit_representation import Circuit
+from r1cs_scripts.constraint import Constraint
 from bij_encodings.assignment import Assignment
 from bij_encodings.single_cons_options import signal_options
 from bij_encodings.internal_consistency import internal_consistency
@@ -14,22 +15,18 @@ from normalisation import r1cs_norm
 
 def reduced_encoding_class(
         class_: Dict[str, List[int]], 
+        norms : Dict[str, List[List[Constraint]]],
         in_pair: List[Tuple[str, Circuit]],
         mapp: Assignment,
         ckmapp: Assignment,
         formula: CNF,
         assumptions: Set[int],
-        signal_info: Dict[str, Dict[int, Set[int]]]
+        signal_info: Dict[str, Dict[int, Set[int]]],
+        has_unordered_AB: bool
 ) -> None:
     # NOTE: passes information directly to formula/signal_info
 
     size = len(class_[in_pair[0][0]])
-
-    # TODO: have an "only 1 norm" function
-    left_normed = list(map(lambda coni : r1cs_norm(in_pair[0][1].constraints[coni])[0],  class_[in_pair[0][0]]))
-
-    right_normed = list(map(lambda coni: r1cs_norm(in_pair[1][1].constraints[coni]), class_[in_pair[1][0]]))
-
     class_posibilities = {
         name: {}
         for name, _ in in_pair
@@ -72,11 +69,14 @@ def reduced_encoding_class(
 
         def get_options(tup):
             j, k = tup
-            return (j, k, signal_options([(in_pair[0][0], left_normed[i]), (in_pair[1][0], right_normed[j][k])], mapp, signal_info))
+            return (j, k, 
+                signal_options(
+                    [(in_pair[0][0], norms[in_pair[0][0]][i][0]), (in_pair[1][0], norms[in_pair[1][0]][j][k])], 
+                    mapp, has_unordered_AB, signal_info))
 
         options_by_jk = map(
             get_options,
-            itertools.chain(*map(lambda j : itertools.product([j], range(len(right_normed[j]))), range(size)))
+            itertools.chain(*map(lambda j : itertools.product([j], range(len(norms[in_pair[1][0]][j]))), range(size)))
         )
 
         viable_options = list(filter(

@@ -38,7 +38,7 @@ def sorted_list_handling(LList: List[Tuple], RList: List[Tuple], both_handle: Ca
     return in_LR, in_LorR
         
 
-def known_split(norms: List[Constraint], name, mapp, signal_info) -> str:
+def known_split(norms: List[Constraint], name: str, mapp: Assignment, signal_info: dict, unordered_AB: bool) -> str:
         """
         """
         if signal_info is None or mapp is None or name is None:
@@ -47,8 +47,6 @@ def known_split(norms: List[Constraint], name, mapp, signal_info) -> str:
         parts = []
 
         for norm in norms:
-
-            unordered_AB = len(norm.A) > 0 and list(norm.A.values()) == list(norm.B.values())
 
             sects = []
 
@@ -145,7 +143,7 @@ def hash_constraint(
     hashes = itertools.chain(
         map(constant_split, norms),
         map(distances_split, norms),
-        [known_split(norms, name, mapp, signal_info)],
+        [known_split(norms, name, mapp, signal_info, unordered_AB)],
         [norm_split(norms)]
     )
 

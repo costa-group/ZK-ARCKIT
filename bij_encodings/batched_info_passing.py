@@ -12,6 +12,8 @@ from comparison.constraint_preprocessing import known_split
 
 from normalisation import r1cs_norm
 
+## TODO: update so that unordered stuff is handled correctly
+
 class BatchedInfoPassEncoder(Encoder):
 
     def encode(

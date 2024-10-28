@@ -47,6 +47,14 @@ class OnlineInfoPassEncoder(Encoder):
         }
             
         if return_encoded_classes: classes_encoded = []
+
+        normalised_constraints = {
+            name: list(map(r1cs_norm, circ.constraints))
+            for name, circ in in_pair
+        }
+
+        left_coni_has_unordered_AB = [any(map(lambda norm : len(norm.A) > 0 and list(norm.A.values()) == list(norm.B.values()), norms))  
+                for norms in normalised_constraints[in_pair[0][0]]]
             
         priorityq = [
             (len(classes[in_pair[0][0]][key]), 
@@ -67,13 +75,16 @@ class OnlineInfoPassEncoder(Encoder):
         while len(priorityq) > 0:
             length, num_signals, class_ind, class_ = hp.heappop(priorityq)
 
+            # all norms of classes are the same, so if 1 has an unordered norm, they all do
+            unordered_class = left_coni_has_unordered_AB[class_[in_pair[0][0]][0]]
+
             if length > 1:
                 new_classes = {}
 
                 for name, circ in in_pair:
                     for int_, coni in enumerate(class_[name]):
                         if debug : print(f"For circ {name}, re-hashing class {class_ind}: constraint {int_} of size {length} x {num_signals}", end='\r')
-                        hash_ = known_split(r1cs_norm(circ.constraints[coni]), name, mapp, signal_info)
+                        hash_ = known_split(normalised_constraints[name][coni], name, mapp, signal_info, unordered_class)
                         new_classes.setdefault(hash_, {name_: [] for name_, _ in in_pair})[name].append(coni)
 
                 if len(new_classes) > 1:
@@ -93,7 +104,10 @@ class OnlineInfoPassEncoder(Encoder):
             if return_encoded_classes: classes_encoded.append(length)
 
             class_encoding(
-                class_, in_pair, mapp, ckmapp, formula, assumptions, signal_info
+                class_, 
+                {name: list(map(normalised_constraints[name].__getitem__, class_[name]))
+                 for name, _ in in_pair}, 
+                in_pair, mapp, ckmapp, formula, assumptions, signal_info, unordered_class
             )  
         # TODO: return some 'broken down' counter so we can better compare equivalent times.
 

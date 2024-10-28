@@ -8,6 +8,8 @@ from bij_encodings.assignment import Assignment
 from bij_encodings.reduced_encoding.red_class_encoder import reduced_encoding_class
 from r1cs_scripts.circuit_representation import Circuit
 
+# TODO: fix unordered AB not being handled
+
 class ReducedEncoder(Encoder):
     
     def encode(

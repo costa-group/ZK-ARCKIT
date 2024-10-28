@@ -59,13 +59,11 @@ def _compare_norms_with_ordered_parts(dicts: List[List[Dict[int, int]]], _) -> T
 
 
 def signal_options(in_pair: List[Tuple[str, Constraint]], mapp: Assignment,
-                   signal_bijection: Dict[str, Dict[int, int]] = None) -> dict:
+                   unordered_parts: bool, signal_bijection: Dict[str, Dict[int, int]] = None) -> dict:
     ## Assume input constraints are in a comparable canonical form
     #   canonical form is normalised w.t. to normalisation.py
     #   thus we cannot assume that A*B are the same, specifically if A, B have the same ordered parts they are different
-
-    unordered_parts = any(map(lambda i : len(in_pair[i][1].A) > 0 and list(in_pair[i][1].A.values()) == list(in_pair[i][1].B.values()),range(2)))
-    
+ 
     # iterator for dicts in a constraint
     norms = list(starmap(lambda _, norm : norm, in_pair))
 
