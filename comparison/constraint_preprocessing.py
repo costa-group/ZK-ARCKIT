@@ -1,4 +1,5 @@
 from typing import List, Tuple, Dict, Set, Callable
+from functools import reduce
 
 from r1cs_scripts.circuit_representation import Circuit
 from r1cs_scripts.constraint import Constraint
@@ -80,7 +81,9 @@ def hash_constraint(
         name: str = None, 
         mapp: Assignment = None, 
         signal_info: Dict[str, Dict[int, Set[int]]] = None,
-        distances: Dict[str, List[int]] = None):
+        nOutputs: int = None,
+        nInputs: int = None
+        ):
 
     def constant_split(C: Constraint) -> str:
         """
@@ -92,26 +95,29 @@ def hash_constraint(
         if unordered_AB: const_pos = [const_pos[0] & const_pos[1], const_pos[0] ^ const_pos[1], const_pos[2]]
         return ''.join(map(str,const_pos))
 
-    def distances_split(C: Constraint) -> str:
+    def input_outputs_split(C: Constraint) -> str:
         """
-        List of lists containing sorted count for number of shortest distances to input signal in each part
+        provides location info on number of inputs/outputs
+
+        replaces distances split with label passing handling the same info
         """
-        if distances is None or name is None:
-            return ""
-        
-        distance_by_part = [[
-            count_ints(map(distances[name][source].__getitem__, filter(lambda x : x != 0, dict_.keys())))
-            for dict_ in [C.A, C.B, C.C]
-        ] for source in distances[name].keys()]
+        if nInputs is None or nOutputs is None: return ""
+
+        num_per_part = [
+            reduce(
+                lambda acc, sig : (acc[0], acc[1] + 1) if 0 < sig <= nOutputs else ( (acc[0] + 1, acc[1]) if nOutputs < sig <= nOutputs + nInputs else acc),
+                part.keys(),
+                (0, 0)
+            ) for part in [C.A, C.B, C.C]
+        ]
 
         if unordered_AB:
-            for source in range(2):
-                distance_by_part[source][0], distance_by_part[source][1] = sorted_list_handling(
-                    distance_by_part[source][0], distance_by_part[source][1],
-                    lambda l, r : (min(l,r), abs(l-r) if l != r else None)
-                )
-    
-        return str(distance_by_part[0]) + "," + str(distance_by_part[1])
+            vals = list(zip(*num_per_part[:2]))
+
+            num_per_part[0] = tuple(itertools.starmap(min, vals))
+            num_per_part[1] = tuple(itertools.starmap(lambda l, r : abs(l - r), vals))
+
+        return ";".join(map(str, num_per_part))
     
     def norm_split(norms: List[Constraint]) -> str:
         """
@@ -142,7 +148,7 @@ def hash_constraint(
 
     hashes = itertools.chain(
         map(constant_split, norms),
-        map(distances_split, norms),
+        map(input_outputs_split, norms),
         [known_split(norms, name, mapp, signal_info, unordered_AB)],
         [norm_split(norms)]
     )
@@ -154,21 +160,12 @@ def constraint_classes(in_pair: List[ Tuple[str, Circuit] ], clusters: None, sig
     assert len(in_pair) > 0, "empty comparisons"
     
     N = in_pair[0][1].nConstraints
-    K = in_pair[0][1].nWires
 
     groups = {
         name:{}
         for name, _ in in_pair
     }
     # separate by constant/quadtratic term
-    
-    signal_to_distance = {
-        name: {
-            sourcename: _distances_to_signal_set(circ.constraints, source)
-            for sourcename, source in [("input", range(circ.nPubOut+1, circ.nPubOut + circ.nPrvIn + circ.nPubIn + 1)), ("output", range(1, circ.nPubOut+1))]
-        }
-        for name, circ in in_pair
-    }
 
     hashmapp = Assignment(assignees=1)
 
@@ -177,27 +174,11 @@ def constraint_classes(in_pair: List[ Tuple[str, Circuit] ], clusters: None, sig
     #         hashmapp.get_assignment(hash_constraint( circ.constraints[i], name, mapp, signal_info, signal_to_distance )), []).append(i),
     #     ...
     # )
+    # we have same inputs, outputs
 
     # python loops are really slow... ~22s for 818 simple const 10^4 times..
     for i in range(N):
         for name, circ in in_pair:  
-            groups[name].setdefault( hashmapp.get_assignment(hash_constraint( circ.constraints[i], name, mapp, signal_info, signal_to_distance )), []).append(i)
-
-    # group_id = 51
-
-    # print(hashmapp.get_inv_assignment(group_id))
-
-    # LHS = groups["S1"][group_id]
-    # RHS = groups["S2"][group_id]
-    # print(len(LHS), len(RHS))
-
-    # coni = next(iter(LHS))
-    # cons = in_pair[0][1].constraints[coni]
-    # norms = r1cs_norm(cons)
-    # print(norms[0].A.values(), norms[0].B.values(), norms[0].A.values() == norms[0].B.values(), list(norms[0].A.values()) == list(norms[0].B.values()))
-    # print(coni)
-    # cons.print_constraint_terminal()
-
-    # raise ValueError
+            groups[name].setdefault( hashmapp.get_assignment(hash_constraint(circ.constraints[i], name, mapp, signal_info)), []).append(i)
 
     return groups
