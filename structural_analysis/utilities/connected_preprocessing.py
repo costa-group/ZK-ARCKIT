@@ -24,13 +24,14 @@ def connected_preprocessing(circ: Circuit, return_mapping: bool = False) -> Circ
     sig_to_coni = _signal_data_from_cons_list(circ.constraints)
 
     dist_from_inputs = _distances_to_signal_set(circ.constraints, inputs, sig_to_coni)
-    dist_from_outputs = _distances_to_signal_set(circ.constraints, outputs, sig_to_coni)
+    # now ignoring outputs not connected to any inputs
+    # dist_from_outputs = _distances_to_signal_set(circ.constraints, outputs, sig_to_coni)
 
     remapp = [None for _ in range(circ.nWires)]
     remapp[0] = 0
 
     curr = 1
-    for sig in sorted(set(dist_from_inputs.keys()).intersection(dist_from_outputs.keys())):
+    for sig in sorted(set(dist_from_inputs.keys())): # .intersection(dist_from_outputs.keys())):
         
         remapp[sig] = curr
         curr += 1
@@ -48,17 +49,17 @@ def connected_preprocessing(circ: Circuit, return_mapping: bool = False) -> Circ
               [circ.constraints[coni].A, circ.constraints[coni].B, circ.constraints[coni].C]],
             circ.constraints[coni].p))
     
-    
-    pubInts = range(1+circ.nPubOut, 1+circ.nPubOut+circ.nPubIn)
-    prvInts = range(1+circ.nPubOut+circ.nPubIn, 1+circ.nPubOut+circ.nPubIn+circ.nPrvIn)
+    # inputs ovbiously connected to inputs
+    # pubInts = range(1+circ.nPubOut, 1+circ.nPubOut+circ.nPubIn)
+    # prvInts = range(1+circ.nPubOut+circ.nPubIn, 1+circ.nPubOut+circ.nPubIn+circ.nPrvIn)
 
     in_next_circuit = lambda sig : remapp[sig] is not None
 
     new_circ.update_header(
         circ.field_size, circ.prime_number, curr,
         nPubOut=len(list(filter(in_next_circuit, outputs))),
-        nPubIn=len(list(filter(in_next_circuit, pubInts))),
-        nPrvIn=len(list(filter(in_next_circuit, prvInts))),
+        nPubIn=circ.nPubIn, # len(list(filter(in_next_circuit, pubInts))),
+        nPrvIn=circ.nPrvIn,# len(list(filter(in_next_circuit, prvInts))),
         nLabels=None, # ??
         nConstraints=len(new_circ.constraints)
         )
