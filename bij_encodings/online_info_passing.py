@@ -1,7 +1,5 @@
 from typing import Dict, List, Tuple, Callable, Set, Iterable
 from pysat.formula import CNF
-import heapq as hp
-from functools import reduce
 
 from r1cs_scripts.circuit_representation import Circuit
 from comparison.constraint_preprocessing import known_split
@@ -56,22 +54,21 @@ class OnlineInfoPassEncoder(Encoder):
         left_coni_has_unordered_AB = [any(map(lambda norm : len(norm.A) > 0 and list(norm.A.values()) == list(norm.B.values()), norms))  
                 for norms in normalised_constraints[in_pair[0][0]]]
             
-        priorityq = [
+        priorityq = sorted([
             (len(classes[in_pair[0][0]][key]), 
              len(getvars(in_pair[0][1].constraints[classes[in_pair[0][0]][key][0]])),
              i, {name: classes[name][key] for name, _ in in_pair})
             for i, key in enumerate(classes[in_pair[0][0]].keys())
-        ]
-        next_class = len(priorityq)
+        ], reverse = True)
 
-        hp.heapify(priorityq)
+        next_class = len(priorityq)
 
         # TODO: test memory saving
         del classes[in_pair[0][0]]
         del classes[in_pair[1][0]]
 
         while len(priorityq) > 0:
-            length, num_signals, class_ind, class_ = hp.heappop(priorityq)
+            length, num_signals, class_ind, class_ = priorityq.pop()
 
             # all norms of classes are the same, so if 1 has an unordered norm, they all do
             unordered_class = left_coni_has_unordered_AB[class_[in_pair[0][0]][0]]
@@ -88,20 +85,23 @@ class OnlineInfoPassEncoder(Encoder):
                 if len(new_classes) > 1:
                     if debug : print(f"Broken down class {class_ind} of size {length} into classes: {count_ints(map(lambda class_ : len(class_[in_pair[0][0]]), new_classes.values()))}", end="\r")
 
-                    new_classes_by_length = sorted(new_classes.keys(), key = lambda key : len(new_classes[key][in_pair[0][0]]))
+                    new_classes = sorted([
+                        (len(class_[in_pair[0][0]]), 
+                        len(getvars(in_pair[0][1].constraints[class_[in_pair[0][0]][0]])),
+                        next_class + i, class_)
+                        for i, class_ in enumerate(new_classes.values())
+                    ], reverse = True)
 
-                    for i, key in enumerate(new_classes_by_length):
-                        new_class = new_classes[key]
-
+                    next_class += len(new_classes)
+                    
+                    for _, _, _, new_class in new_classes:
                         assert all([name in new_class.keys() for name, _ in in_pair]) 
                         assert len(new_class[in_pair[0][0]]) == len(new_class[in_pair[1][0]]), f"New class had size {len(new_class[in_pair[0][0]])} in S1 and {len(new_class[in_pair[1][0]])} in S2"
 
-                        if i != 0 : 
-                            hp.heappush(priorityq, (len(new_class[in_pair[0][0]]), num_signals, next_class, new_class))
-                            next_class += 1
-                    
                     # next smallest will always be one of the new classes 
-                    class_ = new_classes[new_classes_by_length[0]]
+                    length, num_signals, class_ind, class_ = new_classes.pop()
+                    priorityq.extend(new_classes)
+
 
             if debug: print(f"{mapp.curr.val}: Encoding class {class_ind} of size {length} x {num_signals}                   ", end="\r")
             if return_encoded_classes: classes_encoded.append(length)
