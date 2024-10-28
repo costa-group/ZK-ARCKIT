@@ -1,5 +1,6 @@
 if __name__ == '__main__':
     import networkx as nx
+    import numpy as np
     import time
     import json
     import os
@@ -13,6 +14,7 @@ if __name__ == '__main__':
     from comparison.cluster_preprocessing import groups_from_clusters, circuit_clusters
     from structural_analysis.utilities.connected_preprocessing import connected_preprocessing, componentwise_preprocessing
     from structural_analysis.utilities.signal_graph import shared_constraint_graph
+    from structural_analysis.utilities.graph_to_img import partition_graph_to_img
     # from structural_analysis.connected_preprocessing import connected_preporcessing
     from structural_analysis.utilities.constraint_graph import shared_signal_graph
     # from structural_analysis.graph_clustering.HCS_clustering import HCS
@@ -28,6 +30,7 @@ if __name__ == '__main__':
     from structural_analysis.clustering_methods.linear_coefficient import cluster_by_linear_coefficient
     from structural_analysis.cluster_trees.r1cs_O0_rooting import r1cs_O0_rooting
     from structural_analysis.cluster_trees.node_signals import node_signals
+    from structural_analysis.clustering_methods.nonlinear_attract import nonlinear_attract_clustering
 
     def recursive_search(path):
         for opt in map(lambda opt : path + "/" + opt, os.listdir(path)):
@@ -35,83 +38,41 @@ if __name__ == '__main__':
             elif "." not in opt: 
                 for f in recursive_search(opt): yield f
 
-    parent = "clustering_tests"
+    parent = "clustering_tests/num2bitsandmore"
     # parent = "r1cs_files"
     clustering_method = lambda circ, **kwargs : naive_removal_clustering(circ, ignore_pattern=nonorm_relaxes_signal_equivalence_constraint, **kwargs)
-    file_suffix = ""
 
     # TODO: none of the test examples given have any of the structured links we expect ... maybe a zokrates thing?
     #   results in graphs of length 1
     # TODO: improve linear clustering
 
     # for filename in recursive_search(parent):
+    for filename in map(lambda f : "r1cs_files/" + f, ["binsub_test.r1cs", "PoseidonO0.r1cs"]):
 
-    #     print(filename)
+        print(filename)
 
-    #     circ = Circuit()
-    #     try:
-    #         parse_r1cs(filename, circ)
-    #     except:
-    #         continue
+        circ = Circuit()
+        try:
+            parse_r1cs(filename, circ)
+        except:
+            continue
 
-    #     print("outputs", circ.nPubOut)
+        start = time.time()
 
-    #     circs, sigmapp, conmapp = componentwise_preprocessing(circ)
+        # res = circ.nConstraints ** 0.5
+        g = shared_signal_graph(circ.constraints)
+        # comm = nx.algorithms.community.louvain_communities(g, resolution = res)
 
-    #     if len(circs) == 0: print("No input nodes")
-    #     elif len(circs) == 1:
+        clusters, _, _ = nonlinear_attract_clustering(circ)
+        comm = clusters.values()
+        
+        print("clustering time: ", time.time() - start)
 
-    #         start = time.time()
+        testname = filename.split("/")[-1]
+        file_suffix = "_nonlinear_attract" # f"_Louvain_res=sqrt({circ.nConstraints})"
+        outfile = "structural_analysis/clustered_graphs/" + testname[:testname.index(".")] + file_suffix + ".png"
 
-    #         circ = circs[0]
-    #         T = r1cs_distance_tree(circ, clustering_method)
-
-    #         print(len(T[0]))
-    #         N = r1cs_O0_rooting(circ, *T)
-    #         node_signals(circ, N)
-
-    #         print(time.time() - start)
-
-    #         f = open(filename[:filename.index(".")] + file_suffix + ".json", 'w')
-    #         json.dump(N.to_json(), f, indent = 4)
-    #         f.close()
-    #     else:
-            
-    #         dir = filename[:filename.index(".")]
-    #         total_time = 0
-
-    #         try: os.mkdir(dir) 
-    #         except FileExistsError: pass
-    #         f = open(dir + "/mapping.txt", 'w')
-    #         json.dump({"sigmapp": sigmapp, "conmapp" : conmapp}, f)
-    #         f.close()
-    #         for i, circ in enumerate(circs):
-
-    #             start = time.time()
-
-    #             T = r1cs_distance_tree(circ, clustering_method)
-    #             N = r1cs_O0_rooting(circ, *T)
-    #             node_signals(circ, N)
-
-    #             total_time += time.time() - start
-
-    #             f = open(dir + f"/circuit{i}" + file_suffix + ".json", 'w')
-    #             json.dump(N.to_json(), f, indent = 4)
-    #             f.close()
-    #         print(total_time)
-
-    filename = "r1cs_files/binsub_test.r1cs"
-    circ = Circuit()
-    parse_r1cs(filename, circ)
-    connected_preprocessing(circ)
-
-    g = shared_signal_graph(circ.constraints)
-
-    comm = nx.algorithms.community.louvain_communities(g)
-
-    print(comm)
-
-    # start = time.time()
+        partition_graph_to_img(circ, g, comm, outfile)
 
     # def cluster_by_nonlinear_constraints(circ: Circuit):
     #     nonlinear_constraints, removed = [], []
@@ -129,37 +90,6 @@ if __name__ == '__main__':
     #         clusters.setdefault(nonlinear_uf.find(coni), []).append(coni)
         
     #     return clusters, None, removed
-
-    # T = r1cs_distance_tree(circ, clustering_method = cluster_by_linear_coefficient)
-    # print("finished tree in", time.time() - start)
-    # try:
-    #     N = r1cs_O0_rooting(circ, *T)
-    # except AssertionError:
-    #     print("No input nodes")
-
-    # print(time.time() - start)
-
-    # f = open("test.json", 'w')
-    # json.dump(N.to_json(), f, indent = 4)
-    # f.close()
-
-    # list(map(lambda con : con.print_constraint_terminal(), map(circ.constraints.__getitem__, [20, 5, 18])))
-
-    # outputs = range(1, circ.nPubOut+1)
-    # inputs = range(circ.nPubOut+1, circ.nPubOut+1+circ.nPrvIn+circ.nPubIn)
-
-    # for coni, con in enumerate(circ.constraints):
-    #     if any(map(lambda sig : sig in inputs, getvars(con))):
-    #         print(coni, "in")
-
-    #     if any(map(lambda sig : sig in outputs, getvars(con))):
-    #         print(coni, "out")
-
-    #     if len(con.A) != 0 and len(con.B) != 0:
-    #         print(coni)
-
-    # nx.nx_pydot.to_pydot(shared_signal_graph(circ.constraints)).write_png("test.png")
-
     
 
 
