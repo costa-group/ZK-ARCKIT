@@ -70,8 +70,6 @@ class OnlineInfoPassEncoder(Encoder):
         del classes[in_pair[0][0]]
         del classes[in_pair[1][0]]
 
-        last_mapp_length = mapp.curr.val
-
         while len(priorityq) > 0:
             length, num_signals, class_ind, class_ = hp.heappop(priorityq)
 
@@ -81,7 +79,7 @@ class OnlineInfoPassEncoder(Encoder):
             if length > 1:
                 new_classes = {}
 
-                for name, circ in in_pair:
+                for name, _ in in_pair:
                     for int_, coni in enumerate(class_[name]):
                         if debug : print(f"For circ {name}, re-hashing class {class_ind}: constraint {int_} of size {length} x {num_signals}", end='\r')
                         hash_ = known_split(normalised_constraints[name][coni], name, mapp, signal_info, unordered_class)
@@ -90,15 +88,20 @@ class OnlineInfoPassEncoder(Encoder):
                 if len(new_classes) > 1:
                     if debug : print(f"Broken down class {class_ind} of size {length} into classes: {count_ints(map(lambda class_ : len(class_[in_pair[0][0]]), new_classes.values()))}", end="\r")
 
-                    for new_class in new_classes.values():
+                    new_classes_by_length = sorted(new_classes.keys(), key = lambda key : len(new_classes[key][in_pair[0][0]]))
+
+                    for i, key in enumerate(new_classes_by_length):
+                        new_class = new_classes[key]
 
                         assert all([name in new_class.keys() for name, _ in in_pair]) 
                         assert len(new_class[in_pair[0][0]]) == len(new_class[in_pair[1][0]]), f"New class had size {len(new_class[in_pair[0][0]])} in S1 and {len(new_class[in_pair[1][0]])} in S2"
 
-                        hp.heappush(priorityq, (len(new_class[in_pair[0][0]]), num_signals, next_class, new_class))
-                        next_class += 1
+                        if i != 0 : 
+                            hp.heappush(priorityq, (len(new_class[in_pair[0][0]]), num_signals, next_class, new_class))
+                            next_class += 1
                     
-                    continue
+                    # next smallest will always be one of the new classes 
+                    class_ = new_classes[new_classes_by_length[0]]
 
             if debug: print(f"{mapp.curr.val}: Encoding class {class_ind} of size {length} x {num_signals}                   ", end="\r")
             if return_encoded_classes: classes_encoded.append(length)
