@@ -71,11 +71,10 @@ def circuit_equivalence(
         N = S1.nConstraints
         K = S1.nWires
 
-        if K != S2.nWires:
-            raise AssertionError(f"Different number of wires in circuits: S1 has {S1.nWires}, S2 has {S2.nWires}")
-
-        if N != S2.nConstraints:
-            raise AssertionError(f"Different number of constraints in circuits: S1 has {S1.nConstraints}, S2 has {S2.nConstraints}")
+        for lval, rval, val_name,  in [
+            (S1.nWires, S2.nWires, "wires"), (S1.nConstraints, S2.nConstraints, "constraints"),(S1.nPubOut, S2.nPubOut, "output constraints"), 
+            (S1.nPubIn + S1.nPrvIn, S2.nPubIn + S2.nPrvIn, "input constraints")]:
+            if lval != rval: raise AssertionError(f"Different number of {val_name} in circuits: S1 has {lval}, S2 has {rval}")
 
         mapp = Assignment()
         assumptions = set([])
