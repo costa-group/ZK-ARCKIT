@@ -50,8 +50,6 @@ def dag_graph_to_img(circ: Circuit, G: nx.Graph, partition: List[List[int]], arc
 
     for edge in g.get_edge_list(): partition_outgoing[coni_to_part[int(edge.get_source())]].append(edge)
 
-    print(partition_outgoing)
-
     for arc in arcs:
         parti, partj = arc
 
@@ -63,9 +61,7 @@ def dag_graph_to_img(circ: Circuit, G: nx.Graph, partition: List[List[int]], arc
 
         for edge in edges_between:
             src, dst = edge.get_source(), edge.get_destination()
-            print(src, dst)
             if int(src) in partition[parti]: continue
-            print("swapped")
             g.del_edge(src, dst)
             g.add_edge(pd.Edge(dst, src))
 
