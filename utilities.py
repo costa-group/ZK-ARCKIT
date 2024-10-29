@@ -71,6 +71,22 @@ def is_not_none(x) -> bool:
     """
     return x is not None
 
+def dist_to_source_set(source_set: Iterable[int], adjacencies: List[List[int]]) -> Dict[int, int]:
+
+    distance = {s : 0 for s in source_set}
+    queue = deque(source_set)
+
+    while len(queue) > 0:
+
+        curr = queue.popleft()
+        
+        unseen = list(filter(lambda vert : distance.setdefault(vert, None) is None, adjacencies[curr]))
+
+        queue.extend(unseen)
+        for adj in unseen: distance[adj] = distance[curr] + 1
+
+    return distance
+
 def BFS_shortest_path(s: int, t: int, adjacencies: List[List[int]]) -> List[int]:
     """
     simple implementation of targeted BFS that assumes adjacencies only contains the adjacent indices
