@@ -67,7 +67,7 @@ def dag_from_partition(circ: Circuit, partition: List[List[int]]) -> "directed_a
         dist_to_outputs = dist_to_source_set(output_parts, adjacencies)
 
         ## make the preorder
-        part_to_preorder = [(dist_to_outputs[i], dist_to_inputs[i]) for i in partition.keys()]
+        part_to_preorder = { i: (dist_to_outputs[i], dist_to_inputs[i]) for i in partition.keys()}
         
         to_merge = UnionFind()
 
@@ -92,7 +92,8 @@ def dag_from_partition(circ: Circuit, partition: List[List[int]]) -> "directed_a
         return part_to_preorder[parti][0] >= part_to_preorder[partj][0] or (part_to_preorder[parti][0] == part_to_preorder[partj][0] and part_to_preorder[parti][1] <= part_to_preorder[partj][1])
 
     # define arc direction and return.
-    arcs = [(parti, partj) for parti in adjacencies.keys() for partj in adjacencies[parti] if le(parti, partj)]
+    mapping = {key: i for i, key in enumerate(partition.keys())}
+    arcs = [(mapping[parti], mapping[partj]) for parti in adjacencies.keys() for partj in adjacencies[parti] if le(parti, partj)]
     
     return list(partition.values()), arcs
 
@@ -106,7 +107,7 @@ def merge_parts(to_merge: List[List[int]], input_parts: Set[int], output_parts: 
         adjacencies[root] = set(itertools.chain(*map(adjacencies.__getitem__, merge_list))).difference(merge_list)
 
         for parti in to_elim: 
-            del merge_list[parti]
+            del partition[parti]
             for partj in filter(lambda x : x not in merge_list, adjacencies[parti]):
                 adjacencies[partj].remove(parti)
                 adjacencies[partj].add(root)
