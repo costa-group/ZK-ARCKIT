@@ -5,7 +5,10 @@ from utilities import UnionFind, _signal_data_from_cons_list, getvars, dist_to_s
 from comparison.static_distance_preprocessing import _distances_to_signal_set
 from r1cs_scripts.circuit_representation import Circuit
 
-def partition_from_partial_clustering(circ: Circuit, clusters: List[List[int]], remaining: List[int] | None = None) -> List[List[int]]:
+def partition_from_partial_clustering(
+        circ: Circuit, clusters: List[List[int]], 
+        remaining: List[int] | None = None,
+        group_unclustered: bool = False) -> List[List[int]]:
     
     not_in_cluster = [True for _ in range(circ.nConstraints)]
 
@@ -14,6 +17,8 @@ def partition_from_partial_clustering(circ: Circuit, clusters: List[List[int]], 
     if remaining is None:
         remaining = list(filter(not_in_cluster.__getitem__, range(circ.nConstraints)))
     
+    if not group_unclustered: return list(itertools.chain(clusters, map(lambda x : [x], remaining)))
+
     sig_to_coni = _signal_data_from_cons_list(circ.constraints)
     unclustered_uf = UnionFind()
     
