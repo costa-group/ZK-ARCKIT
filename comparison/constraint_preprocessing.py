@@ -1,5 +1,7 @@
 from typing import List, Tuple, Dict, Set, Callable
 from functools import reduce
+import itertools
+import collections
 
 from r1cs_scripts.circuit_representation import Circuit
 from r1cs_scripts.constraint import Constraint
@@ -8,7 +10,7 @@ from normalisation import r1cs_norm
 from bij_encodings.assignment import Assignment
 from utilities import count_ints
 from comparison.static_distance_preprocessing import _distances_to_signal_set
-import itertools
+
 
 constSignal = 0
 
@@ -169,16 +171,10 @@ def constraint_classes(in_pair: List[ Tuple[str, Circuit] ], clusters: None, sig
 
     hashmapp = Assignment(assignees=1)
 
-    # iterator = itertools.starmap(
-    #     lambda i, name, circ = groups[name].setdefault( 
-    #         hashmapp.get_assignment(hash_constraint( circ.constraints[i], name, mapp, signal_info, signal_to_distance )), []).append(i),
-    #     ...
-    # )
-    # we have same inputs, outputs
-
-    # python loops are really slow... ~22s for 818 simple const 10^4 times..
-    for i in range(N):
-        for name, circ in in_pair:  
-            groups[name].setdefault( hashmapp.get_assignment(hash_constraint(circ.constraints[i], name, mapp, signal_info)), []).append(i)
+    collections.deque(maxlen = 0, iterable = itertools.starmap(
+        lambda coni, circi : groups[in_pair[circi][0]].setdefault( 
+            hashmapp.get_assignment(hash_constraint(in_pair[circi][1].constraints[coni], in_pair[circi][0], mapp, signal_info)), []).append(coni),
+        itertools.product(range(N), range(2))
+    ))
 
     return groups
