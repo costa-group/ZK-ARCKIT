@@ -2,19 +2,23 @@ from typing import List, Tuple
 import networkx as nx
 import pydot as pd
 import itertools
+import collections
 
 from utilities import getvars
 from r1cs_scripts.circuit_representation import Circuit
 
-def circuit_graph_to_img(circ: Circuit, G: nx.Graph) -> pd.Graph:
+def circuit_graph_to_img(circ: Circuit, G: nx.Graph, induced_subgraph: List[int] | None = None) -> pd.Graph:
 
-    g = nx.nx_pydot.to_pydot(G)
+    if induced_subgraph is not None:
+        G = nx.induced_subgraph(G, induced_subgraph)
+
+    g: pd.Graph = nx.nx_pydot.to_pydot(G)
 
     in_outputs = lambda sig : 0 < sig <= circ.nPubOut
     in_inputs = lambda sig : circ.nPubOut < sig <= circ.nPubOut+circ.nPrvIn+circ.nPubIn
 
-    for coni, con in enumerate(circ.constraints):
-        node = g.get_node(str(coni))[0]
+    for node in g.get_node_list(): # coni, con in enumerate(circ.constraints):
+        con = circ.constraints[ int( node.get_name() ) ]
 
         if any(map(in_outputs, getvars(con))):
             node.set('shape','triangle')
@@ -25,21 +29,34 @@ def circuit_graph_to_img(circ: Circuit, G: nx.Graph) -> pd.Graph:
     
     return g
 
-def partition_graph_to_img(circ: Circuit, G: nx.Graph, partition: List[List[int]], outfile: str = "test.png", return_graph: bool = False) -> pd.Graph:
-    g = circuit_graph_to_img(circ, G)
+def partition_graph_to_img(
+        circ: Circuit, G: nx.Graph, partition: List[List[int]], outfile: str = "test.png", 
+        return_graph: bool = False, **kwargs) -> pd.Graph:
+    
+    g = circuit_graph_to_img(circ, G, **kwargs)
 
+    # formatted this way to work with induced subgraphs
     for i, part in enumerate(partition):
         c = pd.Cluster(str(i))
-        for _ in map(lambda n : c.add_node(g.get_node(str(n))[0]), part): pass
-    
-        g.add_subgraph(c)
+        
+        # pythonic hack to have efficient looping
+        collections.deque(
+            map(lambda nonempty_node_list: c.add_node( nonempty_node_list[0] ),
+            filter(lambda node_list : len(node_list) > 0,
+            map(g.get_node,
+            map(str, part
+        )))), maxlen=0)
+
+        if len( c.get_node_list() ) > 0: g.add_subgraph(c)
     
     if return_graph: return g
     g.write_png(outfile)
 
-def dag_graph_to_img(circ: Circuit, G: nx.Graph, partition: List[List[int]], arcs: List[Tuple[int, int]], outfile: str = "test.png"):
+def dag_graph_to_img(
+        circ: Circuit, G: nx.Graph, partition: List[List[int]], arcs: List[Tuple[int, int]], 
+        outfile: str = "test.png", **kwargs):
 
-    g = partition_graph_to_img(circ, G, partition, return_graph = True)
+    g = partition_graph_to_img(circ, G, partition, return_graph = True, **kwargs)
     g.set_type("digraph")
 
     coni_to_part = [None for _ in range(circ.nConstraints)]
