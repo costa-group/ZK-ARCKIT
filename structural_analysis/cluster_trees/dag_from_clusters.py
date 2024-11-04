@@ -1,5 +1,6 @@
-from typing import List, Dict, Set
+from typing import List, Dict, Set, Tuple
 import itertools
+import json
 
 from utilities import UnionFind, _signal_data_from_cons_list, getvars, dist_to_source_set
 from comparison.static_distance_preprocessing import _distances_to_signal_set
@@ -123,4 +124,46 @@ def merge_parts(to_merge: List[List[int]], input_parts: Set[int], output_parts: 
             if len(source_in_merge_list) > 0:
                 source.difference_update(source_in_merge_list)
                 source.add(root)
+
+def dag_to_json(circ: Circuit, partition: List[List[int]], arcs: List[Tuple[int, int]], outfile: str = "test.json", return_nodes: bool = False) -> List[Dict] | None:
+
+    # TODO: slower then just iterating once, could use a consume on a subordinate function
+
+    part_to_signals = list(map(lambda part : set(itertools.chain(*map(lambda coni : getvars(circ.constraints[coni]), part))), partition))
+
+    nodes = list(itertools.starmap(
+        lambda i, part : {
+            "node_id": i,
+            "constraints": part,
+            "input_signals": set(filter(lambda sig : circ.nPubOut < sig <= circ.nPubOut + circ.nPrvIn + circ.nPrvIn, part_to_signals[i])),
+            "output_signals": set(filter(lambda sig : 0 < sig <= circ.nPubOut, part_to_signals[i])),
+            "child_components": []
+        },
+        enumerate(partition)
+    ))
+
+    for arc in arcs:
+
+        l, r = arc
+        nodes[l]["child_components"].append(r)
+
+        # need to identify signals shared between these arcs, then mark these signals as input/output as appropriate
+        shared_signals = part_to_signals[l].intersection(part_to_signals[r])
+        nodes[l]["output_signals"].update(shared_signals)
+        nodes[r]["input_signals"].update(shared_signals)
+
+        # TODO: what properties are required to not have any cycles
+        #   can we prove this already?
+    
+    if return_nodes: return nodes
+
+    for node in nodes:
+        for key in ["input_signals", "output_signals"]:
+            node[key] = list(node[key])
+
+    f = open(outfile, 'w')
+    json.dump(nodes, f, indent=4)
+    f.close()
+
+
     

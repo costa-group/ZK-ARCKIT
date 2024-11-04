@@ -117,6 +117,31 @@ from bij_encodings.online_info_passing import OnlineInfoPassEncoder
 from bij_encodings.reduced_encoding.red_class_encoder import reduced_encoding_class
 from bij_encodings.reduced_encoding.red_pseudoboolean_encoding import pseudoboolean_signal_encoder
 
+def quick_compare(
+    lcirc: Circuit,
+    rcirc: Circuit,
+    time_limit_seconds: int = 0,
+    debug: bool = False,
+) -> bool:
+    # try:
+    with time_limit(time_limit_seconds):
+        data = circuit_equivalence(
+            [("S1", lcirc), ("S2", rcirc)],
+            None,
+            None,
+            constraint_classes,
+            iterated_adjacency_reclassing,
+            OnlineInfoPassEncoder,
+            encoder_kwargs= {
+                "class_encoding" : reduced_encoding_class,
+                "signal_encoding" : pseudoboolean_signal_encoder
+            },
+            debug=debug,
+        )
+    
+    return data["result"]
+    
+
 def run_current_best_test(
     lfilename: str,
     rfilename: str,
