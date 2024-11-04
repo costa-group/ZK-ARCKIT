@@ -51,6 +51,15 @@ def circuit_equivalence(
     
     """
 
+    def _check_early_exit(classes):
+        for key in set(classes[in_pair[0][0]].keys()).union(classes[in_pair[1][0]].keys()):
+            for name, _ in in_pair:
+                if key not in classes[name].keys():
+                    raise AssertionError(f"EE: Group with fingerprint {key} not in circuit {name}")
+            
+            if len(classes[in_pair[0][0]][key]) != len(classes[in_pair[1][0]][key]):
+                raise AssertionError(f"EE: Group with fingerprint {key} has size {len(classes['S1'][key])} in 'S1', and {len(classes['S2'][key])} in 'S2'")
+
     for key, init in [("result", None), ("timing", {}), ("result_explanation", None), ("formula_size", None), ("group_sizes", {})]:
         test_data[key] = init
 
@@ -122,13 +131,7 @@ def circuit_equivalence(
             if debug: print("Finished building classes  ", end='\r')
 
         # classes early exit
-        for key in set(classes[in_pair[0][0]].keys()).union(classes[in_pair[1][0]].keys()):
-            for name, _ in in_pair:
-                if key not in classes[name].keys():
-                    raise AssertionError(f"EE: Group with fingerprint {key} not in circuit {name}")
-            
-            if len(classes[in_pair[0][0]][key]) != len(classes[in_pair[1][0]][key]):
-                raise AssertionError(f"EE: Group with fingerprint {key} has size {len(classes['S1'][key])} in 'S1', and {len(classes['S2'][key])} in 'S2'")
+        _check_early_exit(classes)
 
         if cons_preprocessing is not None: 
             classes, signal_info = cons_preprocessing(
@@ -150,6 +153,9 @@ def circuit_equivalence(
             }
 
             if debug: print("Finished preprocessing constraint classes", end='\r')
+
+        # TODO: early exit here too.
+        _check_early_exit(classes)
 
         formula, assumptions, encoded_classes = encoder().encode(
             in_pair, classes, clusters, return_signal_mapping = False, return_constraint_mapping = False, return_encoded_classes = True, debug = debug,
