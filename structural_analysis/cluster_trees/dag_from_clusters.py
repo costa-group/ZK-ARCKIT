@@ -1,10 +1,11 @@
-from typing import List, Dict, Set, Tuple
+from typing import List, Dict, Set, Tuple, Iterable
 import itertools
 import json
 
 from utilities import UnionFind, _signal_data_from_cons_list, getvars, dist_to_source_set
 from comparison.static_distance_preprocessing import _distances_to_signal_set
 from r1cs_scripts.circuit_representation import Circuit
+from r1cs_scripts.constraint import Constraint
 
 def partition_from_partial_clustering(
         circ: Circuit, clusters: List[List[int]], 
@@ -125,44 +126,95 @@ def merge_parts(to_merge: List[List[int]], input_parts: Set[int], output_parts: 
                 source.difference_update(source_in_merge_list)
                 source.add(root)
 
-def dag_to_json(circ: Circuit, partition: List[List[int]], arcs: List[Tuple[int, int]], outfile: str = "test.json", return_nodes: bool = False) -> List[Dict] | None:
+class DAGNode():
+
+    def __init__(self, 
+        circ: Circuit, node_id: int, constraints: List[int], input_signals: Set[int], output_signals: Set[int] 
+    ):
+        self.circ, self.id, self.constraints, self.input_signals, self.output_signals, self.successors = (
+            circ, node_id, constraints, input_signals, output_signals, []
+        )
+    
+    def add_successors(self, successor_ids: Iterable[int]) -> None:
+        self.successors.extend(successor_ids)
+
+    def get_subcircuit(self) -> Circuit:
+        sub_circ = Circuit()
+
+        ordered_signals = list(itertools.chain(
+            [0],
+            self.output_signals.difference(self.input_signals), # TODO: how to handle signal being in input AND output?
+            self.input_signals,
+            set(itertools.chain(*map(getvars, map(self.circ.constraints.__getitem__, self.constraints)))).difference(itertools.chain(self.output_signals, self.input_signals))
+        ))
+
+        sig_mapping = dict(zip(
+            ordered_signals,
+            range(len(ordered_signals))
+        ))
+
+        sub_circ.constraints = list(map(lambda con : 
+            Constraint(
+                *[{sig_mapping[sig]: val for sig, val in dict_.items()} for dict_ in [con.A, con.B, con.C]],
+                con.p
+            ),
+            map(self.circ.constraints.__getitem__, self.constraints)))
+        
+        sub_circ.update_header(
+            self.circ.field_size,
+            self.circ.prime_number,
+            len(sig_mapping),
+            len(self.output_signals.difference(self.input_signals)),
+            len(self.input_signals),
+            0, # prv in doesn't matter
+            None,
+            len(self.constraints)
+        )
+
+        return sub_circ
+    
+    def to_dict(self) -> Dict[str, int | List[int]]:
+        return {
+            key: val for key, val in [
+                ("node_id", self.id), ("constraints", self.constraints),
+                ("input_signals", list(self.input_signals)), ("output_signals", list(self.output_signals)),
+                ("successors", self.successors)
+            ]
+        }
+
+def dag_to_nodes(circ: Circuit, partition: List[List[int]], arcs: List[Tuple[int, int]]) -> List[DAGNode]:
 
     # TODO: slower then just iterating once, could use a consume on a subordinate function
 
     part_to_signals = list(map(lambda part : set(itertools.chain(*map(lambda coni : getvars(circ.constraints[coni]), part))), partition))
 
-    nodes = list(itertools.starmap(
-        lambda i, part : {
-            "node_id": i,
-            "constraints": part,
-            "input_signals": set(filter(lambda sig : circ.nPubOut < sig <= circ.nPubOut + circ.nPrvIn + circ.nPrvIn, part_to_signals[i])),
-            "output_signals": set(filter(lambda sig : 0 < sig <= circ.nPubOut, part_to_signals[i])),
-            "child_components": []
-        },
+    nodes: List[DAGNode] = list(itertools.starmap(
+        lambda i, part : DAGNode(
+            circ, i, part,
+            set(filter(lambda sig : circ.nPubOut < sig <= circ.nPubOut + circ.nPrvIn + circ.nPrvIn, part_to_signals[i])),
+            set(filter(lambda sig : 0 < sig <= circ.nPubOut, part_to_signals[i]))
+        ),
         enumerate(partition)
     ))
 
     for arc in arcs:
 
         l, r = arc
-        nodes[l]["child_components"].append(r)
+        nodes[l].successors.append(r)
 
         # need to identify signals shared between these arcs, then mark these signals as input/output as appropriate
         shared_signals = part_to_signals[l].intersection(part_to_signals[r])
-        nodes[l]["output_signals"].update(shared_signals)
-        nodes[r]["input_signals"].update(shared_signals)
-
-        # TODO: what properties are required to not have any cycles
-        #   can we prove this already?
+        nodes[l].output_signals.update(shared_signals)
+        nodes[r].input_signals.update(shared_signals)
     
-    if return_nodes: return nodes
+    return nodes
 
-    for node in nodes:
-        for key in ["input_signals", "output_signals"]:
-            node[key] = list(node[key])
+
+def nodes_to_json(nodes: List[DAGNode], outfile: str = "test.json") -> None:
+    # TODO: separate the node generation from this to not call it twice..
 
     f = open(outfile, 'w')
-    json.dump(nodes, f, indent=4)
+    json.dump(list(map(lambda n : n.to_dict(), nodes)), f, indent=4)
     f.close()
 
 
