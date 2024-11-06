@@ -131,47 +131,50 @@ class DAGNode():
     def __init__(self, 
         circ: Circuit, node_id: int, constraints: List[int], input_signals: Set[int], output_signals: Set[int] 
     ):
-        self.circ, self.id, self.constraints, self.input_signals, self.output_signals, self.successors = (
-            circ, node_id, constraints, input_signals, output_signals, []
+        self.circ, self.id, self.constraints, self.input_signals, self.output_signals, self.successors, self.subcircuit = (
+            circ, node_id, constraints, input_signals, output_signals, [], None
         )
     
     def add_successors(self, successor_ids: Iterable[int]) -> None:
         self.successors.extend(successor_ids)
 
     def get_subcircuit(self) -> Circuit:
-        sub_circ = Circuit()
 
-        ordered_signals = list(itertools.chain(
-            [0],
-            self.output_signals.difference(self.input_signals), # TODO: how to handle signal being in input AND output?
-            self.input_signals,
-            set(itertools.chain(*map(getvars, map(self.circ.constraints.__getitem__, self.constraints)))).difference(itertools.chain(self.output_signals, self.input_signals))
-        ))
+        if self.subcircuit is None:
 
-        sig_mapping = dict(zip(
-            ordered_signals,
-            range(len(ordered_signals))
-        ))
+            self.subcircuit = Circuit()
 
-        sub_circ.constraints = list(map(lambda con : 
-            Constraint(
-                *[{sig_mapping[sig]: val for sig, val in dict_.items()} for dict_ in [con.A, con.B, con.C]],
-                con.p
-            ),
-            map(self.circ.constraints.__getitem__, self.constraints)))
-        
-        sub_circ.update_header(
-            self.circ.field_size,
-            self.circ.prime_number,
-            len(sig_mapping),
-            len(self.output_signals.difference(self.input_signals)),
-            len(self.input_signals),
-            0, # prv in doesn't matter
-            None,
-            len(self.constraints)
-        )
+            ordered_signals = list(itertools.chain(
+                [0],
+                self.output_signals.difference(self.input_signals), # TODO: how to handle signal being in input AND output?
+                self.input_signals,
+                set(itertools.chain(*map(getvars, map(self.circ.constraints.__getitem__, self.constraints)))).difference(itertools.chain(self.output_signals, self.input_signals))
+            ))
 
-        return sub_circ
+            sig_mapping = dict(zip(
+                ordered_signals,
+                range(len(ordered_signals))
+            ))
+
+            self.subcircuit.constraints = list(map(lambda con : 
+                Constraint(
+                    *[{sig_mapping[sig]: val for sig, val in dict_.items()} for dict_ in [con.A, con.B, con.C]],
+                    con.p
+                ),
+                map(self.circ.constraints.__getitem__, self.constraints)))
+            
+            self.subcircuit.update_header(
+                self.circ.field_size,
+                self.circ.prime_number,
+                len(sig_mapping),
+                len(self.output_signals.difference(self.input_signals)),
+                len(self.input_signals),
+                0, # prv in doesn't matter
+                None,
+                len(self.constraints)
+            )
+
+        return self.subcircuit
     
     def to_dict(self) -> Dict[str, int | List[int]]:
         return {
@@ -182,20 +185,20 @@ class DAGNode():
             ]
         }
 
-def dag_to_nodes(circ: Circuit, partition: List[List[int]], arcs: List[Tuple[int, int]]) -> List[DAGNode]:
+def dag_to_nodes(circ: Circuit, partition: List[List[int]], arcs: List[Tuple[int, int]]) -> Dict[int, DAGNode]:
 
     # TODO: slower then just iterating once, could use a consume on a subordinate function
 
     part_to_signals = list(map(lambda part : set(itertools.chain(*map(lambda coni : getvars(circ.constraints[coni]), part))), partition))
 
-    nodes: List[DAGNode] = list(itertools.starmap(
-        lambda i, part : DAGNode(
+    nodes: List[DAGNode] = {
+        i : DAGNode(
             circ, i, part,
             set(filter(lambda sig : circ.nPubOut < sig <= circ.nPubOut + circ.nPrvIn + circ.nPrvIn, part_to_signals[i])),
             set(filter(lambda sig : 0 < sig <= circ.nPubOut, part_to_signals[i]))
-        ),
-        enumerate(partition)
-    ))
+        )
+        for i, part in enumerate(partition)
+    }
 
     for arc in arcs:
 
@@ -210,7 +213,7 @@ def dag_to_nodes(circ: Circuit, partition: List[List[int]], arcs: List[Tuple[int
     return nodes
 
 
-def nodes_to_json(nodes: List[DAGNode], outfile: str = "test.json") -> None:
+def nodes_to_json(nodes: Iterable[DAGNode], outfile: str = "test.json") -> None:
     # TODO: separate the node generation from this to not call it twice..
 
     f = open(outfile, 'w')

@@ -7,32 +7,32 @@ from r1cs_scripts.constraint import Constraint
 from utilities import getvars
 from testing_harness import quick_compare
 
-def naive_equivalency_analysis(nodes: List[DAGNode], time_limit: int = 0) -> List[List[int]]:
+def naive_equivalency_analysis(nodes: Dict[int, DAGNode], time_limit: int = 0) -> List[List[int]]:
     """
     iterates over the list of partition, definition sub-circuits for each partition and comparing with each class representative
         worst-case time: O(len(partition)^2
     """
 
     classes: List[List[int]] = []
-    class_representatives: List[Circuit] = []
 
-    for node in nodes:
+    for node_id, node in nodes.items():
 
         # build sub-circuit
         sub_circ = node.get_subcircuit()
 
         equivalent = False
-        for class_, repr_circ in zip(classes, class_representatives):
+        for class_ in classes:
 
+            # subcircuit only calculated once then stored in the class so this isn't wasting time
+            repr_circ = nodes[class_[0]].get_subcircuit()
             equivalent = quick_compare(sub_circ, repr_circ, time_limit)
 
             if equivalent: 
-                class_.append(node.id)
+                class_.append(node_id)
                 break
 
         if not equivalent:
-            classes.append([node.id])
-            class_representatives.append(sub_circ)
+            classes.append([node_id])
     
     return classes
 
