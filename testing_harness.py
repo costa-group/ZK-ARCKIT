@@ -123,22 +123,23 @@ def quick_compare(
     time_limit_seconds: int = 0,
     debug: bool = False,
 ) -> bool:
-    # try:
-    with time_limit(time_limit_seconds):
-        data = circuit_equivalence(
-            [("S1", lcirc), ("S2", rcirc)],
-            None,
-            None,
-            constraint_classes,
-            iterated_adjacency_reclassing,
-            OnlineInfoPassEncoder,
-            encoder_kwargs= {
-                "class_encoding" : reduced_encoding_class,
-                "signal_encoding" : pseudoboolean_signal_encoder
-            },
-            debug=debug,
-        )
-    
+    try:
+        with time_limit(time_limit_seconds):
+            data = circuit_equivalence(
+                [("S1", lcirc), ("S2", rcirc)],
+                None,
+                None,
+                constraint_classes,
+                iterated_adjacency_reclassing,
+                OnlineInfoPassEncoder,
+                encoder_kwargs= {
+                    "class_encoding" : reduced_encoding_class,
+                    "signal_encoding" : pseudoboolean_signal_encoder
+                },
+                debug=debug,
+            )
+    except TimeoutException:
+        return False
     return data["result"]
     
 
