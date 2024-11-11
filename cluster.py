@@ -34,13 +34,11 @@ The following flags alter the behaviour of the file
 
     --automerge-passthrough
         recursively auto-merges clusters that have a signal both as an input and an output
-        note that this behavious is only true for the json return type -- TODO: fix - make graph_to_img take nodes so this is the final step
         : default
             does not merge
 
     --automerge-only-nonlinear
         auto-merges clusters that have no linear constraints to an adjacent cluster
-        note that this behavious is only true for the json return type -- TODO: fix
         : default
             does not merge
 """
@@ -108,21 +106,21 @@ def r1cs_cluster(
 
         partition, arcs = dag_from_partition(circ, partition)
 
+        nodes = dag_to_nodes(circ, partition, arcs)
+        equivalency = easy_fingerprint_then_equivalence(nodes)
+
+        return_json = {
+            "nodes": list(map(lambda n : n.to_dict(), nodes.values())) ,
+            "equivalency": equivalency
+        }
+
+        # TODO: implement flag behaviour
+
         if return_img:
             if g is None: g = shared_signal_graph(circ.constraints)
-            dag_graph_to_img(circ, g, partition, arcs, get_outfile(index, clustering_method, "png"))
+            dag_graph_to_img(circ, g, nodes, get_outfile(index, clustering_method, "png"))
 
         else:
-            nodes = dag_to_nodes(circ, partition, arcs)
-            equivalency = easy_fingerprint_then_equivalence(nodes)
-
-            return_json = {
-                "nodes": list(map(lambda n : n.to_dict(), nodes.values())) ,
-                "equivalency": equivalency
-            }
-
-            # TODO: implement flag behaviour
-
             f = open(get_outfile(index, clustering_method, "json"), "w")
             json.dump(return_json, f, indent=4)
             f.close()
