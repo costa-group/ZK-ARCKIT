@@ -74,7 +74,7 @@ def dag_from_partition(circ: Circuit, partition: List[List[int]]) -> "directed_a
         dist_to_outputs = dist_to_source_set(output_parts, adjacencies)
 
         ## make the preorder
-        part_to_preorder = { i: (dist_to_outputs[i], dist_to_inputs[i]) for i in partition.keys()}
+        part_to_preorder = { i: (dist_to_inputs[i], dist_to_outputs[i]) for i in partition.keys()}
         
         to_merge = UnionFind()
 
@@ -95,8 +95,13 @@ def dag_from_partition(circ: Circuit, partition: List[List[int]]) -> "directed_a
 
     ## then make DAG from partial order
 
-    def le(parti, partj): 
-        return part_to_preorder[parti][0] >= part_to_preorder[partj][0] or (part_to_preorder[parti][0] == part_to_preorder[partj][0] and part_to_preorder[parti][1] <= part_to_preorder[partj][1])
+    def le(parti, partj):
+        # At this point we know that parti and partj differ in at least 1 place
+        # if parti closer to inputs, then parti < partj
+        #   if parti and partj equivalent dist to inputs and partj closer to outputs, then parti < partj
+
+        return part_to_preorder[parti][0] < part_to_preorder[partj][0] or (
+            part_to_preorder[parti][0] == part_to_preorder[partj][0] and part_to_preorder[parti][1] > part_to_preorder[partj][1])
 
     # define arc direction and return.
     mapping = {key: i for i, key in enumerate(partition.keys())}
@@ -214,7 +219,6 @@ def dag_to_nodes(circ: Circuit, partition: List[List[int]], arcs: List[Tuple[int
 
 
 def nodes_to_json(nodes: Iterable[DAGNode], outfile: str = "test.json") -> None:
-    # TODO: separate the node generation from this to not call it twice..
 
     f = open(outfile, 'w')
     json.dump(list(map(lambda n : n.to_dict(), nodes)), f, indent=4)
