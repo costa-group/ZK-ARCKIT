@@ -136,8 +136,8 @@ class DAGNode():
     def __init__(self, 
         circ: Circuit, node_id: int, constraints: List[int], input_signals: Set[int], output_signals: Set[int] 
     ):
-        self.circ, self.id, self.constraints, self.input_signals, self.output_signals, self.successors, self.subcircuit = (
-            circ, node_id, constraints, input_signals, output_signals, [], None
+        self.circ, self.id, self.constraints, self.input_signals, self.output_signals, self.successors, self.predecessors, self.subcircuit = (
+            circ, node_id, constraints, input_signals, output_signals, [], [], None
         )
     
     def add_successors(self, successor_ids: Iterable[int]) -> None:
@@ -199,7 +199,7 @@ def dag_to_nodes(circ: Circuit, partition: List[List[int]], arcs: List[Tuple[int
     nodes: List[DAGNode] = {
         i : DAGNode(
             circ, i, part,
-            set(filter(lambda sig : circ.nPubOut < sig <= circ.nPubOut + circ.nPrvIn + circ.nPrvIn, part_to_signals[i])),
+            set(filter(lambda sig : circ.nPubOut < sig <= circ.nPubOut + circ.nPubIn + circ.nPrvIn, part_to_signals[i])),
             set(filter(lambda sig : 0 < sig <= circ.nPubOut, part_to_signals[i]))
         )
         for i, part in enumerate(partition)
@@ -209,9 +209,11 @@ def dag_to_nodes(circ: Circuit, partition: List[List[int]], arcs: List[Tuple[int
 
         l, r = arc
         nodes[l].successors.append(r)
+        nodes[r].predecessors.append(l)
 
         # need to identify signals shared between these arcs, then mark these signals as input/output as appropriate
         shared_signals = part_to_signals[l].intersection(part_to_signals[r])
+
         nodes[l].output_signals.update(shared_signals)
         nodes[r].input_signals.update(shared_signals)
     
