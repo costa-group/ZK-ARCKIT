@@ -93,13 +93,15 @@ def BFS_shortest_path(s: int, t: int, adjacencies: List[List[int]]) -> List[int]
     """
 
     parent = {s: None}
-    reached_t = False
+    reached_t = t == s
     queue = deque([s])
 
     while not reached_t:
         curr = queue.popleft()
-        queue.extend(filter(lambda adj : parent.setdefault(adj, curr) == curr, adjacencies[curr]))
-        reached_t = t in parent.keys()
+        to_add = list(filter(lambda adj : parent.setdefault(adj, curr) == curr, adjacencies[curr]))
+
+        queue.extend(to_add)
+        reached_t = t in to_add
 
         if len(queue) == 0:
             return []
@@ -108,3 +110,25 @@ def BFS_shortest_path(s: int, t: int, adjacencies: List[List[int]]) -> List[int]
     while path[-1] != s:
         path.append(parent[path[-1]])
     return path[::-1]
+
+def DFS_reachability(S: int | List[int], T: int | List[int], adjacencies: List[List[int]]) -> bool:
+
+    if type(S) == int: S = [S]
+    if type(S) == int: T = [T]
+
+    to_check = {s: True for s in S}
+    stack = list(S)
+    reached_T = any(map(lambda t : t in S, T))
+
+
+    while not reached_T and len(stack) > 0:
+        curr = stack.pop()
+
+        if to_check[curr]: 
+
+            to_check[curr] = False
+            to_add = filter(lambda adj : to_check.setdefault(adj, True), adjacencies[curr])
+            stack.extend(to_add)
+            reached_T = any(map(lambda t : t in to_add, T))
+    
+    return reached_T
