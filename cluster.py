@@ -60,6 +60,7 @@ from structural_analysis.clustering_methods.nonlinear_attract import nonlinear_a
 from structural_analysis.cluster_trees.dag_from_clusters import dag_from_partition, partition_from_partial_clustering, dag_to_nodes, nodes_to_json
 from structural_analysis.cluster_trees.equivalent_partitions import easy_fingerprint_then_equivalence
 from structural_analysis.utilities.graph_to_img import dag_graph_to_img
+from structural_analysis.cluster_trees.dag_postprocessing import merge_passthrough
 
 def r1cs_cluster(
         input_filename: str,
@@ -75,6 +76,7 @@ def r1cs_cluster(
 
     circs, sig_mapping, con_mapping = componentwise_preprocessing(circ)
     # TODO: pass mapping data to output json
+    # TODO: add timing information for utility/debugging
 
     g = None
 
@@ -107,6 +109,9 @@ def r1cs_cluster(
         partition, arcs = dag_from_partition(circ, partition)
 
         nodes = dag_to_nodes(circ, partition, arcs)
+
+        if automerge_passthrough: nodes = merge_passthrough(circ, nodes)
+
         equivalency = easy_fingerprint_then_equivalence(nodes)
 
         return_json = {
