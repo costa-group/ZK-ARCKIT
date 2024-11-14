@@ -8,7 +8,8 @@ from utilities import DFS_reachability, getvars, _signal_data_from_cons_list, BF
 
 def merge_under_property(circ: Circuit, nodes: Dict[int, DAGNode], 
     property : Callable[[DAGNode], bool], 
-    child_property: Callable[[DAGNode, DAGNode], int]) -> Dict[int, DAGNode]:
+    child_property: Callable[[DAGNode, DAGNode], int],
+    parent_property: Callable[[DAGNode, DAGNode], int]) -> Dict[int, DAGNode]:
 
     sig_to_coni = _signal_data_from_cons_list(circ.constraints)
     coni_to_node = [None for _ in range(circ.nConstraints)]
@@ -48,25 +49,34 @@ def merge_under_property(circ: Circuit, nodes: Dict[int, DAGNode],
             # TODO: generalise to any ordered value here for successor.
             # TODO: maybe add option to merge with predecessors?
             # check outputs of successors
-            successor_index_to_num_sig_dealt_with = [ child_property(nodes[nkey], nodes[key]) for key in nodes[nkey].successors ]
+
+            index_to_nkeys = nodes[nkey].predecessors + nodes[nkey].successors
+            adjacent_to_property = [
+                parent_property(nodes[key], nodes[nkey]) for key in nodes[nkey].predecessors ] + [
+                child_property(nodes[nkey], nodes[key]) for key in nodes[nkey].successors ]
 
             # check viability of successors
                 # no path from succ to nkey
                 # -- maybe cache this since it's the hardest information (can cache shortest path..)
-            successor_is_viable = [
-                successor_index_to_num_sig_dealt_with[i] > 0 and check_viability(nkey, key)
-                for i, key in enumerate(nodes[nkey].successors)
+            adjacent_is_viable = [
+                adjacent_to_property[i] > 0 and check_viability(nkey, key)
+                for i, key in enumerate(index_to_nkeys)
             ]
 
             # choose a viable successor
             #   if no viable successor do nothing (one may appear layer)
-            to_merge = sorted(filter(successor_is_viable.__getitem__, range(len(nodes[nkey].successors))), 
-                            key = successor_index_to_num_sig_dealt_with.__getitem__, reverse = True)
+            to_merge = sorted(filter(adjacent_is_viable.__getitem__, range(len(index_to_nkeys))), 
+                            key = adjacent_to_property.__getitem__, reverse = True)
             
             if len(to_merge) == 0: continue
+
+            index = to_merge[0]
+            is_predecessor = index < len(nodes[nkey].predecessors)
+            okey = index_to_nkeys[index]
+
             merged_something = True
 
-            merge_nodes(nkey, nodes[nkey].successors[to_merge[0]], nodes, sig_to_coni, coni_to_node, adjacencies)
+            merge_nodes(*((okey, nkey) if is_predecessor else (nkey, okey)), nodes, sig_to_coni, coni_to_node, adjacencies)
 
     return nodes
 
@@ -79,16 +89,22 @@ def merge_passthrough(circ: Circuit, nodes: Dict[int, DAGNode]) -> Dict[int, DAG
         map(lambda sig : sig in child.input_signals and sig not in child.output_signals,
         filter(lambda sig : sig in parent.output_signals, parent.input_signals)
     ))
+    num_passthrough_signals_caught_by_parent = lambda parent, child : sum(
+        map(lambda sig : sig in parent.output_signals and sig not in parent.input_signals,
+        filter(lambda sig : sig in child.output_signals, child.input_signals)
+    ))
 
-    return merge_under_property(circ, nodes, has_passthrough_signals, num_passthrough_signals_caught_by_child)
+    return merge_under_property(circ, nodes, has_passthrough_signals, num_passthrough_signals_caught_by_child, num_passthrough_signals_caught_by_parent)
 
 def merge_only_nonlinear(circ: Circuit, nodes: Dict[int, DAGNode]) -> Dict[int, DAGNode]:
     
     constraint_is_nonlinear = lambda con : len(con.A) > 0 and len(con.B) > 0
     is_only_nonlinear = lambda node : all(map(constraint_is_nonlinear, map(circ.constraints.__getitem__, node.constraints)))
-    child_is_nonlinear = lambda _, child : not is_only_nonlinear(child)
+    child_isnt_nonlinear = lambda _, child : not is_only_nonlinear(child)
+    parent_isnt_nonliner = lambda parent, _: not is_only_nonlinear(parent)
 
-    return merge_under_property(circ, nodes, is_only_nonlinear, child_is_nonlinear)
+    # adjacent checks redundant for nonlinear_attract, not for louvain
+    return merge_under_property(circ, nodes, is_only_nonlinear, child_isnt_nonlinear, parent_isnt_nonliner)
 
 def merge_nodes(lkey: int, rkey: int, nodes: Dict[int, DAGNode], sig_to_coni, coni_to_node, adjacencies) -> None:
     """
