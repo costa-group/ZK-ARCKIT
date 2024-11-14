@@ -1,4 +1,4 @@
-from typing import Dict
+from typing import Dict, Callable, Iterable
 import itertools
 import collections
 
@@ -6,11 +6,10 @@ from r1cs_scripts.circuit_representation import Circuit
 from structural_analysis.cluster_trees.dag_from_clusters import DAGNode
 from utilities import DFS_reachability, getvars, _signal_data_from_cons_list, BFS_shortest_path
 
-def merge_passthrough(circ: Circuit, nodes: Dict[int, DAGNode]) -> Dict[int, DAGNode]:
+def merge_under_property(circ: Circuit, nodes: Dict[int, DAGNode], 
+    property : Callable[[DAGNode], bool], 
+    child_property: Callable[[DAGNode, DAGNode], int]) -> Dict[int, DAGNode]:
 
-    # when a node has a signal as an input and output... we check successors for a viable merge where the signal is not an output
-    #   TODO: add predecessor to nodes to allow for back-checking too.
-    
     sig_to_coni = _signal_data_from_cons_list(circ.constraints)
     coni_to_node = [None for _ in range(circ.nConstraints)]
 
@@ -36,15 +35,12 @@ def merge_passthrough(circ: Circuit, nodes: Dict[int, DAGNode]) -> Dict[int, DAG
         merged_something = False
 
         # need list now because keys might be deleted. -- could fix other way if memory becomes a problem
-        passthrough_nodes = list(filter(lambda key : any(map(lambda sig : sig in nodes[key].output_signals, nodes[key].input_signals)), nodes.keys()))
+        passthrough_nodes = list(filter(lambda key : property(nodes[key]), nodes.keys()))
 
         for nkey in passthrough_nodes:
 
             # has already been merged
             if nkey not in nodes.keys(): continue
-
-            node = nodes[nkey]
-            sig_in_both = list(filter(lambda sig : sig in node.output_signals, node.input_signals))
 
             # we want a successor that has all sig_in_both as input and none as output.
             #   otherwise, choose viable that maximises the number of sig_in_both dealt with (and deal with next on next iteration)
@@ -52,35 +48,47 @@ def merge_passthrough(circ: Circuit, nodes: Dict[int, DAGNode]) -> Dict[int, DAG
             # TODO: generalise to any ordered value here for successor.
             # TODO: maybe add option to merge with predecessors?
             # check outputs of successors
-            successor_index_to_num_sig_dealt_with = [
-                sum(map(lambda sig : sig in nodes[key].input_signals and sig not in nodes[key].output_signals, sig_in_both)) 
-                for key in node.successors
-            ]
+            successor_index_to_num_sig_dealt_with = [ child_property(nodes[nkey], nodes[key]) for key in nodes[nkey].successors ]
 
             # check viability of successors
                 # no path from succ to nkey
                 # -- maybe cache this since it's the hardest information (can cache shortest path..)
             successor_is_viable = [
-                False if successor_index_to_num_sig_dealt_with[i] == 0 else check_viability(nkey, key)
-                for i, key in enumerate(node.successors)
+                successor_index_to_num_sig_dealt_with[i] > 0 and check_viability(nkey, key)
+                for i, key in enumerate(nodes[nkey].successors)
             ]
 
             # choose a viable successor
             #   if no viable successor do nothing (one may appear layer)
-            to_merge = sorted(filter(successor_is_viable.__getitem__, range(len(node.successors))), 
+            to_merge = sorted(filter(successor_is_viable.__getitem__, range(len(nodes[nkey].successors))), 
                             key = successor_index_to_num_sig_dealt_with.__getitem__, reverse = True)
             
             if len(to_merge) == 0: continue
             merged_something = True
 
-            merge_nodes(nkey, node.successors[to_merge[0]], nodes, sig_to_coni, coni_to_node, adjacencies)
+            merge_nodes(nkey, nodes[nkey].successors[to_merge[0]], nodes, sig_to_coni, coni_to_node, adjacencies)
 
     return nodes
 
     # do we still only care about nonlinear constraints ?? presumably but I feel like this wouldn't hurt linear collapse
 
-def merge_only_nonlinear():
-    pass 
+def merge_passthrough(circ: Circuit, nodes: Dict[int, DAGNode]) -> Dict[int, DAGNode]:
+
+    has_passthrough_signals = lambda node : any(map(lambda sig : sig in node.output_signals, node.input_signals))
+    num_passthrough_signals_caught_by_child = lambda parent, child : sum(
+        map(lambda sig : sig in child.input_signals and sig not in child.output_signals,
+        filter(lambda sig : sig in parent.output_signals, parent.input_signals)
+    ))
+
+    return merge_under_property(circ, nodes, has_passthrough_signals, num_passthrough_signals_caught_by_child)
+
+def merge_only_nonlinear(circ: Circuit, nodes: Dict[int, DAGNode]) -> Dict[int, DAGNode]:
+    
+    constraint_is_nonlinear = lambda con : len(con.A) > 0 and len(con.B) > 0
+    is_only_nonlinear = lambda node : all(map(constraint_is_nonlinear, map(circ.constraints.__getitem__, node.constraints)))
+    child_is_nonlinear = lambda _, child : not is_only_nonlinear(child)
+
+    return merge_under_property(circ, nodes, is_only_nonlinear, child_is_nonlinear)
 
 def merge_nodes(lkey: int, rkey: int, nodes: Dict[int, DAGNode], sig_to_coni, coni_to_node, adjacencies) -> None:
     """
