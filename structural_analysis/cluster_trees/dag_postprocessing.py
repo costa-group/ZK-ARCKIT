@@ -1,4 +1,4 @@
-from typing import Dict, Callable, Iterable
+from typing import Dict, Callable, Iterable, List
 import itertools
 import collections
 
@@ -10,6 +10,29 @@ def merge_under_property(circ: Circuit, nodes: Dict[int, DAGNode],
     property : Callable[[DAGNode], bool], 
     child_property: Callable[[DAGNode, DAGNode], int],
     parent_property: Callable[[DAGNode, DAGNode], int]) -> Dict[int, DAGNode]:
+    """
+    Merges nodes that meet input properties
+    
+    Nodes that meet property 1 are listed as two merge, a successor or predecessor is chosen to be merged with
+        based on suitability.
+    An adjacent node is `suitable' only if it has adjacent_property > 0 and does not cause a 
+    
+    parameters:
+        circ: Circuit 
+            The circuit being worked on -- NOTE: could remove and take circ from nodes but don't for consistency
+        nodes: Dict(int, DAGNode)
+            The collection of nodes that cluster the circuit
+        property: DAGNode -> Bool
+            A function used to filter the nodes that require merging.
+        child_property: (DAGNode, DAGNode) -> Ord
+            A function used in determining suitability of successor nodes
+        parent_property: (DAGNode, DAGNode) -> Ord
+            A function used in determining suitability of predecessor nodes
+        
+    return_value:
+        A Dict(int, DAGNode) of the nodes after merging.
+        Note that this function mutates the input nodes dictionary
+    """
 
     sig_to_coni = _signal_data_from_cons_list(circ.constraints)
     coni_to_node = [None for _ in range(circ.nConstraints)]
@@ -46,18 +69,16 @@ def merge_under_property(circ: Circuit, nodes: Dict[int, DAGNode],
             # we want a successor that has all sig_in_both as input and none as output.
             #   otherwise, choose viable that maximises the number of sig_in_both dealt with (and deal with next on next iteration)
 
-            # TODO: generalise to any ordered value here for successor.
-            # TODO: maybe add option to merge with predecessors?
-            # check outputs of successors
+            # check outputs of adjacent nodes
 
             index_to_nkeys = nodes[nkey].predecessors + nodes[nkey].successors
             adjacent_to_property = [
                 parent_property(nodes[key], nodes[nkey]) for key in nodes[nkey].predecessors ] + [
                 child_property(nodes[nkey], nodes[key]) for key in nodes[nkey].successors ]
 
-            # check viability of successors
-                # no path from succ to nkey
-                # -- maybe cache this since it's the hardest information (can cache shortest path..)
+            # check viability of adjacent nodes
+                # no path from key (adj) to nkey
+                # -- TODO: maybe cache this since it's the hardest information (can cache shortest path..?)
             adjacent_is_viable = [
                 adjacent_to_property[i] > 0 and check_viability(nkey, key)
                 for i, key in enumerate(index_to_nkeys)
@@ -83,6 +104,19 @@ def merge_under_property(circ: Circuit, nodes: Dict[int, DAGNode],
     # do we still only care about nonlinear constraints ?? presumably but I feel like this wouldn't hurt linear collapse
 
 def merge_passthrough(circ: Circuit, nodes: Dict[int, DAGNode]) -> Dict[int, DAGNode]:
+    """
+    An instance of merge_under_property mergins nodes that have signals in the input and output.
+
+    filter property : has at least 1 signals that is in the inputs and outputs of the node (i.e. passthrough signals)
+    adj_property : number of passthrough signals that are `caught' by an adjacent node
+        (i.e. for successors, number of passthrough signals in the input signals but not the output signals of the successor) 
+    
+    parameters:
+        circ: Circuit 
+            The circuit being worked on -- NOTE: could remove and take circ from nodes but don't for consistency
+        nodes: Dict(int, DAGNode)
+            The collection of nodes that cluster the circuit
+    """
 
     has_passthrough_signals = lambda node : any(map(lambda sig : sig in node.output_signals, node.input_signals))
     num_passthrough_signals_caught_by_child = lambda parent, child : sum(
@@ -97,6 +131,18 @@ def merge_passthrough(circ: Circuit, nodes: Dict[int, DAGNode]) -> Dict[int, DAG
     return merge_under_property(circ, nodes, has_passthrough_signals, num_passthrough_signals_caught_by_child, num_passthrough_signals_caught_by_parent)
 
 def merge_only_nonlinear(circ: Circuit, nodes: Dict[int, DAGNode]) -> Dict[int, DAGNode]:
+    """
+    An instance of merge_under_property mergins nodes that have signals in the input and output.
+
+    filter property : has only nonlinear constraints in the node
+    adj_property : does not have only nonlinear constraints in the node
+
+    parameters:
+        circ: Circuit 
+            The circuit being worked on -- NOTE: could remove and take circ from nodes but don't for consistency
+        nodes: Dict(int, DAGNode)
+            The collection of nodes that cluster the circuit
+    """
     
     constraint_is_nonlinear = lambda con : len(con.A) > 0 and len(con.B) > 0
     is_only_nonlinear = lambda node : all(map(constraint_is_nonlinear, map(circ.constraints.__getitem__, node.constraints)))
@@ -106,10 +152,33 @@ def merge_only_nonlinear(circ: Circuit, nodes: Dict[int, DAGNode]) -> Dict[int, 
     # adjacent checks redundant for nonlinear_attract, not for louvain
     return merge_under_property(circ, nodes, is_only_nonlinear, child_isnt_nonlinear, parent_isnt_nonliner)
 
-def merge_nodes(lkey: int, rkey: int, nodes: Dict[int, DAGNode], sig_to_coni, coni_to_node, adjacencies) -> None:
+def merge_nodes(lkey: int, rkey: int, nodes: Dict[int, DAGNode], 
+        sig_to_coni: Dict[int, List[int]], coni_to_node: List[int], adjacencies: Dict[int, List[int]]) -> None:
     """
-    mutates the nodes list to merge lkey and rkey
-    lkey is assumed to be the parent of rkey, and they are assumed to be viable (i.e. not introduce any cycle)
+    Helper function for merge_under_property
+
+    Given two nodes, indexed `lkey' and `rkey' this creates a new node merging lkey and rkey 
+        then mutates the various dictionaries lists to update them
+    This function does not enforce any prerequitites on the nodes we assume
+        that lkey is the parent of rkey, and that no cycle is created when these are merged.
+
+    parameters:
+        lkey: Int
+            index of the parent node in nodes
+        rkey: Int
+            index of the child node in nodes
+        nodes: Dict(int, DAGNode)
+            The collection of nodes that cluster the circuit
+        sig_to_coni: Dict(int, List[int])
+            Maps each signal in the circuit to the index of the constraints it appears in
+        coni_to_node: List[int]
+            Maps each constraint index in the circuit to the index of the node it appears in
+        adjacencies: Dict(int, List[int])
+            Maps each node index to the successor nodes -- used in cycle detection in parent function
+        
+    returns:
+        None
+        nodes, coni_to_node, adjacencies are all mutated to update with the new data
     """
 
     assert any(map(lambda sig : sig in nodes[rkey].input_signals, nodes[lkey].output_signals)), "lkey is not successor of rkey"
