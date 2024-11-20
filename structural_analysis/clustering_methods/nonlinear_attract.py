@@ -7,15 +7,36 @@ from r1cs_scripts.constraint import Constraint
 
 def nonlinear_attract_clustering(circ: Circuit):
     """
+    Clustering Method
+
+    Process
+    --------
+        step 1:
+            place adjacent nonlinears into a cluster
+        step 2: 
+            iteratively check adjacent constraints
+            if cons adjacent to only cluster then attract
+            otherwise leave alone
     
-    step 1 : place adjacent nonlinears into a cluster
-    step 2 : iteratively check adjacent constraints
-        - if cons adjacent to only cluster then attract
-        - otherwise leave alone
+    To Improve
+    --------
+        non-adjacent nonlinear can never be in the same class
+        leads to very small clusters typically
+        need to think of some point at which we can merge clusters
+        TODO: for large circuits like test_ecdsa, nonlinear attract seems to have lower quality clusters (one very big cluster)
+
+    Parameters
+    ----------
+        circ: Circuit
+            the input circuit to cluster
     
-    ?? 
+    Returns
+    ----------
+    (Dict[int, List[int]], None, None)
+        The clusters in dictionary form and 2 None object to keep the same number of returns as previous Clustering Methods
     """
 
+    # Step 1: place adjacent nonlinears into a cluster
     sig_to_coni = _signal_data_from_cons_list(circ.constraints)
     coni_to_adjacent_coni = lambda coni : set(filter(lambda oconi: oconi != coni, itertools.chain(*map(sig_to_coni.__getitem__, getvars(circ.constraints[coni])))))
 
@@ -31,6 +52,7 @@ def nonlinear_attract_clustering(circ: Circuit):
     for coni in nonlinear_clusters.parent.keys():
         clusters.setdefault(nonlinear_clusters.find(coni), []).append(coni)
     
+    # Step 1.5: calculate nonlinear cluster adjacency
     adjacent_nonlinear = {}
     for key, cluster in clusters.items():
             adjacent_nonlinear[key] = set(
@@ -42,8 +64,9 @@ def nonlinear_attract_clustering(circ: Circuit):
                 )
             ))
     
+    # Step 2: repeatedly check if any adjacent vertices are only adjacent to 1 cluster. If so, attract them to that cluster and 
+    #   adjust the adjacency values as required.
     updated = True
-
     while updated:
 
         adjacent_to = {}
