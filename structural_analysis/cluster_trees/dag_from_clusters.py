@@ -1,3 +1,7 @@
+"""
+Functions for converting clusters into Directed Acyclic Graphs (DAG)
+"""
+
 from typing import List, Dict, Set, Tuple, Iterable
 import itertools
 import json
@@ -11,6 +15,26 @@ def partition_from_partial_clustering(
         circ: Circuit, clusters: List[List[int]], 
         remaining: List[int] | None = None,
         group_unclustered: bool = False) -> List[List[int]]:
+    """
+    Given a partial clustering for a given circuit, this returns a full partition.
+
+    parameters:
+        circ: Circuit
+            The circuit upon which we are providing a partition
+        clusters: List[List[int]]
+            A list of clusters, each cluster is a list of constraint indices.
+                - each cluster is assumed to be a connected component
+                - each cluster is pairwise disjoint, i.e. every constraint index is in at most 1 cluster
+        remaining: List[int] | None
+            A list of the constraint indices not appearing in any cluster. If None is provided this is calculated.    
+        group_unclustered: Bool
+            Defines the clustering_method used for the remaining value. If False each remaining constraint is given its own cluster
+            If True, the remaining constraints are clustered in connected components.
+    
+    returns:
+        List[List[int]]
+        A partition of the circuit, that is, a cluster whever every constraint index appears in exactly 1 cluster.
+    """
     
     not_in_cluster = [True for _ in range(circ.nConstraints)]
 
@@ -38,6 +62,35 @@ def partition_from_partial_clustering(
 
 
 def dag_from_partition(circ: Circuit, partition: List[List[int]]) -> "directed_acyclic_graph":
+    """
+    Given a circuit and partition, it returns a new partition and arcs that define a directed acyclic graph.
+
+    Each partition is given a key (distance_to_input, distance_to_outputs) used in a partial ordering.
+        The distances are counting number of parts, not number of constraints.
+        If two parts are adjacent and have the same key these are merged thus we achieve a strict partial ordering
+
+    The strict partial ordering is defined as follows:
+        if parti closer to inputs than partj. parti < partj
+        if parti, partj same distance from inputs but partj closer to outputs parti < partj.
+
+    parameters:
+        circ: Circuit
+            The circuit upon which we are providing a partition
+        partition: List[List[int]]
+            A partition of the circuit, that is, a list of clusters whever every constraint index appears in exactly 1 cluster.
+    
+    returns: (partition, arcs)
+        partition: List[List[int]]
+            A new partition with some clusters in the input version merged -- does not mutate the original partition
+        arcs: List[(int, int)]
+            A list of arcs (parti, partj).
+    """
+
+    # TODO: do we want to have distance to inputs being early -- we can isolate solo parts and adjust these accordingly.
+    #   specifically, this method ensures solo parts are outgoing but arms might not be...
+    #   TODO: think of a better partial ordering.
+    #       what is the rule that we want, every path from an input to an output should be directed...
+    #       can we efficiently calculate this?
 
     # TODO: make subordinate function to handle all this prep
     # TODO: optimise this it's very messy
@@ -110,6 +163,12 @@ def dag_from_partition(circ: Circuit, partition: List[List[int]]) -> "directed_a
     return list(partition.values()), arcs
 
 def merge_parts(to_merge: List[List[int]], input_parts: Set[int], output_parts: Set[int], partition: Dict[int, int], adjacencies: Dict[int, Set[int]]):
+    """
+    subordinate function of dag_from_partition
+    
+    iterating over the input list, merges a list of parts and updates the various adjacencies.
+    """
+    
     # mutates the above
 
     for merge_list in to_merge:
@@ -132,18 +191,63 @@ def merge_parts(to_merge: List[List[int]], input_parts: Set[int], output_parts: 
                 source.add(root)
 
 class DAGNode():
+    """
+    Cluster for Node in a DAG
+
+    parameters:
+        circ: Circuit
+            the Circuit upon which the node is represented
+        id: Int
+            the index of the node
+        constraints: List[int]
+            the constraints that make up the part of the node
+        input_signals: Set[int]
+            external signals in the node stemming from incoming arcs in the DAG
+        output_signals: Set[int]
+            external signals in the node stemming from outgoing arcs in the DAG
+        successors: List[int]
+            node indexes of successor nodes in the DAG
+        predecessors: List[int]
+            node indexes of predecessor nodes in the DAG
+        subcircuit: Circuit | None
+            If the subcircuit represented by the node has been calculated it is stored here otherwise it is None
+    """
 
     def __init__(self, 
         circ: Circuit, node_id: int, constraints: List[int], input_signals: Set[int], output_signals: Set[int] 
     ):
+        """
+        Constructor for DAGNode
+
+        parameters:
+            circ: Circuit
+                the Circuit upon which the node is represented
+            id: Int
+                the index of the node
+            constraints: List[int]
+                the constraints that make up the part of the node
+            input_signals: Set[int]
+                external signals in the node stemming from incoming arcs in the DAG
+            output_signals: Set[int]
+                external signals in the node stemming from outgoing arcs in the DAG
+        """
         self.circ, self.id, self.constraints, self.input_signals, self.output_signals, self.successors, self.predecessors, self.subcircuit = (
             circ, node_id, constraints, input_signals, output_signals, [], [], None
         )
     
     def add_successors(self, successor_ids: Iterable[int]) -> None:
+        "Adds successors to the list of successors"
+        # NOTE: I think this is never actually used... we could do a full getter/setter but I'm not that bothered
         self.successors.extend(successor_ids)
 
     def get_subcircuit(self) -> Circuit:
+        """
+        Returns the subcircuit represented by the node and caches it for later reuse
+
+        The subcircuit is the circuit containing only the constraints in the node,
+            the circuit is completely new with a signal and constraint bijection to the subcircuit in self.circ
+            this is because Circuits are assumed to always have signals 0..nSignals not a set of named signals
+        """
 
         if self.subcircuit is None:
 
@@ -182,15 +286,29 @@ class DAGNode():
         return self.subcircuit
     
     def to_dict(self) -> Dict[str, int | List[int]]:
+        """
+        Returns a dictionary that contains the information required for outputting to JSON
+        """
         return {
             key: val for key, val in [
                 ("node_id", self.id), ("constraints", self.constraints),
+                # need to convert to hashable type list
                 ("input_signals", list(self.input_signals)), ("output_signals", list(self.output_signals)),
                 ("successors", self.successors)
             ]
         }
 
 def dag_to_nodes(circ: Circuit, partition: List[List[int]], arcs: List[Tuple[int, int]]) -> Dict[int, DAGNode]:
+    """
+    Given a circ and DAG, returns a dictionary of nodes populated with data, indexes by the node_id.
+
+    We use a dictionary here rather than a list due to postprocessing merging nodes and putting gaps in the index set.
+        using a dictionary avoids remapping the indices at every step.
+
+    process:
+        loop over partitions to define initial information, that is, constraints, id, and any signals that are input/output in the circ
+        loop over arcs, these define predecessor/successors and expand input/output signals
+    """
 
     # TODO: slower then just iterating once, could use a consume on a subordinate function
 
@@ -221,6 +339,7 @@ def dag_to_nodes(circ: Circuit, partition: List[List[int]], arcs: List[Tuple[int
 
 
 def nodes_to_json(nodes: Iterable[DAGNode], outfile: str = "test.json") -> None:
+    "Named function to write the json from the nodes to a .json file"
 
     f = open(outfile, 'w')
     json.dump(list(map(lambda n : n.to_dict(), nodes)), f, indent=4)
