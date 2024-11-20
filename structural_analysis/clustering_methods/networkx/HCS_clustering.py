@@ -1,6 +1,16 @@
+"""
+
+Functions that perform the Highly Connected Subgraph (HCS) clustering algorithms for networkx graph.
+https://en.wikipedia.org/wiki/HCS_clustering_algorithm
+
+"""
+
 import networkx as nx
 
 def HCS_recursion(G: nx.Graph) -> nx.Graph:
+    """
+    Classical recursive implementation of HCS. Recursively finds and removes the minimum cut until the graph is highly connected.
+    """
     cut = nx.algorithms.connectivity.minimum_edge_cut(G)
 
     if len(cut) == 0 or len(cut) > G.number_of_nodes() // 2:
@@ -16,6 +26,9 @@ def HCS_recursion(G: nx.Graph) -> nx.Graph:
         return nx.compose(*subgraphs)
 
 def HCS_norecursion(G: nx.Graph) -> nx.Graph:
+    """
+    Iterative implementation of HCS to avoid recursion depth errors. Recursively finds and removes the minimum cut until the graph is highly connected.
+    """
     G_ = G.copy()
 
     stack = [G_.nodes()]
@@ -37,4 +50,5 @@ def HCS_norecursion(G: nx.Graph) -> nx.Graph:
     return G_
 
 def HCS(G: nx.Graph, recursion: bool = False):
+    """HCS Algorithm. Recursion flag determines iterative or recursive versions"""
     return HCS_recursion(G) if recursion else HCS_norecursion(G)
