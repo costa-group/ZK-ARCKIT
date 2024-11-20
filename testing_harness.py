@@ -28,14 +28,12 @@ def time_limit(seconds):
 def exception_catcher(
     in_pair,
     info_preprocessing,
-    cons_clustering,
     cons_grouping,
     cons_preprocessing,
     encoder,
     test_data: Dict[str, any] = {},
     debug: bool = False,
     time_limit_seconds: int = 0, # 0 means no limit
-    clustering_kwargs: dict = {},
     encoder_kwargs: dict = {}
     ):   
 
@@ -45,13 +43,11 @@ def exception_catcher(
             circuit_equivalence(
                 in_pair,
                 info_preprocessing,
-                cons_clustering,
                 cons_grouping,
                 cons_preprocessing,
                 encoder,
                 test_data,
                 debug,
-                clustering_kwargs,
                 encoder_kwargs
             )
     except Exception as e:
@@ -68,13 +64,11 @@ def run_affirmative_test(
         out_filename: str,
         seed: int,
         info_preprocessing,
-        cons_clustering,
         cons_grouping,
         cons_preprocessing,
         encoder,
         debug: bool = False,
         time_limit: int = 0,
-        clustering_kwargs: dict = {},
         encoder_kwargs: dict = {}
     ):
 
@@ -89,14 +83,12 @@ def run_affirmative_test(
     exception_catcher(
         in_pair,
         info_preprocessing,
-        cons_clustering,
         cons_grouping,
         cons_preprocessing,
         encoder,
         test_data,
         debug,
         time_limit,
-        clustering_kwargs,
         encoder_kwargs
     )
 
@@ -112,7 +104,6 @@ from r1cs_scripts.read_r1cs import parse_r1cs
 
 from structural_analysis.clustering_methods.naive.degree_clustering import twice_average_degree
 from structural_analysis.clustering_methods.naive.signal_equivalence_clustering import naive_removal_clustering
-from comparison.cluster_preprocessing import groups_from_clusters
 from bij_encodings.online_info_passing import OnlineInfoPassEncoder
 from bij_encodings.reduced_encoding.red_class_encoder import reduced_encoding_class
 from bij_encodings.reduced_encoding.red_pseudoboolean_encoding import pseudoboolean_signal_encoder
@@ -127,7 +118,6 @@ def quick_compare(
         with time_limit(time_limit_seconds):
             data = circuit_equivalence(
                 [("S1", lcirc), ("S2", rcirc)],
-                None,
                 None,
                 constraint_classes,
                 iterated_adjacency_reclassing,
@@ -160,7 +150,6 @@ def run_current_best_test(
 
     test_data = exception_catcher(
         in_pair,
-        None,
         None,
         constraint_classes,
         iterated_adjacency_reclassing,

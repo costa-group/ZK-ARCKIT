@@ -12,8 +12,6 @@ from pysat.formula import CNF
 from pysat.solvers import Solver
 import time
 
-from comparison.cluster_preprocessing import circuit_clusters
-
 from r1cs_scripts.circuit_representation import Circuit
 
 from structural_analysis.utilities.connected_preprocessing import connected_preprocessing
@@ -34,13 +32,11 @@ def count_ints(lints : Iterable[int]) -> Dict[int, int]:
 def circuit_equivalence(
         in_pair: List[Tuple[str, Circuit]],
         info_preprocessing: Callable[["In_Pair", Assignment], "Signal_Info"] = None,
-        cons_clustering: Callable[["In_Pair"], Tuple["Clusters", "Adjacency", "Removed"]] = None,
         cons_grouping: Callable[["In_Pair", "Clusters", "Signal_Info", Assignment], "Classes"] = None,
         cons_preprocessing: Callable = None,
         encoder: Encoder = ReducedPseudobooleanEncoder,
         test_data: Dict[str, any] = {},
         debug: bool = False,
-        clustering_kwargs: dict = {},
         encoder_kwargs: dict = {}
         ) -> Tuple[bool, List[Tuple[int, int]]]:
     """
@@ -100,19 +96,8 @@ def circuit_equivalence(
             last_time = info_preprocessing_time
       
             if debug: print("Finished info preprocessing", end='\r')
-
-        clusters = None
-
-        if cons_clustering is not None: 
-            
-            clusters = circuit_clusters(in_pair, cons_clustering, **clustering_kwargs)
-            clustering_time = time.time()
-
-            test_data["timing"]["clustering_time"] = clustering_time - last_time
-            last_time = clustering_time
-
-            if debug: print("Finished circuit clustering", end='\r')
-
+        
+        clusters = None # deprecated TODO -- clean up
         classes = {name: {"1": circ.constraints} for name, circ in in_pair}
 
         if cons_grouping is not None: 
