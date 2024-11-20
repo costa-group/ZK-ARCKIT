@@ -16,6 +16,18 @@ from utilities import _signal_data_from_cons_list
 def connected_preprocessing(circ: Circuit, return_mapping: bool = False) -> Circuit | Tuple[Circuit, List[int | None]]:
     """
     Given an input circuit removes all constraints not connected to any inputs
+
+    Parameters
+    ----------
+        circ: Circuit
+            The input circuit
+        return_mapping: Bool
+            flag that determines whether to return the signal mapping
+    
+    Returns
+    ----------
+    Circuit | (Circuit, List[int | None])
+        Always returns the new circuit that contains only connected components with inputs
     """
 
     outputs = range(1, 1+circ.nPubOut)
@@ -31,7 +43,7 @@ def connected_preprocessing(circ: Circuit, return_mapping: bool = False) -> Circ
     remapp[0] = 0
 
     curr = 1
-    for sig in sorted(set(dist_from_inputs.keys())): # .intersection(dist_from_outputs.keys())):
+    for sig in sorted(dist_from_inputs.keys()): # .intersection(dist_from_outputs.keys())):
         
         remapp[sig] = curr
         curr += 1
@@ -71,10 +83,23 @@ def componentwise_preprocessing(circ: Circuit) -> Tuple[List[Circuit], List[Tupl
     Like connected_preprocessing but additionally splits circuit up into different circuits connected components
     Does not modify input circuit
 
+    Parameters
+    ----------
+        circ: Circuit
+            the input circuit
+
     Returns 
-        a list of new circuits,
-        a list of where each signal was mapped to (form (i,j): circuit i, new signal j) -- 0 is listed as (0,0) but is a constant
-        a list of where each constraint was mapped to (form (i,j): circuit i, new constraint j)
+    ----------
+    (circuits, sig_mapp, conmapp)
+        - circuits: List[Circuit]
+
+            a list of new circuits,
+        - sig_mapp: List[Tuple[int,int] | None]
+
+            a list of where each signal was mapped to (form (i,j): circuit i, new signal j) -- 0 is listed as (0,0) but is a constant
+        - conmapp: List[Tuple[int,int] | None]
+        
+            a list of where each constraint was mapped to (form (i,j): circuit i, new constraint j)
     """
 
     signal_to_conis = _signal_data_from_cons_list(circ.constraints)
