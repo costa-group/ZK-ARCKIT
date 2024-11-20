@@ -18,7 +18,8 @@ def partition_from_partial_clustering(
     """
     Given a partial clustering for a given circuit, this returns a full partition.
 
-    parameters:
+    Parameters
+    ----------
         circ: Circuit
             The circuit upon which we are providing a partition
         clusters: List[List[int]]
@@ -28,11 +29,12 @@ def partition_from_partial_clustering(
         remaining: List[int] | None
             A list of the constraint indices not appearing in any cluster. If None is provided this is calculated.    
         group_unclustered: Bool
-            Defines the clustering_method used for the remaining value. If False each remaining constraint is given its own cluster
+            Defines the clustering_method used for the remaining value. If False each remaining constraint is given its own cluster.
             If True, the remaining constraints are clustered in connected components.
     
-    returns:
-        List[List[int]]
+    Returns
+    ----------
+    List[List[int]]
         A partition of the circuit, that is, a cluster whever every constraint index appears in exactly 1 cluster.
     """
     
@@ -73,16 +75,22 @@ def dag_from_partition(circ: Circuit, partition: List[List[int]]) -> "directed_a
         if parti closer to inputs than partj. parti < partj
         if parti, partj same distance from inputs but partj closer to outputs parti < partj.
 
-    parameters:
+    Parameters
+    ----------
         circ: Circuit
             The circuit upon which we are providing a partition
         partition: List[List[int]]
             A partition of the circuit, that is, a list of clusters whever every constraint index appears in exactly 1 cluster.
-    
-    returns: (partition, arcs)
-        partition: List[List[int]]
+
+    Returns
+    ------- 
+    (partition, arcs)
+        partition; List[List[int]]
+            
             A new partition with some clusters in the input version merged -- does not mutate the original partition
-        arcs: List[(int, int)]
+
+        arcs; List[Tuple[int, int]]
+            
             A list of arcs (parti, partj).
     """
 
@@ -194,7 +202,8 @@ class DAGNode():
     """
     Cluster for Node in a DAG
 
-    parameters:
+    Attributes
+    ----------
         circ: Circuit
             the Circuit upon which the node is represented
         id: Int
@@ -219,7 +228,8 @@ class DAGNode():
         """
         Constructor for DAGNode
 
-        parameters:
+        Parameters
+        ----------
             circ: Circuit
                 the Circuit upon which the node is represented
             id: Int
@@ -245,8 +255,8 @@ class DAGNode():
         Returns the subcircuit represented by the node and caches it for later reuse
 
         The subcircuit is the circuit containing only the constraints in the node,
-            the circuit is completely new with a signal and constraint bijection to the subcircuit in self.circ
-            this is because Circuits are assumed to always have signals 0..nSignals not a set of named signals
+        the circuit is completely new with a signal and constraint bijection to the subcircuit in self.circ
+        this is because Circuits are assumed to always have signals 0..nSignals not a set of named signals
         """
 
         if self.subcircuit is None:
@@ -303,11 +313,12 @@ def dag_to_nodes(circ: Circuit, partition: List[List[int]], arcs: List[Tuple[int
     Given a circ and DAG, returns a dictionary of nodes populated with data, indexes by the node_id.
 
     We use a dictionary here rather than a list due to postprocessing merging nodes and putting gaps in the index set.
-        using a dictionary avoids remapping the indices at every step.
+    using a dictionary avoids remapping the indices at every step.
 
-    process:
-        loop over partitions to define initial information, that is, constraints, id, and any signals that are input/output in the circ
-        loop over arcs, these define predecessor/successors and expand input/output signals
+    Process
+    ----------
+        loop over partitions to define initial information, that is, constraints, id, and any signals that are input/output in the circ,
+        then loop over arcs, these define predecessor/successors and expand input/output signals
     """
 
     # TODO: slower then just iterating once, could use a consume on a subordinate function

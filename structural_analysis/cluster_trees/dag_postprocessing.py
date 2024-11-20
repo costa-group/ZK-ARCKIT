@@ -1,3 +1,7 @@
+"""
+Functions for postprocessing the nodes
+"""
+
 from typing import Dict, Callable, Iterable, List
 import itertools
 import collections
@@ -14,13 +18,13 @@ def merge_under_property(circ: Circuit, nodes: Dict[int, DAGNode],
     Merges nodes that meet input properties
     
     Nodes that meet property 1 are listed as two merge, a successor or predecessor is chosen to be merged with
-        based on suitability.
-    An adjacent node is `suitable' only if it has adjacent_property > 0 and does not cause a 
+    based on suitability. An adjacent node is `suitable' only if it has adjacent_property > 0 and does not cause a cycle.
     
-    parameters:
+    Parameters
+    ----------
         circ: Circuit 
             The circuit being worked on -- NOTE: could remove and take circ from nodes but don't for consistency
-        nodes: Dict(int, DAGNode)
+        nodes: Dict[int, DAGNode]
             The collection of nodes that cluster the circuit
         property: DAGNode -> Bool
             A function used to filter the nodes that require merging.
@@ -29,8 +33,10 @@ def merge_under_property(circ: Circuit, nodes: Dict[int, DAGNode],
         parent_property: (DAGNode, DAGNode) -> Ord
             A function used in determining suitability of predecessor nodes
         
-    return_value:
-        A Dict(int, DAGNode) of the nodes after merging.
+    Returns
+    ----------
+    Dict[int, DAGNode] 
+        Nodes list after merging.
         Note that this function mutates the input nodes dictionary
     """
 
@@ -105,17 +111,24 @@ def merge_under_property(circ: Circuit, nodes: Dict[int, DAGNode],
 
 def merge_passthrough(circ: Circuit, nodes: Dict[int, DAGNode]) -> Dict[int, DAGNode]:
     """
-    An instance of merge_under_property mergins nodes that have signals in the input and output.
+    An instance of :py:func:`merge_under_property` merges nodes that have signals in the input and output.
 
     filter property : has at least 1 signals that is in the inputs and outputs of the node (i.e. passthrough signals)
     adj_property : number of passthrough signals that are `caught' by an adjacent node
         (i.e. for successors, number of passthrough signals in the input signals but not the output signals of the successor) 
     
-    parameters:
+    Parameters
+    ----------
         circ: Circuit 
             The circuit being worked on -- NOTE: could remove and take circ from nodes but don't for consistency
         nodes: Dict(int, DAGNode)
             The collection of nodes that cluster the circuit
+    
+    Returns
+    ----------
+    Dict[int, DAGNode] 
+        Nodes list after merging.
+        Note that this function mutates the input nodes dictionary
     """
 
     has_passthrough_signals = lambda node : any(map(lambda sig : sig in node.output_signals, node.input_signals))
@@ -132,16 +145,23 @@ def merge_passthrough(circ: Circuit, nodes: Dict[int, DAGNode]) -> Dict[int, DAG
 
 def merge_only_nonlinear(circ: Circuit, nodes: Dict[int, DAGNode]) -> Dict[int, DAGNode]:
     """
-    An instance of merge_under_property mergins nodes that have signals in the input and output.
+    An instance of :py:func:`merge_under_property` merges nodes that have signals in the input and output.
 
     filter property : has only nonlinear constraints in the node
     adj_property : does not have only nonlinear constraints in the node
 
-    parameters:
+    Parameters
+    ----------
         circ: Circuit 
             The circuit being worked on -- NOTE: could remove and take circ from nodes but don't for consistency
         nodes: Dict(int, DAGNode)
             The collection of nodes that cluster the circuit
+    
+    Returns
+    ----------
+    Dict[int, DAGNode] 
+        Nodes list after merging.
+        Note that this function mutates the input nodes dictionary
     """
     
     constraint_is_nonlinear = lambda con : len(con.A) > 0 and len(con.B) > 0
@@ -162,7 +182,8 @@ def merge_nodes(lkey: int, rkey: int, nodes: Dict[int, DAGNode],
     This function does not enforce any prerequitites on the nodes we assume
         that lkey is the parent of rkey, and that no cycle is created when these are merged.
 
-    parameters:
+    Parameters
+    ----------
         lkey: Int
             index of the parent node in nodes
         rkey: Int
@@ -176,8 +197,9 @@ def merge_nodes(lkey: int, rkey: int, nodes: Dict[int, DAGNode],
         adjacencies: Dict(int, List[int])
             Maps each node index to the successor nodes -- used in cycle detection in parent function
         
-    returns:
-        None
+    Returns
+    ----------
+    None
         nodes, coni_to_node, adjacencies are all mutated to update with the new data
     """
 

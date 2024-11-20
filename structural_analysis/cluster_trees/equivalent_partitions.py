@@ -41,11 +41,11 @@ def naive_equivalency_analysis(nodes: Dict[int, DAGNode], time_limit: int = 0) -
 def easy_fingerprint_then_equivalence(nodes: Dict[int, DAGNode], time_limit: int = 0) -> List[List[int]]:
     """
     fingerprints ensuring all groups have the same number of constraints, signals, inputs/outputs
-
     """
     NKAssignment = Assignment(assignees=1)
     NKGroups = {}
 
+    # pairs each node with the subcircuit hash data - then group the subcircuits by equivalent hash
     for node, key in zip(nodes.values(), 
         map(lambda circ: (circ.nConstraints, circ.nWires, circ.nPrvIn + circ.nPubIn, circ.nPubOut), 
         map(lambda node : node.get_subcircuit(), nodes.values()))):
@@ -53,6 +53,7 @@ def easy_fingerprint_then_equivalence(nodes: Dict[int, DAGNode], time_limit: int
         hash_ = NKAssignment.get_assignment(key)
         NKGroups.setdefault(hash_, {})[node.id] = node
 
+    # then, for each class put it through naive_equivalency_analysis
     return list(itertools.chain(*map(
             lambda nodes_subset : naive_equivalency_analysis(nodes_subset, time_limit), 
             NKGroups.values()
