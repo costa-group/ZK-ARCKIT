@@ -1,18 +1,32 @@
+"""
+Set of utility function used throughout the entire codebase
+"""
+
 from r1cs_scripts.constraint import Constraint
-from typing import Iterable, Dict, List, Set
+from typing import Iterable, Dict, List, Set, Tuple
 from itertools import chain
 from collections import deque
 
-def getvars(con: Constraint) -> set:
+def getvars(con: Constraint) -> Set[int]:
+    """For a given constraint, returns the set of non-constant signals that appear in it"""
     return set(filter(lambda x : x != 0, chain(con.A.keys(), con.B.keys(), con.C.keys())))
 
-def count_ints(lints : Iterable[int]) -> Dict[int, int]:
+def count_ints(lints : Iterable[int]) -> List[Tuple[int, int]]:
+    """
+    Given an iterable of integers, returns a list of tuples of the form (n, num_occurrences_n). 
+    Used primarily in debugging
+    """
     res = {}
     for i in lints:
         res[i] = res.setdefault(i, 0) + 1
     return sorted(res.items())
 
-def _signal_data_from_cons_list(cons: List[Constraint], names: List[int] = None):
+def _signal_data_from_cons_list(cons: List[Constraint], names: List[int] = None) -> Dict[int, List[int]]:
+    """
+    Given an list of constraint, it returns a dictionary mapping signal -> list of constraints signal appears in
+
+    If names is None then the indexes are the order of cons, otherwise the indexes are zipped with cons.
+    """
     signal_to_cons = {}
 
     for i, con in zip(names if names is not None else range(len(cons)), cons):
@@ -22,8 +36,27 @@ def _signal_data_from_cons_list(cons: List[Constraint], names: List[int] = None)
     return signal_to_cons
 
 class UnionFind():
+    """
+    A class holding a UnionFind data structure with path compression
+
+    attributes:
+        - parent: Dict[int, int]
+            
+            Maps each non-negative integer in the domain to it's parent or the negative size if it is the parent
+        - self.representatives: Set[int] | None
+            
+            If representative_tracking is True, then this is set is maintained as all indices that are parents 
+    """
 
     def __init__(self, representative_tracking: bool = False):
+        """
+        Constructor for UnionFind
+        
+        parameters:
+            representative_tracking: Bool
+                If True then the class will maintain a list of representatives in self.representatives
+                Note that this incurs additional hashing costs for all operations
+        """
 
         self.parent = {}
 
@@ -31,7 +64,8 @@ class UnionFind():
     
     def find_noupdate(self, i: int) -> bool:
         """
-        If key in parents, returns the key, otherwise returns i
+        If key in parents, returns the key, otherwise returns i.
+        Does not add i to the keys if not already present
         """
         if i in self.parent.keys():
             return self.find(i)
@@ -39,6 +73,12 @@ class UnionFind():
             return i
 
     def find(self, i:int) -> int:
+        """
+        find method of UnionFind datastructure
+
+        recursively finds parent of input i
+            path compression optimisation means multiple calls to find(i) are amortised O(1)
+        """
         assert i >= 0, "invalid i"
         
         if self.representatives is not None and i not in self.parent.keys(): self.representatives.add(i)
@@ -51,6 +91,12 @@ class UnionFind():
             return self.parent[i]
 
     def union(self, *args: int) -> None:
+        """
+        union method of UnionFind datastructure
+
+        determines representative from inputs by largest class size (smallest negative parent)
+            This minimises the depth of later find operations
+        """
 
         representatives = sorted(set([self.find(i) for i in args]), key = lambda x: self.parent[x])
 
@@ -72,6 +118,10 @@ def is_not_none(x) -> bool:
     return x is not None
 
 def dist_to_source_set(source_set: Iterable[int], adjacencies: List[List[int]]) -> Dict[int, int]:
+    """
+    Given a source_set and adjacencies it returns a dictionary mapping index -> distance to source_set
+        the index set of the returned dictionary will be the indices of the connected componens that source_set is in
+    """
 
     distance = {s : 0 for s in source_set}
     queue = deque(source_set)
@@ -89,7 +139,7 @@ def dist_to_source_set(source_set: Iterable[int], adjacencies: List[List[int]]) 
 
 def BFS_shortest_path(s: int, t: int, adjacencies: List[List[int]]) -> List[int]:
     """
-    simple implementation of targeted BFS that assumes adjacencies only contains the adjacent indices
+    simple implementation of targeted BFS
     """
 
     parent = {s: None}
@@ -112,6 +162,9 @@ def BFS_shortest_path(s: int, t: int, adjacencies: List[List[int]]) -> List[int]
     return path[::-1]
 
 def DFS_reachability(S: int | List[int], T: int | List[int], adjacencies: List[List[int]]) -> bool:
+    """
+    simple implementation of targeted DFS
+    """
 
     if type(S) == int: S = [S]
     if type(S) == int: T = [T]
