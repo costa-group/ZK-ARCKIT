@@ -24,7 +24,7 @@ from functools import reduce
 
 from r1cs_scripts.circuit_representation import Circuit
 
-from structural_analysis.clustering_methods.modularity.modularity_optimisation import undirected_adjacency
+from deprecated.modularity.modularity_optimisation import undirected_adjacency
 
 
 def spectral_undirected_clustering(circ: Circuit):
