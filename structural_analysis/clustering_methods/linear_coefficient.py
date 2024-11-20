@@ -9,22 +9,54 @@ from r1cs_scripts.constraint import Constraint
 from structural_analysis.clustering_methods.naive.clustering_from_list import cluster_by_ignore, IgnoreMethod
 
 def cluster_by_linear_coefficient(circ: Circuit, coefs: Iterable[int] = [1, -1], **clustering_kwargs):
+    """
+    Clustering Method
+
+    An attempt at a more general linear coefficient clustering method. Currently, the process is too eager to mark constraints as
+    bridge constraints, additionally it has memory issues that cause problems for larger circuits.
+
+    Process
+    --------
+        step 1: 
+            split naively as before (w/ x = y constraints)
+
+        step 2: 
+            find candiate signal/constraint pairs
+                must have coef in coefs in the C part of the constraint
+                must not be previous
+
+        step 3: 
+            for each candidate pair, check if internal signal path is reachable through only noncandidates
+                if yes, remove candidate - if no candidates for constraint make constraint noncandidate
+                if no, continue
+        
+        step 4: 
+            split on candidates too
+
+    Parameters
+    ---------
+        circ: Circuit
+            The input circuit to be clustered
+        clusters: Iterable[int]
+            The coefficients that define the pattern matching for what a candidate signal is
+        clustering_kwargs
+            kwargs passed to `cluster_by_ignore`
+    
+    Returns
+    ---------
+    (clusters, adjacency, removed)
+        cluster: Dict[int, List[int]]
+            Partition of the input graph given by connected components. Clusters are indexed by an arbitrary element of the cluster. 
+            Dictionary used to later be able to remove and reindex elements without remapping indices.
+
+        adjacency: Dict[int, List[int]]
+            Maps cluster index to adjacent cluster indices. Empty if calculate_adjacency is False
+
+        removed: List[int]
+            List of removed constraints. Always equivalent to ignore_func
+    """
     coefs = list(map(lambda x : x % circ.prime_number, coefs))
 
-    """
-    step 1: split naively as before (w/ constant)
-
-    step 2: find candiate signal/constraint pairs
-        - must have coef in coefs in the C part of the constraint
-        - must not be previous
-
-    step 3: for each candidate pair, check if internal signal path is reachable through only noncandidates
-        - if yes, remove candidate - if no candidates for constraint make constraint noncandidate
-        - if no, continue
-    
-    step 4: split on candidates too
-    
-    """
     # Step 1
 
     def _assumed_link_constraint(con: Constraint) -> bool:
@@ -40,7 +72,7 @@ def cluster_by_linear_coefficient(circ: Circuit, coefs: Iterable[int] = [1, -1],
     noncandidates, candidates = [], []
 
     def _is_candidate_constraint(coni: int) -> bool:
-        # all sig, value are potential candidates for con not in removed
+        # any coni with a candidate signal is a candidate constraint
         for sig, value in filter(lambda tup: tup[0] != 0 and tup[1] in coefs, circ.constraints[coni].C.items()):
             return True
         return False 
@@ -73,10 +105,13 @@ def cluster_by_linear_coefficient(circ: Circuit, coefs: Iterable[int] = [1, -1],
         candidate_pair_not_in_queue[(coni, sig)] = True
         if coni_to_num_candidates[coni] == 0: continue
 
+        # If there is any other signal in the bridge constraint that can reach the candidate signal via another means 
+        #   (i.e. in same noncandidate cluster). Then that isn't a candidate signal and we can remove it from the options
         if any(map(lambda osig : sig != osig and noncandidate_uf.find(sig) == noncandidate_uf.find(osig), getvars(circ.constraints[coni]))):
             coni_to_num_candidates[coni] -= 1
             signal_to_candidate_coni[sig].remove(coni)
 
+            # if the candidate has no more candidate signals it is no longer a candidate signal
             if len(signal_to_candidate_coni[sig]) == 0: del signal_to_candidate_coni[sig]
 
             if coni_to_num_candidates[coni] == 0:
