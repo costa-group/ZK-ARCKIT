@@ -3,10 +3,7 @@ from functools import reduce
 
 from r1cs_scripts.circuit_representation import Circuit
 from r1cs_scripts.constraint import Constraint
-from structural_analysis.clustering_methods.naive.clustering_from_list import _signal_data_from_cons_list, cluster_by_ignore
-
-def getvars(con) -> set:
-    return set(con.A.keys()).union(con.B.keys()).union(con.C.keys()).difference(set([0]))
+from structural_analysis.clustering_methods.naive.clustering_from_list import _signal_data_from_cons_list, cluster_by_ignore, getvars
 
 class Average():
     "Enum for averages"
@@ -14,18 +11,41 @@ class Average():
     median = 1
     mode = 2
 
-# class ClusterMethod():
-#     "enum for method picking"
-#     edge_removal = 0
-#     signal_removal = 1
-#     old_signal_removal = 2
-
 def twice_average_degree(
         circ: Circuit, 
         avg_type: int = Average.mode, 
-        and_up: bool = True, 
-        clustering_method: int = 0,
+        and_up: bool = True,
         **kwargs) -> List[List[int]]:
+    """
+    Clustering Method
+
+    Clusters constraint in a circuit by the connected components achieved by ignoring all signals that have degree at least
+    twice as large as the average
+
+    Parameters
+    ----------
+        circ: Circuit
+            The input circuit to cluster
+        avg_type: Average
+            Enumerator for which average method. 0 for Mean, 1 for Median, 2 for Mode
+        and_up: Bool
+            Boolean flag that determines at least twice as large / exactly twice as large. Default is True
+        kwargs:
+            Passed to `cluster_by_ignore`
+    
+    Returns
+    ---------
+    (clusters, adjacency, removed)
+        cluster: Dict[int, List[int]]
+            Partition of the input graph given by connected components. Clusters are indexed by an arbitrary element of the cluster. 
+            Dictionary used to later be able to remove and reindex elements without remapping indices.
+
+        adjacency: Dict[int, List[int]]
+            Maps cluster index to adjacent cluster indices. Empty if calculate_adjacency is False
+
+        removed: List[int]
+            List of removed constraints. In this case always empty.
+    """
     
     signal_to_conis = _signal_data_from_cons_list(circ.constraints)
 
@@ -70,17 +90,36 @@ def twice_average_degree(
 
 # NOT SURE IF ONLY USING DARKFOREST CIRCUITS IS THE BEST IDEA FOR THIS BUT TESTING SHOWS 0.36 signal ratio
 
-def ratio_of_signals(circ: Circuit, nSignals = None, signal_ratio=0.36, **kwargs) -> List[List[int]]:
+def ratio_of_signals(circ: Circuit, signal_ratio=0.36, **kwargs) -> List[List[int]]:
+    """
+        Clustering Method
+
+    Clusters constraint in a circuit by the connected components achieved by ignoring signals ordered from highest to lowest degree
+    such that the signal set is signal_ratio of all signals.
+
+    Parameters
+    ----------
+        circ: Circuit
+            The input circuit to cluster
+        signal_ratio: float
+            0 < signal_ratio < 1. Determines at what signal ratio to stop.
+        kwargs:
+            Passed to `cluster_by_ignore`
+    
+    Returns
+    ---------
+    (clusters, adjacency, removed)
+        cluster: Dict[int, List[int]]
+            Partition of the input graph given by connected components. Clusters are indexed by an arbitrary element of the cluster. 
+            Dictionary used to later be able to remove and reindex elements without remapping indices.
+
+        adjacency: Dict[int, List[int]]
+            Maps cluster index to adjacent cluster indices. Empty if calculate_adjacency is False
+
+        removed: List[int]
+            List of removed constraints. In this case always empty.
+    """
     assert 0 < signal_ratio < 1, "Invalid ratio"
-
-    # doable but not recommended just pass nWires
-    if nSignals is None:
-        signals = set([])
-
-        for con in circ.constraints:
-            signals.update(getvars(con))
-        
-        nSignals = len(signals)
 
     signal_to_conis = _signal_data_from_cons_list(circ.constraints)
 
@@ -94,7 +133,7 @@ def ratio_of_signals(circ: Circuit, nSignals = None, signal_ratio=0.36, **kwargs
     for key, val in sorted(degree_to_signal.items(), reverse=True):
         signalset.update(val)
         
-        if len(signalset) / nSignals > 0.36:
+        if len(signalset) / circ.nWires > signal_ratio:
             break
 
     coniset = reduce(

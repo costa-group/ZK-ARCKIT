@@ -10,13 +10,26 @@ from utilities import _signal_data_from_cons_list, getvars, UnionFind
 
 def cluster(
     complete_subraphs: Iterable[List[int]],
-    vertices: Iterable[int] = None,
-    ) -> UnionFind:
+    vertices: Iterable[int] | None = None
+    ) -> UnionFind | Dict[int, List[int]]:
     """
-    The complete_subraphs provide every complete subgraph in the graph on the vertices, note this improves the traditional unionfind clustering
-    by reducing the number of union operations from |E| to the number of complete subgraphs.
+    Given a set of complete subgraphs returns the connected components of a graph
 
-    Assumes every k_n in complete_subgraphs is a subset of vertices.
+    The complete_subraphs provide every complete subgraph in the graph on the vertices, note this improves the traditional unionfind 
+    clustering by reducing the number of union operations from |E| to the number of complete subgraphs. Assumes every k_n in 
+    complete_subgraphs is a subset of vertices.
+    
+    Parameters
+    ----------
+        complete_subgraphs : Iterable[List[int]]
+            An iterator for the the maximal complete subgraphs in a graph G. 
+        vertices: Iterable[int] | None
+            A list of the vertices that are to be clustered. If None the UnionFind object is returned instead
+    
+    Returns
+    ----------
+    UnionFind | Dict[int, List[int]]
+        Returns either the a dictionary of clusters indexed by an arbitrary element in the cluster or the UnionFind object of the clusters
     """
     clusters = UnionFind()
 
@@ -33,7 +46,34 @@ def cluster_by_ignoring_signals(
         circ: Circuit,
         signals_to_ignore: List[int],
         calculate_adjacency: bool
-    ) -> Tuple[List[List[int]], List[List[int]], List[int]]:
+    ) -> Tuple[Dict[int, List[int]], Dict[int, List[int]], List[int]]:
+    """
+    Subordinate function to :func:`cluster_by_ignore`. 
+    
+    Clusters the connected components of the shared signal graph ignoring the given list of signals
+
+    Parameters
+    ----------
+        circ: Circuit
+            The input circuit to be clustered
+        signals_to_ignore: List[int]
+            The list of signals to ignore
+        calculate_adjacency: bool
+            A flag for whether the program should calculate an adjacency dictionary otherwise the adjacency dictionary is empty
+    
+    Returns
+    ---------
+    (clusters, adjacency, removed)
+        cluster: Dict[int, List[int]]
+            Partition of the input graph given by connected components. Clusters are indexed by an arbitrary element of the cluster. 
+            Dictionary used to later be able to remove and reindex elements without remapping indices.
+
+        adjacency: Dict[int, List[int]]
+            Maps cluster index to adjacent cluster indices. Empty if calculate_adjacency is False
+
+        removed: List[int]
+            List of removed constraints. In this case always empty.
+    """
 
     cons = circ.constraints
     ignore_signal_list = [False for _ in range(circ.nWires)]
@@ -84,6 +124,33 @@ def cluster_by_ignoring_constraints(
         ignore_func: Callable[[int], bool],
         calculate_adjacency: bool
     ) -> Tuple[List[List[int]], List[List[int]], List[int]]:
+    """
+    Subordinate function to :func:`cluster_by_ignore`. 
+    
+    Clusters the connected components of the shared signal graph ignoring the given list of constraints
+
+    Parameters
+    ----------
+        circ: Circuit
+            The input circuit to be clustered
+        signals_to_ignore: List[int]
+            The list of signals to ignore
+        calculate_adjacency: bool
+            A flag for whether the program should calculate an adjacency dictionary otherwise the adjacency dictionary is empty
+    
+    Returns
+    ---------
+    (clusters, adjacency, removed)
+        cluster: Dict[int, List[int]]
+            Partition of the input graph given by connected components. Clusters are indexed by an arbitrary element of the cluster. 
+            Dictionary used to later be able to remove and reindex elements without remapping indices.
+
+        adjacency: Dict[int, List[int]]
+            Maps cluster index to adjacent cluster indices. Empty if calculate_adjacency is False
+
+        removed: List[int]
+            List of removed constraints. Always equivalent to ignore_func
+    """
 
     # also causes problems with the ignoring signals where it seems to use more memory, and I don't know why
 
@@ -139,8 +206,33 @@ def cluster_by_ignore(
         calculate_adjacency: bool = True
     ) -> List[List[int]]:
     """
-        Manager for the various methods to ignore values
-        TODO: maybe just get rid of this alltogether and have each clustering call a specific case
+    Subordinate function to :func:`cluster_by_ignore`. 
+    
+    Clusters the connected components of the shared signal graph ignoring the given list of constraints
+
+    Parameters
+    ----------
+        circ: Circuit
+            The input circuit to be clustered
+        ignore_method: IgnoreMethod
+            Choice of subordinate function via enumerator
+        ignore_tool: List[int] | Constraint -> Bool
+            The method of ignoring indices. Either a list of the indices to ignore or a filtering functions (constraint only)
+        calculate_adjacency: bool
+            A flag for whether the program should calculate an adjacency dictionary otherwise the adjacency dictionary is empty
+    
+    Returns
+    ---------
+    (clusters, adjacency, removed)
+        cluster: Dict[int, List[int]]
+            Partition of the input graph given by connected components. Clusters are indexed by an arbitrary element of the cluster. 
+            Dictionary used to later be able to remove and reindex elements without remapping indices.
+
+        adjacency: Dict[int, List[int]]
+            Maps cluster index to adjacent cluster indices. Empty if calculate_adjacency is False
+
+        removed: List[int]
+            List of removed constraints.
     """
 
     match ignore_method:
