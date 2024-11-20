@@ -42,6 +42,9 @@
 !deprecated/cons_propagator
 !deprecated/cons_propagator/*.py
 
+!deprecated/cluster_trees
+!deprecated/cluster_trees/*.py
+
 !comparison
 !comparison/*.py
 
