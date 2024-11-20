@@ -5,16 +5,16 @@ import collections
 
 from r1cs_scripts.circuit_representation import Circuit
 from r1cs_scripts.constraint import Constraint
-from r1cs_scripts.modular_operations import divideP
 from normalisation import r1cs_norm
 from bij_encodings.assignment import Assignment
-from utilities import count_ints
-from comparison.static_distance_preprocessing import _distances_to_signal_set
 
 
 constSignal = 0
 
 def sorted_list_handling(LList: List[Tuple], RList: List[Tuple], both_handle: Callable) -> Tuple[List[Tuple], List[Tuple]]:
+    """
+    Given two sorted list inputs it returns in_LR the sorted list of elements in both and in_LorR the sorted lsit of elements not in both
+    """
 
     in_LR, in_LorR = [], []
     i, j = 0, 0
@@ -43,6 +43,8 @@ def sorted_list_handling(LList: List[Tuple], RList: List[Tuple], both_handle: Ca
 
 def known_split(norms: List[Constraint], name: str, mapp: Assignment, signal_info: dict, unordered_AB: bool) -> str:
         """
+        For any signal that has a forced pair (only 1 option in signal_info), in the constraint then for each norm
+        assign the pair key the value in the constraint norm
         """
         if signal_info is None or mapp is None or name is None:
             return ""
@@ -86,6 +88,13 @@ def hash_constraint(
         nOutputs: int = None,
         nInputs: int = None
         ):
+    """
+    For an input constraint returns a string hash that keys information based on
+        - in which parts the constraint has a constant signal term
+        - in which parts the constraint has input/output signals in the circuit
+        - known signals pairs between the two constraints
+        - the normalised constraint
+    """
 
     def constant_split(C: Constraint) -> str:
         """
@@ -159,6 +168,7 @@ def hash_constraint(
 
 
 def constraint_classes(in_pair: List[ Tuple[str, Circuit] ], clusters: None, signal_info: None, mapp: None):
+    "For each constraint, hash the constraint and group the constraints by the hash"
     assert len(in_pair) > 0, "empty comparisons"
     
     N = in_pair[0][1].nConstraints

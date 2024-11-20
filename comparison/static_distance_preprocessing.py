@@ -5,12 +5,12 @@ from functools import reduce
 from r1cs_scripts.circuit_representation import Circuit
 from r1cs_scripts.constraint import Constraint
 from bij_encodings.assignment import Assignment
-from utilities import _signal_data_from_cons_list
-
-def getvars(con: Constraint) -> set:
-    return set(con.A.keys()).union(con.B.keys()).union(con.C.keys()).difference(set([0]))
+from utilities import _signal_data_from_cons_list, getvars
 
 def _distances_to_signal_set(cons: List[Circuit], source_set: Set[int], signal_to_conis = None):
+    """
+    Given a list of constraints and a source set of signals, returns a dictionary with the distance of each signal to the source_set
+    """
     # just BFS
 
     if signal_to_conis is None: signal_to_conis = _signal_data_from_cons_list(cons)
@@ -48,6 +48,12 @@ def distances_to_static_preprocessing(
         mapp: Assignment = Assignment(),
         known_signal_info: Dict[str, Dict[int, Set[int]]] = None,
     ):
+    """
+    Signal preprocessing step, signals are grouped by the distance to inputs and outputs and then grouping signals by this key.
+    
+    For most circuits this process is quite slow because the quanitity of signals that have the same keys are quite large meaning that
+    the memory required to store this information is tool large this function is largely not useful. 
+    """
 
     # default known_signal_mapping
     if known_signal_info is None:

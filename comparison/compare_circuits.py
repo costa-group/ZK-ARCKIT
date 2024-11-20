@@ -31,20 +31,43 @@ def count_ints(lints : Iterable[int]) -> Dict[int, int]:
 # Typing throwing warnings for unknown classes, I think this is easier for a human to read though
 def circuit_equivalence(
         in_pair: List[Tuple[str, Circuit]],
-        info_preprocessing: Callable[["In_Pair", Assignment], "Signal_Info"] = None,
-        cons_grouping: Callable[["In_Pair", "Clusters", "Signal_Info", Assignment], "Classes"] = None,
-        cons_preprocessing: Callable = None,
+        info_preprocessing: Callable[["In_Pair", Assignment], "Signal_Info"] | None = None,
+        cons_grouping: Callable[["In_Pair", "Clusters", "Signal_Info", Assignment], "Classes"] | None = None,
+        cons_preprocessing: Callable | None = None,
         encoder: Encoder = ReducedPseudobooleanEncoder,
         test_data: Dict[str, any] = {},
         debug: bool = False,
         encoder_kwargs: dict = {}
-        ) -> Tuple[bool, List[Tuple[int, int]]]:
+        ) -> Dict[str, any]:
     """
     The manager function for circuit comparison
 
     Takes as input the input pair of circuits to compare, and a set of functions that will perform each step of the equivalence comparison
     Returns a dictionary in json format that contains the test data, all timings, intermediate class sizes and the result/reason of the comparison
     
+    Parameters
+    ----------
+        in_pair: List[Tuple[str, Circuit]]
+            name / circuit tuples for the input circuits.
+        info_preprocessing: In_Pair, Assignment -> Signal_Info | None
+            A preprocessing step to generate some signal pair information. If None this step is skipped.
+        cons_grouping: "In_Pair", "Clusters", "Signal_Info", Assignment -> "Classes" | None
+            The method to determine the initial constraint equivalence classes. If None this a single equivalence class is created.
+        cons_preprocessing: Callable | None
+            A method to improve the constraint equivalence classes. If this is None then this step is skipped.
+        enoder: Encoder
+            The specific encoder to turn the constraint classes and signal_info into a pysat.CNF formula.
+        test_data: Dict[str, any]
+            The test data dictionary passed to the function to add its data to.
+        debug: Bool
+            Flag that determines if progress updates are printed to terminal
+        encoder_kwargs: Dict
+            kwargs passed to the encoder
+    
+    Returns
+    ----------
+    Dict[str, any]
+        The data of the test. Includes the results and timing data.
     """
 
     def _check_early_exit(classes):
