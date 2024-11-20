@@ -3,18 +3,29 @@ from typing import List
 import networkx as nx
 from itertools import combinations
 
-from r1cs_scripts.circuit_representation import Circuit
 from r1cs_scripts.constraint import Constraint
+from utilities import _signal_data_from_cons_list, getvars
 
-from utilities import _signal_data_from_cons_list
+def shared_signal_graph(cons: List[Constraint], names = List[int] | None) -> nx.Graph:
+    """
+    Given an input list of constraints, returns a networkx graph.
+    Vertices in the graph are constraint, edges are between constraints with a shared non-constant signal
 
-def getvars(con: Constraint) -> set:
-    return set(con.A.keys()).union(con.B.keys()).union(con.C.keys()).difference(set([0]))
-
-def shared_signal_graph(cons: List[Circuit]) -> nx.Graph:
+    Parameters
+    ----------
+        cons: List[Constraint]
+            List of constraints passed to :func:`_signal_data_from_cons_list`
+        names: List[int] | None
+            Indices for constraints passed to :func:`_signal_data_from_cons_list`
+    
+    Returns
+    ----------
+    nx.Graph
+        Vertices in the graph are constraint, edges are between constraints with a shared non-constant signal
+    """
 
     graph = nx.Graph()
-    signal_to_coni = _signal_data_from_cons_list(cons)
+    signal_to_coni = _signal_data_from_cons_list(cons, names)
 
     weights = {}
 
