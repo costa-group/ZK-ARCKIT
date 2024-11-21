@@ -1,4 +1,4 @@
-from typing import Dict, List, Tuple, Callable, Set, Iterable
+from typing import Dict, List, Tuple, Callable, Set
 from pysat.formula import CNF
 
 from r1cs_scripts.circuit_representation import Circuit
@@ -6,15 +6,10 @@ from comparison.constraint_preprocessing import known_split
 from bij_encodings.assignment import Assignment
 from bij_encodings.encoder import Encoder
 from normalisation import r1cs_norm
-from utilities import getvars
-
-def count_ints(lints : Iterable[int]) -> Dict[int, int]:
-    res = {}
-    for i in lints:
-        res[i] = res.setdefault(i, 0) + 1
-    return sorted(res.items())
+from utilities import getvars, count_ints
 
 class OnlineInfoPassEncoder(Encoder):
+    """Encoder that before encoding any constraint class attempts to rehash based on knowledge to reduce size"""
 
     def encode(
             self,
@@ -33,9 +28,46 @@ class OnlineInfoPassEncoder(Encoder):
             assumptions: Set[int] = set([]),
             signal_info: Dict[str, Dict[int, int]] = None
         ) -> CNF:
-
         """
-        destroys the classes dict (for memory)
+        The encode method for the OnlineInfoPassEncoder
+
+        Given a method of class_encoding and signal_encoding this will iteratively encode the smallest unencoded class. Before
+        each class encoding it will run just the `known_info` part of the constraint hashing to check if any knowledge has been
+        gained from previous encodings to break down the class further, otherwise it will encode the class as is.
+
+        Parameters
+        ----------
+            in_pair: List[Tuple[str, Circuit]]
+                Pair of circuit/name pairs for the input circuits
+            classes: Dict[str, Dict[str, List[int]]]
+                The constraint classes, for each circuitt name, and class hash the list of constraint indices that belong to that hash
+            cluster:
+                deprecated -- TODO: remove
+            class_encoding: Callable
+                the method of encoding the individual constraint classes into a pysat.CNF formula
+            signal_encoding: Callable
+                the method of encoding the signal clauses into a pysat.CN
+            return_signal_mapping: Bool
+                flag to return the signal_mapping Assignment object
+            return_constraint_mapping: Bool
+                flag to return the constraint_mapping Assignment object
+            debug: Bool
+                flag to print progress updates
+            formula: CNF
+                If applicable a preexisting formula to append onto
+            mapp: Assignment
+                incoming signal_mapping Assignment object
+            ckmapp: Assignment
+                incoming constraint_mapping Assignment object
+            assumptions: Set[int]
+                incoming fixed pairs
+            signal_info
+                incoming knowledge about signal potential pairs
+        
+        Returns
+        ---------
+        (formula, assumptions [, signal_mapping, constraint_mapping])
+            Types and semantics as with parameters of the same name
         """
 
         if ckmapp is None: ckmapp =  Assignment(assignees=3, link=mapp)
@@ -53,7 +85,8 @@ class OnlineInfoPassEncoder(Encoder):
 
         left_coni_has_unordered_AB = [any(map(lambda norm : len(norm.A) > 0 and list(norm.A.values()) == list(norm.B.values()), norms))  
                 for norms in normalised_constraints[in_pair[0][0]]]
-            
+        
+        # Ordered 'queue' of classes. Since whenever we rehash necesarily any new classes are the now smallest we can use a simple list
         priorityq = sorted([
             (len(classes[in_pair[0][0]][key]), 
              len(getvars(in_pair[0][1].constraints[classes[in_pair[0][0]][key][0]])),
@@ -76,12 +109,14 @@ class OnlineInfoPassEncoder(Encoder):
             if length > 1:
                 new_classes = {}
 
+                # rehash and create new class
                 for name, _ in in_pair:
                     for int_, coni in enumerate(class_[name]):
                         if debug : print(f"For circ {name}, re-hashing class {class_ind}: constraint {int_} of size {length} x {num_signals}", end='\r')
                         hash_ = known_split(normalised_constraints[name][coni], name, mapp, signal_info, unordered_class)
                         new_classes.setdefault(hash_, {name_: [] for name_, _ in in_pair})[name].append(coni)
 
+                # if len classes > 1 then we have created at least 1 new class
                 if len(new_classes) > 1:
                     if debug : print(f"Broken down class {class_ind} of size {length} into classes: {count_ints(map(lambda class_ : len(class_[in_pair[0][0]]), new_classes.values()))}", end="\r")
 
