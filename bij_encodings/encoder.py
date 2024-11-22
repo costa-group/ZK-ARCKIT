@@ -8,6 +8,9 @@ from r1cs_scripts.circuit_representation import Circuit
 from bij_encodings.assignment import Assignment
 
 class Encoder():
+    """
+    Abstract Incoder Class
+    """
 
     def __init__(self):
         pass
@@ -29,7 +32,7 @@ class Encoder():
             signal_info: Dict[str, Dict[int, int]] = None
     ) -> Solver:
         """
-        Very basic default
+        Very basic default solver return function
         """
         
         res = self.encode(in_pair, classes, clusters, return_signal_mapping, return_constraint_mapping, return_encoded_classes, debug, 
@@ -54,4 +57,7 @@ class Encoder():
             assumptions: Set[int] = set([]),
             signal_info: Dict[str, Dict[int, int]] = None
         ) -> CNF:
+        """
+        encode an input into a CNF formula
+        """
         pass

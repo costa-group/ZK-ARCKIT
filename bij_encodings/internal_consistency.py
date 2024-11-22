@@ -1,7 +1,5 @@
 """
-Propagates, and maintains, two internal rules about bijections:
-    1. if only one of (l, r) has the other as a potential pair the pair is invalid
-    2. if either of (l, r) has only (l, r) as a potential pair then (l, r) is forced in the other
+Function that propagates signal pair rules
 """
 
 
@@ -18,6 +16,33 @@ def internal_consistency(
     signal_info: Dict[str, Dict[int, Set[int]]],
     pipe: List[Tuple[int, int]] = None
 ) -> None:
+    """
+    Maintains the internal consistency of the signal_info construct.
+
+    Propagates, and maintains, two internal rules about bijections. Given a signal pair (l, r):
+    1. a pair is valid only if **both** l, and r have the other as a potential pair
+    2. if either of l, **or** r has only (l, r) as the only potential pair so should the other
+
+    Parameters
+    ----------
+        in_pair: List[Tuple[str, Circuit]]
+            Pair of circuit/name pairs for the input circuits
+        mapp: Assignment
+            Signal pair assigment mapping
+        assumptions: Set[int]
+            Set of known forced assignments. Here to be mutated
+        signal_info: Dict[str, Dict[int, Set[int]]]
+            For each circuit name, and for each signal, a mapping to the set of signals in the other 
+            constraint amongst which it must be paired with at least one.
+        pipe: List[Tuple[int, int]] | None
+            The list of signals to check. Saves time when calling with a pipe, if None checks every signal.
+    
+    Returns
+    ---------
+    None
+        Mutates the assumptions, and signal_info to maintain the consistency rules.
+    
+    """
     
     if pipe is None:
         pipe = list(
