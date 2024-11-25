@@ -1,3 +1,7 @@
+"""
+Preprocessing method using label passing to encode structural information into labels
+"""
+
 from typing import List, Tuple, Dict, Set
 from pysat.formula import CNF
 import itertools
@@ -16,6 +20,31 @@ def iterated_label_propagation(
     ) -> Dict[str, Dict[int, List[int]]] | Dict[str, Dict[int, int]]:
     """
     classical neighbourhood label propagation/updating but with added removal of singular labels due to stability
+
+    At each step we rehash every non-unique label to be the current label, and the unordered labels of all adjacent vertices. This 
+    ensure, after finishing, that two vertices have the same label only if there is a bijection between all walks starting from each vertex
+    that maintains initial labels, and vertex degree in all but the final vertex of the walk. For a fool proof relating to trees see
+    the thesis.
+
+    Parameters
+    -----------
+        names: List[str]
+            Index names for various dictionaries representing the two graphs.
+        vertices: Dict[str, List[int]]
+            For each graph, the integers representing the vertex indices for that graph
+        vertex_to_adjacent: Dict[str, Dict[int, List[int]]]
+            For each graph, for each vertex, the adjacent vertices for that vertex
+        initial_labels: Dict[str, Dict[any, List[int]]] | Dict[str, Dict[int, any]]
+            Initial labels. For each graph, either mapping label_to_vertices or vertex_to_label respectively determined by input_inverse
+        input_inverse: bool = False
+            If True the initial_label is treated as vertex_to_label, otherwise it is treated as label_to_vertices
+        return_inverse: bool = False
+            If True returns label_to_vertices otherwise returns vertex_to_label
+    
+    Return
+    ---------
+    Dict[str, Dict[int, List[int]]] | Dict[str, Dict[int, int]]
+        The final labels for the given vertices. If return_inverse is True returns label_to_vertices otherwise vertex_to_label
     """
     if input_inverse:
         vertex_to_label = {
@@ -36,6 +65,7 @@ def iterated_label_propagation(
         for name in names
     }
 
+    # subordinate function to save unique labels and remove from iterative update process
     def remove_lone_classes(classes: Dict[str, Dict[any, List[int]]]) -> Dict[str, Dict[int, List[int]]]:
         non_singular_classes = []
 
@@ -70,12 +100,9 @@ def iterated_label_propagation(
         #   not trivial due to get_assignment, need a lock on assignment...
         #   could assign each thread a modularity and always increase by that modularity...?
 
-        # hash_ = lambda tup : new_label_to_vertex[tup[1]].setdefault(renaming.get_assignment(tup[0], tuple(sorted(map(vertex_to_label[tup[1]].__getitem__, vertex_to_adjacent[tup[1]][tup[2]])))), []).append(tup[2])
-        
         for key, name in itertools.product(label_to_vertex[names[0]].keys(), names):
             for coni in label_to_vertex[name][key]:
                 # need conversion to tuple for hashable
-                # TODO: test/check whether not converting to str here doesn't break anything (shouldn't but lets not risk it)
                 hash_ = renaming.get_assignment(
                     key, 
                     tuple(sorted(map(vertex_to_label[name].__getitem__, vertex_to_adjacent[name][coni])))
@@ -109,6 +136,20 @@ def iterated_adjacency_reclassing(
         signal_info: Dict[str, Dict[int, Set[int]]] = None,
         debug: bool = False
     ) -> Dict[str, List[int]]:
+    """
+    Wrapper for `iterated_label_propagation` as a constraint propagation function.
+    
+    All parameters not listed are dummy parameters used to fit the format.
+
+    Parameters
+    -----------
+        in_pair: List[Tuple[str, Circuit]]
+            Pair of circuit/name pairs for the input circuits
+        classes: Dict[str, Dict[str, List[int]]]
+            The constraint classes, for each circuitt name, and class hash the list of constraint indices that belong to that hash
+        signal_info
+            incoming knowledge about signal potential pairs
+    """
 
     signal_to_coni = {
         name : _signal_data_from_cons_list(circ.constraints)
