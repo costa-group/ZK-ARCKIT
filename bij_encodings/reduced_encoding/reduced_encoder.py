@@ -11,6 +11,9 @@ from r1cs_scripts.circuit_representation import Circuit
 # TODO: fix unordered AB not being handled
 
 class ReducedEncoder(Encoder):
+    """
+    Partial implementation of a SAT encoder. Still requires signal encoding.
+    """
     
     def encode(
             self,
@@ -28,6 +31,44 @@ class ReducedEncoder(Encoder):
             assumptions: Set[int] = set([]),
             signal_info: Dict[str, Dict[int, int]] = None
         ) -> CNF:
+        """
+        The encode method for the ReducedEncoder
+
+        The basic SAT encoding method. Given the constraint classes just uses the `reduced_encoding_class` method to encode each constraint
+        class. 
+
+        Parameters
+        ----------
+            in_pair: List[Tuple[str, Circuit]]
+                Pair of circuit/name pairs for the input circuits
+            classes: Dict[str, Dict[str, List[int]]]
+                The constraint classes, for each circuitt name, and class hash the list of constraint indices that belong to that hash
+            cluster:
+                deprecated -- TODO: remove
+            signal_encoding: Callable
+                the method of encoding the signal clauses into a pysat.CNF
+            return_signal_mapping: Bool
+                flag to return the signal_mapping Assignment object
+            return_constraint_mapping: Bool
+                flag to return the constraint_mapping Assignment object
+            debug: Bool
+                flag to print progress updates
+            formula: CNF
+                If applicable a preexisting formula to append onto
+            mapp: Assignment
+                incoming signal_mapping Assignment object
+            ckmapp: Assignment
+                incoming constraint_mapping Assignment object
+            assumptions: Set[int]
+                incoming fixed pairs
+            signal_info
+                incoming knowledge about signal potential pairs
+        
+        Returns
+        ---------
+        (formula, assumptions [, signal_mapping, constraint_mapping])
+            Types and semantics as with parameters of the same name
+        """
 
         if ckmapp is None: ckmapp =  Assignment(assignees=3, link=mapp)
         if signal_info is None: signal_info = {
