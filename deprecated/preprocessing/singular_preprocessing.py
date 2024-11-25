@@ -11,7 +11,6 @@ from r1cs_scripts.circuit_representation import Circuit
 from r1cs_scripts.constraint import Constraint
 from normalisation import r1cs_norm
 from comparison.constraint_preprocessing import hash_constraint, known_split
-from comparison.cluster_preprocessing import groups_from_clusters
 from bij_encodings.assignment import Assignment
 from bij_encodings.single_cons_options import signal_options
 from bij_encodings.batched_info_passing import recluster

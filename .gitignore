@@ -45,6 +45,9 @@
 !deprecated/cluster_trees
 !deprecated/cluster_trees/*.py
 
+!deprecated/preprocessing
+!deprecated/preprocessing/*.py
+
 !comparison
 !comparison/*.py
 

@@ -2,7 +2,7 @@ import itertools
 
 from utilities import _signal_data_from_cons_list, getvars
 from r1cs_scripts.circuit_representation import Circuit
-from structural_analysis.cluster_trees.r1cs_O0_rooting import TreeNode
+from deprecated.cluster_trees.r1cs_O0_rooting import TreeNode
 
 
 def node_signals(circ: Circuit, R: TreeNode):
