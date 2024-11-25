@@ -21,7 +21,7 @@ The following flags alter the behaviour of the file
         defines the type of clustering method performed
             options are: nonlinear_attract, louvain
         : default
-            nonlinear attract
+            nonlinear_attract
         : alternative
             --clustering
     
