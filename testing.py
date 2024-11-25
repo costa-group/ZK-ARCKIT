@@ -12,7 +12,7 @@ from itertools import product
 from comparison.compare_circuits import circuit_equivalence
 from comparison_testing import get_circuits, shuffle_constraints
 from comparison.constraint_preprocessing import hash_constraint, constraint_classes, known_split
-from comparison.cluster_preprocessing import circuit_clusters, constraint_cluster_classes, groups_from_clusters
+from deprecated.cluster_preprocessing import circuit_clusters, constraint_cluster_classes, groups_from_clusters
 from r1cs_scripts.modular_operations import multiplyP
 from r1cs_scripts.constraint import Constraint
 from r1cs_scripts.circuit_representation import Circuit
@@ -28,7 +28,7 @@ from bij_encodings.online_info_passing import OnlineInfoPassEncoder
 from bij_encodings.batched_info_passing import BatchedInfoPassEncoder, recluster
 from structural_analysis.clustering_methods.naive.degree_clustering import twice_average_degree, ratio_of_signals
 from structural_analysis.clustering_methods.naive.signal_equivalence_clustering import naive_removal_clustering, is_signal_equivalence_constraint
-from structural_analysis.clustering_methods.modularity.topological_flow_clustering import circuit_topological_clusters
+from deprecated.modularity.topological_flow_clustering import circuit_topological_clusters
 from comparison.static_distance_preprocessing import distances_to_static_preprocessing
 from testing_harness import run_affirmative_test, run_current_best_test
 from structural_analysis.utilities.connected_preprocessing import connected_preprocessing
@@ -57,7 +57,7 @@ if __name__ == '__main__':
     filenames = ["Reveal", "Biomebase", "Move", "test_ecdsa", "test_ecdsa_verify"]
     compilers = ["O0", "O1", "O2"]
 
-    filenames = filenames[-1:]
+    filenames = filenames[:]
     compilers = compilers[1:]
 
     RNG = np.random.default_rng(312)
@@ -78,7 +78,7 @@ if __name__ == '__main__':
  
         run_affirmative_test(
             file,
-            "test_results/" + test_dir + test + comp + "_60min.json",
+            "test.json", # "test_results/" + test_dir + test + comp + "_60min.json",
             int(RNG.integers(0, 25565)),
             None,
             None, # naive_removal_clustering if comp == "O0" else twice_average_degree,
