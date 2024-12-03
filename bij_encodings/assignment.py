@@ -28,7 +28,7 @@ class Assignment():
                 The any returned value will be given the offset
         """        
 
-        def __init__(self, assignees: int = 2, link: "Assignment" | None = None, offset: int = 0):
+        def __init__(self, assignees: int = 2, link: "Assignment" = None, offset: int = 0):
             """
             Constructor for Assignment class
 
