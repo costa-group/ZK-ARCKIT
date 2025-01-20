@@ -64,6 +64,7 @@ def circuit_graph_to_img(
             node.set('color','red')
     
     if return_graph: return g
+    g.write_png(outfile)
 
 def partition_graph_to_img(
         circ: Circuit, G: nx.Graph, partition: List[List[int]], outfile: str = "test.png", 
