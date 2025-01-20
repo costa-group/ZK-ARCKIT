@@ -37,7 +37,7 @@ def iterated_label_propagation(
         initial_labels: Dict[str, Dict[any, List[int]]] | Dict[str, Dict[int, any]]
             Initial labels. For each graph, either mapping label_to_vertices or vertex_to_label respectively determined by input_inverse
         input_inverse: bool = False
-            If True the initial_label is treated as vertex_to_label, otherwise it is treated as label_to_vertices
+            If True the initial_label is treated as label_to_vertex, otherwise it is treated as vertex_to_label
         return_inverse: bool = False
             If True returns label_to_vertices otherwise returns vertex_to_label
     
@@ -64,43 +64,50 @@ def iterated_label_propagation(
         name: {}
         for name in names
     }
+    max_singular_label = 0
 
     # subordinate function to save unique labels and remove from iterative update process
-    def remove_lone_classes(classes: Dict[str, Dict[any, List[int]]]) -> Dict[str, Dict[int, List[int]]]:
+    def remove_lone_classes(classes: Dict[str, Dict[any, List[int]]], max_singular_label) -> Dict[str, Dict[int, List[int]]]:
+
+        singular_renaming = Assignment(assignees=1, offset = max_singular_label)
         non_singular_classes = []
 
-        for key in classes[names[0]].keys():
-            if len(classes[names[0]][key]) == 1:
-                ## remove from pool
-                for name in names:
-                    for coni in classes[name][key]: vertex_to_label[name][coni] = len(singular_classes[name])
-                    singular_classes[name][len(singular_classes[name])] = classes[name][key]
-            else:          
-                non_singular_classes.append(key)
+        for key, name in itertools.chain(*[itertools.product(classes[name].keys(), [name]) for name in names]):
+            
+            if len(classes[name][key]) == 1:
+                for coni in classes[name][key]: vertex_to_label[name][coni] = singular_renaming.get_assignment(key)
+                singular_classes[name][singular_renaming.get_assignment(key)] = classes[name][key]
+            else:
+                non_singular_classes.append((key, name))
+
+        max_singular_label = max_singular_label + len(singular_renaming.assignment) - 1
         
         # TODO: more efficient way to remove conflicts with new_classes? 
         #       (could always add +len(classes) to right but that causes problems with int comparison)
 
+        non_singular_renaming = Assignment(assignees=1, offset=max_singular_label)
         new_classes = {name: {} for name in names}
         
-        for i, key in enumerate(non_singular_classes):
-            for name in names:
-                new_classes[name][i + len(singular_classes[name])] = classes[name][key]
-                for coni in classes[name][key]: vertex_to_label[name][coni] = i + len(singular_classes[name])
+        for key, name in non_singular_classes:
+            new_key = non_singular_renaming.get_assignment(key)
 
-        return new_classes
+            for coni in classes[name][key]: vertex_to_label[name][coni] = new_key
+            new_classes[name][new_key] = classes[name][key]
+                
+        return new_classes, max_singular_label
     
-    label_to_vertex = remove_lone_classes(initial_labels)
+    label_to_vertex, max_singular_label = remove_lone_classes(initial_labels, max_singular_label)
 
     while True:
-        renaming = Assignment(assignees=2, offset = len(singular_classes[names[0]]))
+
+        renaming = Assignment(assignees=2, offset = max_singular_label)
         new_label_to_vertex = {name: {} for name in names}
 
         # TODO: make faster -- maps? -- parallelisation?
         #   not trivial due to get_assignment, need a lock on assignment...
         #   could assign each thread a modularity and always increase by that modularity...?
 
-        for key, name in itertools.product(label_to_vertex[names[0]].keys(), names):
+        for key, name in itertools.chain(*[itertools.product(label_to_vertex[name].keys(), [name]) for name in names]):
             for coni in label_to_vertex[name][key]:
                 # need conversion to tuple for hashable
                 hash_ = renaming.get_assignment(
@@ -112,13 +119,11 @@ def iterated_label_propagation(
         if len(new_label_to_vertex[names[0]]) == len(label_to_vertex[names[0]]):
             break
 
-        label_to_vertex = remove_lone_classes(new_label_to_vertex)
+        label_to_vertex, max_singular_label = remove_lone_classes(new_label_to_vertex, max_singular_label)
 
     if return_inverse:
-
-        for key in label_to_vertex[names[0]].keys():
-            for name in names:
-                singular_classes[name][key] = label_to_vertex[name][key]
+        for key, name in itertools.chain(*[itertools.product(label_to_vertex[name].keys(), [name]) for name in names]):
+            singular_classes[name][key] = label_to_vertex[name][key]
 
         return singular_classes
 
