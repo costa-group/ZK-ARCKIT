@@ -3,6 +3,7 @@ import itertools
 import collections
 
 from structural_analysis.cluster_trees.dag_from_clusters import DAGNode
+from bij_encodings.preprocessing.iterated_adj_reclassing import iterated_label_propagation
 from r1cs_scripts.circuit_representation import Circuit
 from r1cs_scripts.constraint import Constraint
 from utilities import getvars
@@ -58,6 +59,36 @@ def easy_fingerprint_then_equivalence(nodes: Dict[int, DAGNode], time_limit: int
             lambda nodes_subset : naive_equivalency_analysis(nodes_subset, time_limit), 
             NKGroups.values()
         )))
+
+def structural_augmentation_equivalence(nodes: Dict[int, DAGNode], time_limit: int = 0) -> List[List[int]]:
+    """
+    Does iniital clustering based on internal information then augments this with structural information as requested
+    """
+
+    initial_classes = easy_fingerprint_then_equivalence(nodes, time_limit)
+    
+    names = ["succ", "pred"]
+    vertex_to_label = iterated_label_propagation(
+        names = names,
+        vertices = {name: nodes.keys() for name in names},
+        vertex_to_adjacent = {
+            "succ": {key  : nodes[key].successors for key in nodes.keys()},
+            "pred": {key  : nodes[key].predecessors for key in nodes.keys()}
+        },
+        initial_labels = {
+            name: {i : initial_classes[i] for i in range(len(initial_classes))} for name in names
+        },
+        input_inverse = True,
+        return_inverse = False
+    )
+
+    merge_labels = Assignment(assignees=2)
+
+    final_labels = {}
+    for key in nodes.keys():
+        final_labels.setdefault(merge_labels.get_assignment(vertex_to_label['succ'][key], vertex_to_label['pred'][key]), []).append(key)
+
+    return list(final_labels.values())
 
 def collective_equivalency_classes(circ: Circuit, nodes: List[DAGNode]) -> List[List[int]]:
     """

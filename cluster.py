@@ -25,6 +25,14 @@ The following flags alter the behaviour of the file
         : alternative
             --clustering
     
+    -e equivalence_type
+        defines the type of equivalence method utilised
+            options are: fingerprint, structural
+        : default 
+            structural
+        : alternative
+            --equivalence
+    
     --return_img
         defines if the return type is an image or json file
         : default
@@ -64,7 +72,7 @@ from structural_analysis.utilities.constraint_graph import shared_signal_graph
 from structural_analysis.utilities.connected_preprocessing import componentwise_preprocessing
 from structural_analysis.clustering_methods.nonlinear_attract import nonlinear_attract_clustering
 from structural_analysis.cluster_trees.dag_from_clusters import dag_from_partition, partition_from_partial_clustering, dag_to_nodes, nodes_to_json
-from structural_analysis.cluster_trees.equivalent_partitions import easy_fingerprint_then_equivalence
+from structural_analysis.cluster_trees.equivalent_partitions import easy_fingerprint_then_equivalence, structural_augmentation_equivalence
 from structural_analysis.utilities.graph_to_img import dag_graph_to_img
 from structural_analysis.cluster_trees.dag_postprocessing import merge_passthrough, merge_only_nonlinear
 
@@ -72,6 +80,7 @@ def r1cs_cluster(
         input_filename: str,
         output_directory: str,
         clustering_method: str,
+        equivalence_method: str,
         return_img: bool = False,
         automerge_passthrough: bool = False,
         automerge_only_nonlinear: bool = False,
@@ -139,7 +148,17 @@ def r1cs_cluster(
             timing['nonlinear_merge'] = time.time() - last_time
             last_time = time.time()
 
-        equivalency = easy_fingerprint_then_equivalence(nodes)
+        match equivalence_method:
+
+            case "fingerprint":
+                equivalency = easy_fingerprint_then_equivalence(nodes)
+
+            case "structural":
+                equivalency = structural_augmentation_equivalence(nodes)
+
+            case _ :
+                raise SyntaxError(f"{equivalence_method} is not a valid equivalence method")
+
         timing['equivalency'] = time.time() - last_time
         timing['total'] = time.time() - start
         
@@ -164,7 +183,7 @@ def r1cs_cluster(
 
 if __name__ == '__main__':
 
-    req_args = [None, None, None]
+    req_args = [None, None, None, None]
     automerge_passthrough, automerge_only_nonlinear, return_img , timing = False, False, False, True
 
     def set_file(index: int, filename: str):
@@ -203,6 +222,12 @@ if __name__ == '__main__':
             case "--clustering": 
                 set_file(2, sys.argv[i+1])
                 i += 2
+            case "-e": 
+                set_file(3, sys.argv[i+1])
+                i += 2
+            case "--equivalence": 
+                set_file(3, sys.argv[i+1])
+                i += 2
             case "-i": return_img, i = True, i + 1
             case "--return_img": return_img, i = True, i + 1
             case "--automerge-passthrough": automerge_passthrough, i = True, i + 1
@@ -214,6 +239,7 @@ if __name__ == '__main__':
     if req_args[0] is None: raise SyntaxError("No input file given")
     if req_args[1] is None: req_args[1] = req_args[0][:req_args[0].index(".")]
     if req_args[2] is None: req_args[2] = "nonlinear_attract"
+    if req_args[3] is None: req_args[3] = "structural"
 
     r1cs_cluster(*req_args, automerge_passthrough=automerge_passthrough, automerge_only_nonlinear=automerge_only_nonlinear, return_img=return_img, timing=timing)
 
