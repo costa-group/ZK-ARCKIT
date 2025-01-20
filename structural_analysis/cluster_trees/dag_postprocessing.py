@@ -217,10 +217,12 @@ def merge_nodes(lkey: int, rkey: int, nodes: Dict[int, DAGNode],
 
     # input signals, any signals that form an edge to any constraint in a predecessor
     #   likewise for outputs but with successors
-    node_signals = set(itertools.chain(*map(lambda coni : getvars(newnode.circ.constraints[coni]), newnode.constraints)))
+    # The input signals are the union of the two input signals, except for any that were only input signals from the lkey
     signals_is_incident_with_node_set = lambda sig, node_set: any(map(lambda coni : coni_to_node[coni] in node_set, sig_to_coni[sig]))
-    newnode.input_signals = set(filter(lambda sig : signals_is_incident_with_node_set(sig, newnode.predecessors), node_signals))
-    newnode.output_signals = set(filter(lambda sig : signals_is_incident_with_node_set(sig, newnode.successors), node_signals))
+    newnode.input_signals = set(filter(lambda sig : signals_is_incident_with_node_set(sig, newnode.predecessors), 
+                                itertools.chain(nodes[lkey].input_signals, nodes[rkey].input_signals)))
+    newnode.output_signals = set(filter(lambda sig : signals_is_incident_with_node_set(sig, newnode.successors), 
+                                        itertools.chain(nodes[lkey].output_signals, nodes[rkey].output_signals)))
 
     nodes[lkey] = newnode
     adjacencies[lkey] = newnode.successors

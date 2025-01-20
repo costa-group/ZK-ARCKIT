@@ -32,6 +32,11 @@ The following flags alter the behaviour of the file
         : alternative
             -i
 
+    --no-timing-information
+        removes the timing breakdown from the JSON
+        : default
+            timing info is included in JSON
+
     --automerge-passthrough
         recursively auto-merges clusters that have a signal both as an input and an output
         : default
@@ -49,6 +54,7 @@ import sys
 import warnings
 import os
 import json
+import time
 
 from r1cs_scripts.circuit_representation import Circuit
 from r1cs_scripts.read_r1cs import parse_r1cs
@@ -68,7 +74,8 @@ def r1cs_cluster(
         clustering_method: str,
         return_img: bool = False,
         automerge_passthrough: bool = False,
-        automerge_only_nonlinear: bool = False
+        automerge_only_nonlinear: bool = False,
+        timing: bool = True
     ):
     """
     Manager function for handling the clustering methods, for a complete specification see `cluster.py'
@@ -95,6 +102,11 @@ def r1cs_cluster(
 
     for index, circ in enumerate(circs):
 
+        timing = {}
+
+        start = time.time()
+        last_time = start
+
         match clustering_method:
             # This is mostly merging various output types, we could probably reformat everything to make this better
 
@@ -109,16 +121,30 @@ def r1cs_cluster(
             case _ :
                 raise SyntaxError(f"{clustering_method} is not a valid clustering_method")
 
-        partition, arcs = dag_from_partition(circ, partition)
+        timing['clustering'] = time.time() - last_time
+        last_time = time.time()      
 
+        partition, arcs = dag_from_partition(circ, partition)
         nodes = dag_to_nodes(circ, partition, arcs)
 
-        if automerge_passthrough: nodes = merge_passthrough(circ, nodes)
-        if automerge_only_nonlinear: nodes = merge_only_nonlinear(circ, nodes)
+        timing['dag_construction'] = time.time() - last_time
+        last_time = time.time()
+
+        if automerge_passthrough: 
+            nodes = merge_passthrough(circ, nodes)
+            timing['passthrough_merge'] = time.time() - last_time
+            last_time = time.time()
+        if automerge_only_nonlinear: 
+            nodes = merge_only_nonlinear(circ, nodes)
+            timing['nonlinear_merge'] = time.time() - last_time
+            last_time = time.time()
 
         equivalency = easy_fingerprint_then_equivalence(nodes)
-
+        timing['equivalency'] = time.time() - last_time
+        timing['total'] = time.time() - start
+        
         return_json = {
+            "timing": timing,
             "nodes": list(map(lambda n : n.to_dict(), nodes.values())) ,
             "equivalency": equivalency
         }
@@ -139,7 +165,7 @@ def r1cs_cluster(
 if __name__ == '__main__':
 
     req_args = [None, None, None]
-    automerge_passthrough, automerge_only_nonlinear, return_img = False, False, False
+    automerge_passthrough, automerge_only_nonlinear, return_img , timing = False, False, False, True
 
     def set_file(index: int, filename: str):
         if filename[0] == '-': raise SyntaxError(f"Invalid {'input' if not index else 'outout'} filename {filename}")
@@ -181,6 +207,7 @@ if __name__ == '__main__':
             case "--return_img": return_img, i = True, i + 1
             case "--automerge-passthrough": automerge_passthrough, i = True, i + 1
             case "--automerge-only-nonlinear": automerge_only_nonlinear, i = True, i + 1
+            case "--no-timing-information": timing = False
             case _: warnings.warn(f"Invalid argument '{arg}' ignored", SyntaxWarning)
 
 
@@ -188,6 +215,6 @@ if __name__ == '__main__':
     if req_args[1] is None: req_args[1] = req_args[0][:req_args[0].index(".")]
     if req_args[2] is None: req_args[2] = "nonlinear_attract"
 
-    r1cs_cluster(*req_args, automerge_passthrough=automerge_passthrough, automerge_only_nonlinear=automerge_only_nonlinear, return_img=return_img)
+    r1cs_cluster(*req_args, automerge_passthrough=automerge_passthrough, automerge_only_nonlinear=automerge_only_nonlinear, return_img=return_img, timing=timing)
 
     # python3 cluster.py r1cs_files/binsub_test.r1cs -o structural_analysis/clustered_graphs -i
