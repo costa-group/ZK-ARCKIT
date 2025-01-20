@@ -6,7 +6,9 @@ if __name__ == '__main__':
     import os
     from functools import reduce
     import itertools
+    from typing import List, Dict
 
+    from bij_encodings.assignment import SharedInt
     from utilities import count_ints, getvars, UnionFind, _signal_data_from_cons_list, dist_to_source_set
     from comparison_testing import get_circuits
     from r1cs_scripts.circuit_representation import Circuit
@@ -31,127 +33,78 @@ if __name__ == '__main__':
     from deprecated.cluster_trees.r1cs_O0_rooting import r1cs_O0_rooting
     from deprecated.cluster_trees.node_signals import node_signals
     from structural_analysis.clustering_methods.nonlinear_attract import nonlinear_attract_clustering
-    from structural_analysis.cluster_trees.dag_from_clusters import dag_from_partition, partition_from_partial_clustering, dag_to_nodes
+    from structural_analysis.cluster_trees.dag_from_clusters import dag_from_partition, partition_from_partial_clustering, dag_to_nodes, DAGNode
     from structural_analysis.cluster_trees.equivalent_partitions import naive_equivalency_analysis, easy_fingerprint_then_equivalence
     from structural_analysis.cluster_trees.dag_postprocessing import merge_passthrough, merge_only_nonlinear
+    from structural_analysis.utilities.node_to_img import nodelist_to_img
 
     def recursive_search(path):
         for opt in map(lambda opt : path + "/" + opt, os.listdir(path)):
             if ".r1cs" in opt: yield opt
             elif "." not in opt: 
                 for f in recursive_search(opt): yield f
+    
+    def json_to_dagnode(lst : List[dict], custom: bool = True) -> List[DAGNode]:
+        # TODO: if necessary put in circ stuff
 
-    parent = "clustering_tests/num2bitsandmore"
-    # parent = "r1cs_files"
-    clustering_method = lambda circ, **kwargs : naive_removal_clustering(circ, ignore_pattern=nonorm_relaxes_signal_equivalence_constraint, **kwargs)
+        def premade_to_dagnode(dct: dict) -> DAGNode:
+            n = DAGNode(
+                None, dct["node_id"], list(range(dct["initial_constraint"], dct["initial_constraint"] + dct["no_constraints"])), None, None
+            )
+            n.successors = list(map(lambda x : x["node_id"], dct["subcomponents"]))
+            return n
 
-    # TODO: none of the test examples given have any of the structured links we expect ... maybe a zokrates thing?
-    #   results in graphs of length 1
-    # TODO: improve linear clustering
+        def custom_to_dagnode(dct : dict) -> DAGNode:
+            n = DAGNode(
+                None, dct["node_id"], dct["constraints"], dct["input_signals"], dct["output_signals"]
+            )
+            n.successors = dct["successors"]
+            return n
 
-    # for filename in recursive_search(parent):
-    for filename in map(lambda f : "r1cs_files/" + f, ["test_ecdsaO1.r1cs"]):
 
-        print(filename)
+        return list(map(custom_to_dagnode if custom else premade_to_dagnode, lst))
 
-        circ = Circuit()
-        try:
-            parse_r1cs(filename, circ)
-        except:
-            print('failed')
-            continue
+    target_directory = "comparison_trees/PoseidonO0/"
 
-        circs, _, _ = componentwise_preprocessing(circ)
+    circ = Circuit()
+    parse_r1cs("r1cs_files/PoseidonO0.r1cs", circ)
+    
+    actual_file = target_directory + "actual.json"
+
+    fp = open(actual_file, 'r')
+    actual_tree = json.load(fp)
+    fp.close()
+
+    def get_nodes(tree : "Node", acc = SharedInt(0)) -> List["Node"]:
+        tree["node_id"] = acc.val
+        acc.val += 1
+        return list(itertools.chain([tree], *map(lambda n : get_nodes(n, acc), tree["subcomponents"])))
+
+    actual_nodes = get_nodes(actual_tree)
+    actual_dagnodes = json_to_dagnode(actual_nodes, False)
+
+    nodelist_to_img(actual_dagnodes, outfile = target_directory + "/actual.png")
+
+    print(len(actual_dagnodes))
+    print("only nonlinear", len(list(filter(lambda n : any(map(lambda coni : len(circ.constraints[coni].A) > 0, n.constraints)), actual_dagnodes))))
+    
+
+    for clustering_type in ["nonlinear_attract", "louvain"]:
+        filename = target_directory + clustering_type + ".json"
+        fp = open(filename, 'r')
+        clustering_tree = json.load(fp)
+        fp.close()
+
+        nodes = clustering_tree["nodes"]
+        dagnodes = json_to_dagnode(nodes)
+
+        print(clustering_type, len(clustering_tree["nodes"]))
+        print("only nonlinear", len(list(filter(lambda n : any(map(lambda coni : len(circ.constraints[coni].A) > 0, n.constraints)), dagnodes))))
+        nodelist_to_img(dagnodes, outfile = target_directory + "/" + clustering_type + ".png")
+
         
-        for circ in circs:
-
-            # print(circ.nPubIn, circ.nPubOut)
-            print("circ size: ", circ.nConstraints)
-            start = time.time()
-
-            res = circ.nConstraints ** 0.5
-            g = shared_signal_graph(circ.constraints)
-            # comm, remaining = nx.algorithms.community.louvain_communities(g, resolution = res, seed=567), []
-            # comm = list(map(list, comm))
 
 
-            # clusters, _, remaining = cluster_by_linear_coefficient(circ)
-            # clusters, _, remaining = twice_average_degree(circ)
-            clusters, _, remaining = nonlinear_attract_clustering(circ)
-            comm = clusters.values()
-
-            constraint_is_nonlinear = lambda con : len(con.A) > 0 and len(con.B) > 0
-
-            print("comm len: ", len(comm))
-            print("comm sizes: ", count_ints(map(len, comm)))
-            print("num_nonlinear:", count_ints(map(len, map(lambda part : list(filter(lambda coni : constraint_is_nonlinear(circ.constraints[coni]), part)), comm))))
-            comm = partition_from_partial_clustering(circ, comm, remaining=remaining)
-            partition, arcs = dag_from_partition(circ, comm)
-            print("part len: ", len(partition))
-            print("part sizes: ", count_ints(map(len, partition)))
-            
-            print("clustering time: ", time.time() - start)
-            
-            
-            # nodes = dag_to_nodes(circ, partition, arcs)
-
-            # # constraint_is_nonlinear = lambda con : len(con.A) > 0 and len(con.B) > 0
-            # # prop = lambda node : all(map(constraint_is_nonlinear, map(circ.constraints.__getitem__, node.constraints)))
-
-            # prop = lambda node : any(map(lambda sig : sig in node.output_signals, node.input_signals))
-
-            # with_prop = list(filter(lambda key : prop(nodes[key]), nodes.keys()))
-            # print(len(list(with_prop)))
-
-            # # nodes = merge_only_nonlinear(circ, nodes)
-            # nodes = merge_passthrough(circ, nodes)
-
-            # with_prop = list(filter(lambda key : prop(nodes[key]), nodes.keys()))
-
-            # print(len(list(with_prop)))
-
-            # equivalency = easy_fingerprint_then_equivalence(nodes)
-
-            # print("partition len: ", len(partition))
-            # print("partition sizes: ", count_ints(map(len, partition)))
-            # print(equivalency)
-
-            # print(partition, arcs)
-
-            # testname = filename.split("/")[-1]
-            # file_suffix = "_nonlinear_attract_dir" # f"_Louvain_res=sqrt({circ.nConstraints})"
-            # file_type = "png"
-            # outfile = "structural_analysis/clustered_graphs/" + testname[:testname.index(".")] + file_suffix + "." + file_type
-            
-            # dag_graph_to_img(circ, g, partition, arcs, outfile)  
-
-            # signal_to_coni = _signal_data_from_cons_list(circ.constraints)
-            # adjacencies = {coni: set(filter(lambda oconi: coni != oconi, itertools.chain(*map(signal_to_coni.__getitem__, getvars(circ.constraints[coni]))))) for coni in range(circ.nConstraints)}
-            # dist_to_0 = dist_to_source_set([0], adjacencies)
-            # subgraph = list(filter(
-            #     lambda coni : dist_to_0[coni] < 10,
-            #     range(circ.nConstraints)
-            # ))
-            # print(len(subgraph))
-            # dag_graph_to_img(circ, g, partition, arcs, outfile, induced_subgraph = subgraph)
-            # partition_graph_to_img(circ, g, comm, outfile, induced_subgraph = subgraph)
-
-    # def cluster_by_nonlinear_constraints(circ: Circuit):
-    #     nonlinear_constraints, removed = [], []
-    #     for coni, con in enumerate(circ.constraints):
-    #         (nonlinear_constraints if len(con.A) > 0 else removed).append(coni)
-    #     nonlinear_uf = UnionFind()
-    #     for coni in nonlinear_constraints: nonlinear_uf.find(coni)
-
-    #     signal_to_coni = _signal_data_from_cons_list(circ.constraints)
-    #     for complete_graph in signal_to_coni.values():
-    #         nonlinear_uf.union(*filter(lambda coni : len(circ.constraints[coni].A) > 0, complete_graph))
-        
-    #     clusters = {}
-    #     for coni in nonlinear_constraints:
-    #         clusters.setdefault(nonlinear_uf.find(coni), []).append(coni)
-        
-    #     return clusters, None, removed
     
 
 

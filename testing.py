@@ -17,15 +17,15 @@ from r1cs_scripts.modular_operations import multiplyP
 from r1cs_scripts.constraint import Constraint
 from r1cs_scripts.circuit_representation import Circuit
 from r1cs_scripts.read_r1cs import parse_r1cs
-from bij_encodings.preprocessing.singular_preprocessing import singular_class_preprocessing
+from deprecated.preprocessing.singular_preprocessing import singular_class_preprocessing
 from bij_encodings.preprocessing.iterated_adj_reclassing import iterated_adjacency_reclassing
-from bij_encodings.preprocessing.joint_fingerprinting import signal_constraint_fingerprinting
+from deprecated.preprocessing.joint_fingerprinting import signal_constraint_fingerprinting
 from bij_encodings.assignment import Assignment
 from bij_encodings.reduced_encoding.red_class_encoder import reduced_encoding_class
 from bij_encodings.reduced_encoding.red_natural_encoding import ReducedNaturalEncoder
 from bij_encodings.reduced_encoding.red_pseudoboolean_encoding import ReducedPseudobooleanEncoder, pseudoboolean_signal_encoder
 from bij_encodings.online_info_passing import OnlineInfoPassEncoder
-from bij_encodings.batched_info_passing import BatchedInfoPassEncoder, recluster
+from bij_encodings.batched_info_passing import BatchedInfoPassEncoder
 from structural_analysis.clustering_methods.naive.degree_clustering import twice_average_degree, ratio_of_signals
 from structural_analysis.clustering_methods.naive.signal_equivalence_clustering import naive_removal_clustering, is_signal_equivalence_constraint
 from deprecated.modularity.topological_flow_clustering import circuit_topological_clusters
@@ -54,11 +54,11 @@ def get_absmax_lit(clauses):
     
 if __name__ == '__main__':
 
-    filenames = ["Reveal", "Biomebase", "Move", "test_ecdsa", "test_ecdsa_verify"]
+    filenames = ["Poseidon", "Reveal", "Biomebase", "Move", "test_ecdsa", "test_ecdsa_verify"]
     compilers = ["O0", "O1", "O2"]
 
     filenames = filenames[:]
-    compilers = compilers[1:]
+    compilers = compilers[:1]
 
     RNG = np.random.default_rng(312)
 
@@ -75,23 +75,26 @@ if __name__ == '__main__':
 
         print(test, comp, "                                      ")
         file = "r1cs_files/"+ test + comp +".r1cs"
- 
-        run_affirmative_test(
-            file,
-            "test.json", # "test_results/" + test_dir + test + comp + "_60min.json",
-            int(RNG.integers(0, 25565)),
-            None,
-            None, # naive_removal_clustering if comp == "O0" else twice_average_degree,
-            constraint_classes, # groups_from_clusters,
-            preprocessing,
-            OnlineInfoPassEncoder,
-            encoder_kwargs={
-                "class_encoding": reduced_encoding_class,
-                "signal_encoding": pseudoboolean_signal_encoder
-            },
-            debug=False,
-            time_limit= 60 * 60
-        )
+    
+        circ = Circuit()
+        parse_r1cs(file, circ)
+        print(file, circ.nConstraints, circ.nConstraints**2)
+
+        # run_affirmative_test(
+        #     file,
+        #     "test_results/" + test_dir + test + comp + "_60min.json",
+        #     int(RNG.integers(0, 25565)),
+        #     None,
+        #     constraint_classes, # groups_from_clusters,
+        #     preprocessing,
+        #     OnlineInfoPassEncoder,
+        #     encoder_kwargs={
+        #         "class_encoding": reduced_encoding_class,
+        #         "signal_encoding": pseudoboolean_signal_encoder
+        #     },
+        #     debug=False,
+        #     time_limit= 60 * 60
+        # )
 
     # NOTE: previous slowdowns likely due to overuse of memory bc of not itersection with known info at signal level
         # TODO: investigate weirdly slow encodings of small classes (e.g. 4 x 3)
