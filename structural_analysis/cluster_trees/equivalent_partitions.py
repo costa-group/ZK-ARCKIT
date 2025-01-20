@@ -43,6 +43,32 @@ def easy_fingerprint_then_equivalence(nodes: Dict[int, DAGNode], time_limit: int
     """
     fingerprints ensuring all groups have the same number of constraints, signals, inputs/outputs
     """
+    NKGroups = class_fingerprints(nodes)
+
+    # then, for each class put it through naive_equivalency_analysis
+    return list(itertools.chain(*map(lambda nodes_subset : naive_equivalency_analysis(nodes_subset, time_limit), 
+                                 map(lambda keylist: {key: nodes[key] for key in keylist}, 
+                                            NKGroups.values())
+        )))
+
+def structural_augmentation_equivalence(nodes: Dict[int, DAGNode], time_limit: int = 0) -> List[List[int]]:
+    """
+    Does iniital fingerprtinting based on internal information then augments this with structural information as requested then calling equivalence
+    """
+
+    initial_labels = class_fingerprints(nodes)
+    structural_labels = class_iterated_label_passing(nodes, initial_labels)
+
+    return list(itertools.chain(*map(lambda nodes_subset : naive_equivalency_analysis(nodes_subset, time_limit), 
+                                 map(lambda keylist: {key: nodes[key] for key in keylist}, 
+                                            structural_labels.values())
+        )))
+
+def class_fingerprints(nodes: Dict[int, DAGNode]) -> Dict[int, List[int]]:
+    """
+    Gives each node a fingerprints based on the number of constraints, signals, inputs/outputs
+    """
+    
     NKAssignment = Assignment(assignees=1)
     NKGroups = {}
 
@@ -52,21 +78,15 @@ def easy_fingerprint_then_equivalence(nodes: Dict[int, DAGNode], time_limit: int
         map(lambda node : node.get_subcircuit(), nodes.values()))):
 
         hash_ = NKAssignment.get_assignment(key)
-        NKGroups.setdefault(hash_, {})[node.id] = node
+        NKGroups.setdefault(hash_, []).append(node.id)
 
-    # then, for each class put it through naive_equivalency_analysis
-    return list(itertools.chain(*map(
-            lambda nodes_subset : naive_equivalency_analysis(nodes_subset, time_limit), 
-            NKGroups.values()
-        )))
+    return NKGroups
 
-def structural_augmentation_equivalence(nodes: Dict[int, DAGNode], time_limit: int = 0) -> List[List[int]]:
+def class_iterated_label_passing(nodes: Dict[int, DAGNode], initial_labels: Dict[int, List[int]]) -> Dict[int, List[int]]:
     """
-    Does iniital clustering based on internal information then augments this with structural information as requested
+    augments the initial labels with structural information based on locality within the circuit
     """
 
-    initial_classes = easy_fingerprint_then_equivalence(nodes, time_limit)
-    
     names = ["succ", "pred"]
     vertex_to_label = iterated_label_propagation(
         names = names,
@@ -76,7 +96,7 @@ def structural_augmentation_equivalence(nodes: Dict[int, DAGNode], time_limit: i
             "pred": {key  : nodes[key].predecessors for key in nodes.keys()}
         },
         initial_labels = {
-            name: {i : initial_classes[i] for i in range(len(initial_classes))} for name in names
+            name: {label : initial_labels[label] for label in initial_labels.keys()} for name in names
         },
         input_inverse = True,
         return_inverse = False
@@ -88,7 +108,7 @@ def structural_augmentation_equivalence(nodes: Dict[int, DAGNode], time_limit: i
     for key in nodes.keys():
         final_labels.setdefault(merge_labels.get_assignment(vertex_to_label['succ'][key], vertex_to_label['pred'][key]), []).append(key)
 
-    return list(final_labels.values())
+    return final_labels
 
 def collective_equivalency_classes(circ: Circuit, nodes: List[DAGNode]) -> List[List[int]]:
     """
