@@ -171,6 +171,7 @@ def circuit_equivalence(
             **encoder_kwargs
         )
 
+        test_data["formula_size"] = len(formula.clauses)
         solver = Solver(name='cadical195', bootstrap_with=formula)
 
         encoding_time = time.time()

@@ -58,7 +58,7 @@ if __name__ == '__main__':
     compilers = ["O0", "O1", "O2"]
 
     filenames = filenames[:]
-    compilers = compilers[:1]
+    compilers = compilers[:]
 
     RNG = np.random.default_rng(312)
 
@@ -66,12 +66,14 @@ if __name__ == '__main__':
     # preprocessing = None
 
     # TODO: memory optimisation
-    test_dir = "nocluster/"
+    test_dir = "official_tests/"
     preprocessing = iterated_adjacency_reclassing
 
     # test_dir = "method_tests/"
 
     for test, comp in product(filenames, compilers):
+
+        if test == "Poseidon" and comp == "O2": continue
 
         print(test, comp, "                                      ")
         file = "r1cs_files/"+ test + comp +".r1cs"
@@ -80,45 +82,21 @@ if __name__ == '__main__':
         parse_r1cs(file, circ)
         print(file, circ.nConstraints, circ.nConstraints**2)
 
-        # run_affirmative_test(
-        #     file,
-        #     "test_results/" + test_dir + test + comp + "_60min.json",
-        #     int(RNG.integers(0, 25565)),
-        #     None,
-        #     constraint_classes, # groups_from_clusters,
-        #     preprocessing,
-        #     OnlineInfoPassEncoder,
-        #     encoder_kwargs={
-        #         "class_encoding": reduced_encoding_class,
-        #         "signal_encoding": pseudoboolean_signal_encoder
-        #     },
-        #     debug=False,
-        #     time_limit= 60 * 60
-        # )
+        run_affirmative_test(
+            file,
+            "test_results/" + test_dir + test + comp + "_60min.json",
+            int(RNG.integers(0, 25565)),
+            None,
+            constraint_classes, # groups_from_clusters,
+            preprocessing,
+            OnlineInfoPassEncoder,
+            encoder_kwargs={
+                "class_encoding": reduced_encoding_class,
+                "signal_encoding": pseudoboolean_signal_encoder
+            },
+            debug=False,
+            time_limit= 60 * 60
+        )
 
     # NOTE: previous slowdowns likely due to overuse of memory bc of not itersection with known info at signal level
         # TODO: investigate weirdly slow encodings of small classes (e.g. 4 x 3)
-
-    # run_current_best_test(
-    #     "r1cs_files/MultiAND.r1cs",
-    #     "r1cs_files/MultiAND.r1cs",
-    #     "test.json",
-    #     "O0"
-    # )
-
-    # run_current_best_test(
-    #     "r1cs_files/test_ecdsaO0.r1cs",
-    #     "r1cs_files/test_ecdsaO0.r1cs",
-    #     "test_results/iterated_reclassing/ecdsaO0.json",
-    #     "O0"
-    # )
-
-    # filename = "r1cs_files/test_ecdsaO0.r1cs"
-    # in_pair = get_circuits(filename, seed=56)
-
-    # for _, c in in_pair: connected_preporcessing(c)
-
-    # for coni, con in enumerate(in_pair[0][1].constraints):
-    #     if len(getvars(con)) >= 200:
-    #         print(coni, len(getvars(con)))
-    #         break
