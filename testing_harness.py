@@ -8,9 +8,11 @@ from r1cs_scripts.circuit_representation import Circuit
 
 from comparison_testing import get_circuits
 
-from comparison.compare_circuits import circuit_equivalence
+# from comparison.compare_circuits import circuit_equivalence
 from comparison.constraint_preprocessing import constraint_classes
 from bij_encodings.preprocessing.iterated_adj_reclassing import iterated_adjacency_reclassing
+
+from comparison_v2.compare_circuits_v2 import circuit_equivalence
 
 class TimeoutException(Exception): pass
 
