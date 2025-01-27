@@ -48,7 +48,7 @@ def iterated_label_propagation(
     """
     if input_inverse:
         vertex_to_label = {
-            name: {v: None for v in vertices[name]}
+            name: {v: -1 for v in vertices[name]}
             for name in names
         }
     
