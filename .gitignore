@@ -51,6 +51,9 @@
 !comparison
 !comparison/*.py
 
+!comparison_v2
+!comparison_v2/*.py
+
 !README.md
 !.gitignore
 !questions.txt
