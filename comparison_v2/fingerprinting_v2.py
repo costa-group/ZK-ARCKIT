@@ -38,7 +38,8 @@ def back_and_forth_fingerprinting(
             signal_to_normi: Dict[str, List[List[int]]],
             fingerprints_to_normi: Dict[str, Dict[int, List[int]]],
             fingerprints_to_signals: Dict[str, Dict[int, List[int]]],
-            initial_mode: bool = True
+            initial_mode: bool = True,
+            return_index_to_fingerprint: bool = False
         ):
     
     # TODO: think about if we can keep a last_assignment to then check if the assignment has changed and use the pipe that way... this should hopefully reduce the number of checks...
@@ -50,7 +51,9 @@ def back_and_forth_fingerprinting(
     num_singular_norm_fingerprints, norms_to_update = back_and_forth_preprocessing(names, fingerprints_to_normi, norm_fingerprints)
     num_singular_signal_fingerprints, signals_to_update = back_and_forth_preprocessing(names, fingerprints_to_signals, signal_fingerprints)
 
-    if len(norms_to_update) == len(signals_to_update) == 0: return fingerprints_to_normi, fingerprints_to_signals # avoids unnescessary work
+    if len(norms_to_update) == len(signals_to_update) == 0: 
+        if return_index_to_fingerprint: return fingerprints_to_normi, fingerprints_to_signals, norm_fingerprints, signal_fingerprints # avoids unnescessary work
+        return fingerprints_to_normi, fingerprints_to_signals
 
     previous_distinct_norm_fingerprints, previous_distinct_signal_fingerprints = len(fingerprints_to_normi[names[0]]), len(fingerprints_to_signals[names[0]]) ## dummy values
     break_on_next_norm, break_on_next_signal = False, False
@@ -110,6 +113,8 @@ def back_and_forth_fingerprinting(
         for normi in range(len(norm_fingerprints[name])): fingerprints_to_normi[name].setdefault(norm_fingerprints[name][normi], []).append(normi)
         for signal in range(len(signal_fingerprints[name])): fingerprints_to_signals[name].setdefault(signal_fingerprints[name][signal], []).append(signal)
     
+    if return_index_to_fingerprint: return fingerprints_to_normi, fingerprints_to_signals, norm_fingerprints, signal_fingerprints
+
     return fingerprints_to_normi, fingerprints_to_signals
 
 
@@ -139,7 +144,7 @@ def fingerprint_norms(norm : Constraint, signal_fingerprints: List[int]) -> int:
     # norm fingerprint is characteristic of each part
     #   i.e. for each part the values taken by the signals -- given to the fingerprints
 
-    is_ordered = sorted(norm.A.values()) != sorted(norm.B.values())
+    is_ordered = not ( len(norm.A) > 0 and len(norm.B) > 0 and sorted(norm.A.values()) == sorted(norm.B.values()) )
 
     if is_ordered:
         fingerprint = tuple(map(lambda part : tuple(sorted(map(lambda sig : (signal_fingerprints[sig], part[sig]), part.keys()))), [norm.A, norm.B, norm.C]))
