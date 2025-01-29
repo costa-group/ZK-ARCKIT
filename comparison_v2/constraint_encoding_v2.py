@@ -154,7 +154,7 @@ def encode_single_signal_class(signals: List[List[int]], signal_pair_encoder: As
     for index in range(2):
         for signal in signals[index]:
 
-            sat_variables = list(map(lambda osignal: signal_pair_encoder.get_assignment((signal, osignal) if not index else (osignal, signal)), signals[1-index]))
+            sat_variables = list(map(lambda osignal: signal_pair_encoder.get_assignment(*((signal, osignal) if not index else (osignal, signal))), signals[1-index]))
 
             direction_clauses = PBEnc.equals(
                 lits = sat_variables,
