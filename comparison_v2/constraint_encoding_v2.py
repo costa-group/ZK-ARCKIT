@@ -74,16 +74,26 @@ def encode_single_norm_class(
     is_ordered = not ( len(norm.A) > 0 and len(norm.B) > 0 and sorted(norm.A.values()) == sorted(norm.B.values()) )
 
     # for each norm pair we isolate the restriction clauses and add a if_pair -> clauses set to the clauses
-    for normi, normj in itertools.product(*class_.values()):
+    for normi in class_[names[0]]:
 
-        ij_clauses = encode_single_norm_pair(names, [normalised_constraints[names[0]][normi], normalised_constraints[names[1]][normj]], 
-                                     is_ordered, signal_pair_encoder, signal_to_fingerprint, fingerprint_to_signals)
+        normi_options = []
 
-        if ij_clauses == []: continue
+        for normj in class_[names[1]]:
 
-        sat_variable = norm_pair_encoder.get_assignment(normi, normj)
+            ij_clauses = encode_single_norm_pair(names, [normalised_constraints[names[0]][normi], normalised_constraints[names[1]][normj]], 
+                                        is_ordered, signal_pair_encoder, signal_to_fingerprint, fingerprint_to_signals)
 
-        clauses.extend(map(lambda clause: clause + [-sat_variable] , ij_clauses))
+            if len(ij_clauses) == 0: continue
+
+            sat_variable = norm_pair_encoder.get_assignment(normi, normj)
+            normi_options.append(sat_variable)
+
+            clauses.extend(map(lambda clause: clause + [-sat_variable] , ij_clauses))
+    
+        if len(normi_options) == 0:
+            raise AssertionError(f"norm {normi} cannot be mapped to")
+        
+        clauses.append(normi_options)
     
     return clauses
 
@@ -93,7 +103,7 @@ def encode_single_norm_class(
 
 def encode_single_norm_pair(
         names: List[str],
-        norms: List[str],
+        norms: List[Constraint],
         is_ordered: bool,
         signal_pair_encoder: Assignment,
         signal_to_fingerprint: Dict[str, List[int]],
@@ -135,12 +145,14 @@ def encode_single_norm_pair(
                 allkeys[1-i]
             )
 
-            oset.intersection_update(fingerprint_to_signals[names[1-i]][signal_to_fingerprint[names[1-i]][key]])
+            oset.intersection_update(fingerprint_to_signals[names[1-i]][signal_to_fingerprint[names[i]][key]])
 
-            clauses.extend(map(
+            if len(oset) == 0: return []
+
+            clauses.append(list(map(
                 lambda pair : signal_pair_encoder.get_assignment(*((key, pair) if i == 0 else (pair, key))),
                 oset
-            ))
+            )))
     
     return clauses
     
