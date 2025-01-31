@@ -10,24 +10,29 @@ from r1cs_scripts.constraint import Constraint
 from utilities import getvars
 
 def back_and_forth_preprocessing(names, label_to_indices, index_to_label):
-    early_exit(label_to_indices)
-    num_singular, nonsingular_keys = 0, []
+    nonsingular_keys = {name : [] for name in names}
 
-    for key in label_to_indices[names[0]].keys():
-        if len(label_to_indices[names[0]][key]) == 1:
-            num_singular += 1
-            for name in names:
-                for index in label_to_indices[name][key]: index_to_label[name][index] = num_singular
-        else:
-            nonsingular_keys.append(key)
+    singular_remapping = Assignment(assignees=1)
+
+    for name in names:
+        for key in label_to_indices[name].keys():
+            if len(label_to_indices[name][key]) == 1:
+                index_to_label[name][label_to_indices[name][key][0]] = singular_remapping.get_assignment(key)
+            else:
+                nonsingular_keys[name].append(key)
 
     to_update = {name: [] for name in names}
-    for i, key in enumerate(nonsingular_keys):
-        for name in names:
-            for index in label_to_indices[name][key]:
-                to_update[name].append(index)
-                index_to_label[name][index] = num_singular + 1 + i
-    
+    num_singular = len(singular_remapping.assignment) - 1
+
+    nonsingular_remapping = Assignment(assignees=1, offset=num_singular)
+
+    for name in names:
+        for key in nonsingular_keys[name]:
+            new_key = nonsingular_remapping.get_assignment(key)
+            to_update[name].extend(label_to_indices[name][key])
+
+            for index in label_to_indices[name][key]: index_to_label[name][index] = new_key
+
     return num_singular, {name: set(to_update[name]) for name in names}
 
 
@@ -51,11 +56,11 @@ def back_and_forth_fingerprinting(
     num_singular_norm_fingerprints, norms_to_update = back_and_forth_preprocessing(names, fingerprints_to_normi, norm_fingerprints)
     num_singular_signal_fingerprints, signals_to_update = back_and_forth_preprocessing(names, fingerprints_to_signals, signal_fingerprints)
 
-    if len(norms_to_update) == len(signals_to_update) == 0: 
+    if all(map(lambda iterable: len(iterable) == 0, norms_to_update.vales())) and all(map(lambda iterable: len(iterable) == 0, signals_to_update.vales())):
         if return_index_to_fingerprint: return fingerprints_to_normi, fingerprints_to_signals, norm_fingerprints, signal_fingerprints # avoids unnescessary work
         return fingerprints_to_normi, fingerprints_to_signals
 
-    previous_distinct_norm_fingerprints, previous_distinct_signal_fingerprints = len(fingerprints_to_normi[names[0]]), len(fingerprints_to_signals[names[0]]) ## dummy values
+    previous_distinct_norm_fingerprints, previous_distinct_signal_fingerprints = list(map(lambda name : len(fingerprints_to_normi[name]), names)), list(map(lambda name : len(fingerprints_to_signals[name]), names))
     break_on_next_norm, break_on_next_signal = False, False
 
     norm_assignment, signal_assignment = Assignment(assignees=1, offset=num_singular_norm_fingerprints), Assignment(assignees=1, offset=num_singular_signal_fingerprints)
@@ -64,10 +69,9 @@ def back_and_forth_fingerprinting(
 
     ## TODO: introduce new/prev assignment behaviour with a pipe to reduce the number of checks
 
-    while len(norms_to_update) > 0 or len(signals_to_update) > 0: # greater than 1 due to 'switch'
+    while not all(map(lambda iterable: len(iterable) == 0, norms_to_update.vales())) and all(map(lambda iterable: len(iterable) == 0, signals_to_update.vales())):
 
         # things to update in the next update
-        next_to_update = {name: set([]) for name in names}
 
         if fingerprint_mode:
             if break_on_next_norm: break
@@ -79,8 +83,8 @@ def back_and_forth_fingerprinting(
             
             norms_to_update = {name: set([]) for name in names}
                 
-            break_on_next_norm = num_singular_norm_fingerprints + len(fingerprints_to_normi[names[0]].keys()) == previous_distinct_norm_fingerprints
-            previous_distinct_norm_fingerprints = num_singular_norm_fingerprints + len(fingerprints_to_normi[names[0]].keys())
+            break_on_next_norm = all(map(lambda name : num_singular_norm_fingerprints + len(fingerprints_to_normi[name].keys()) == previous_distinct_norm_fingerprints[name], names))
+            previous_distinct_norm_fingerprints = list(map(lambda name : num_singular_norm_fingerprints + len(fingerprints_to_normi[name].keys()), names))
 
             if not break_on_next_norm and not break_on_next_signal:
                 norm_assignment, norm_fingerprints, fingerprints_to_normi, num_singular_norm_fingerprints = switch(
@@ -98,8 +102,8 @@ def back_and_forth_fingerprinting(
             signals_to_update = {name: set([]) for name in names}
 
             # if we haven't made a new class - update signals then break
-            break_on_next_signal = num_singular_signal_fingerprints + len(fingerprints_to_signals[names[0]].keys()) == previous_distinct_signal_fingerprints
-            previous_distinct_signal_fingerprints = num_singular_signal_fingerprints + len(fingerprints_to_signals[names[0]].keys())
+            break_on_next_signal = all(map(lambda name : num_singular_norm_fingerprints + len(fingerprints_to_normi[name].keys()) == previous_distinct_signal_fingerprints[name], names))
+            previous_distinct_signal_fingerprints = list(map(lambda name : num_singular_norm_fingerprints + len(fingerprints_to_normi[name].keys()), names))
 
             if not break_on_next_norm and not break_on_next_signal:
                 signal_assignment, signal_fingerprints, fingerprints_to_signals, num_singular_signal_fingerprints = switch(
@@ -191,31 +195,26 @@ def switch(assignment: Assignment, fingerprints: Dict[str, List[int]], fingerpri
 
     names = list(fingerprints_to_index.keys())
 
-    early_exit(fingerprints_to_index)
-
     # isolate singular classes
-    singular_fingerprints = []
-    nonsingular_fingerprints = []
-    
-    deque(maxlen=0, iterable=map(lambda key : singular_fingerprints.append(key) if len(fingerprints_to_index[names[0]][key]) == 1 else nonsingular_fingerprints.append(key), 
-                                 fingerprints_to_index[names[0]].keys()))
+    nonsingular_fingerprints = {name: [] for name in names}
+    singular_renaming = Assignment(assignees=1, offset=num_singular_fingerprints)
 
-    for i, fingerprint in enumerate(singular_fingerprints):
-        for name in names:
-            index = fingerprints_to_index[name][fingerprint][0]
+    for name in names:
+        for key in fingerprints_to_index[name].keys():
+            if len(fingerprints_to_index[name][key]) == 1:
+                fingerprints[name][fingerprints_to_index[name][key][0]] = singular_renaming.get_assignment(key)
+            else:
+                nonsingular_fingerprints[name].append(key)
 
-            fingerprints[name][index] = num_singular_fingerprints + 1 + i
+    num_singular_fingerprints += len(singular_renaming.assignments) - 1
 
-    num_singular_fingerprints = num_singular_fingerprints + len(singular_fingerprints)
-
-
+    ## needs to be new for if some key is singular in one but not the other
     new_assignment = Assignment(assignees=1, offset=num_singular_fingerprints)
 
     # now need to reset the nonsingular assignment so that we haven't accidentally overwritten anything
     for name in names:
         # assignment retains old hash info to ensure that we can check previous
-
-        for key in nonsingular_fingerprints:
+        for key in nonsingular_fingerprints[name]:
             old_fingerprint = assignment.get_inv_assignment(key)
             new_key = new_assignment.get_assignment(old_fingerprint)
 
