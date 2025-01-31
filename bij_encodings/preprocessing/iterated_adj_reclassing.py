@@ -116,8 +116,7 @@ def iterated_label_propagation(
                 )
                 new_label_to_vertex[name].setdefault(hash_, []).append(coni) 
 
-        if len(new_label_to_vertex[names[0]]) == len(label_to_vertex[names[0]]):
-            break
+        if all(map(lambda name : len(new_label_to_vertex[name]) == len(label_to_vertex[name], names))): break
 
         label_to_vertex, max_singular_label = remove_lone_classes(new_label_to_vertex, max_singular_label)
 
