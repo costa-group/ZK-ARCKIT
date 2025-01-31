@@ -31,7 +31,9 @@ def circuit_equivalence(
         encoder: Encoder = ReducedPseudobooleanEncoder,
         test_data: Dict[str, any] = {},
         debug: bool = False,
-        encoder_kwargs: dict = {}
+        encoder_kwargs: dict = {},
+        fingerprints_to_normi: Dict[str, Dict[int, List[int]]] | None = None,
+        fingerprints_to_signals: Dict[str, Dict[int, List[int]]] | None = None
         ) -> Dict[str, any]:
     
     names = [in_pair[0][0], in_pair[1][0]]
@@ -80,15 +82,16 @@ def circuit_equivalence(
         if len(normalised_constraints[names[0]]) != len(normalised_constraints[names[1]]): 
             raise AssertionError(f"EE: Different number of normalised constraints, {names[0]} had {len(normalised_constraints[names[0]])} where {names[1]} had {len(normalised_constraints[names[1]])}")
 
-
-        fingerprints_to_normi = {name: { 1 : list(range(len(normalised_constraints[name])))} for name in names}
-
+        if fingerprints_to_normi is None: 
+            fingerprints_to_normi = {name: { 1 : list(range(len(normalised_constraints[name])))} for name in names}
         # signals initially classed on input / output / neither
-        fingerprints_to_signals = {name : {0 : [0], 
-                                           1 : list(range(1,circ.nPubOut+1)), 
-                                           2 : list(range(circ.nPubOut+1, circ.nPubOut + circ.nPrvIn + circ.nPubIn + 1)), 
-                                           3 : list(range(circ.nPubOut + circ.nPrvIn + circ.nPubIn + 1, circ.nWires))} 
-                                   for name, circ in in_pair}
+    
+        if fingerprints_to_signals is None:
+            fingerprints_to_signals = {name : {0 : [0], 
+                                            1 : list(range(1,circ.nPubOut+1)), 
+                                            2 : list(range(circ.nPubOut+1, circ.nPubOut + circ.nPrvIn + circ.nPubIn + 1)), 
+                                            3 : list(range(circ.nPubOut + circ.nPrvIn + circ.nPubIn + 1, circ.nWires))} 
+                                    for name, circ in in_pair}
 
         # encode initial fingerprints but norms now have signal class in norm
         fingerprints_to_normi, fingerprints_to_signals, _, signal_to_fingerprints = back_and_forth_fingerprinting(
