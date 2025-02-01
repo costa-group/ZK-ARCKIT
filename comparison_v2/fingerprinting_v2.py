@@ -56,11 +56,11 @@ def back_and_forth_fingerprinting(
     num_singular_norm_fingerprints, norms_to_update = back_and_forth_preprocessing(names, fingerprints_to_normi, norm_fingerprints)
     num_singular_signal_fingerprints, signals_to_update = back_and_forth_preprocessing(names, fingerprints_to_signals, signal_fingerprints)
 
-    if all(map(lambda iterable: len(iterable) == 0, norms_to_update.vales())) and all(map(lambda iterable: len(iterable) == 0, signals_to_update.vales())):
+    if all(map(lambda iterable: len(iterable) == 0, norms_to_update.values())) and all(map(lambda iterable: len(iterable) == 0, signals_to_update.values())):
         if return_index_to_fingerprint: return fingerprints_to_normi, fingerprints_to_signals, norm_fingerprints, signal_fingerprints # avoids unnescessary work
         return fingerprints_to_normi, fingerprints_to_signals
 
-    previous_distinct_norm_fingerprints, previous_distinct_signal_fingerprints = list(map(lambda name : len(fingerprints_to_normi[name]), names)), list(map(lambda name : len(fingerprints_to_signals[name]), names))
+    previous_distinct_norm_fingerprints, previous_distinct_signal_fingerprints = { name :  len(fingerprints_to_normi[name]) for name in names}, { name : len(fingerprints_to_signals[name]) for name in names }
     break_on_next_norm, break_on_next_signal = False, False
 
     norm_assignment, signal_assignment = Assignment(assignees=1, offset=num_singular_norm_fingerprints), Assignment(assignees=1, offset=num_singular_signal_fingerprints)
@@ -69,7 +69,7 @@ def back_and_forth_fingerprinting(
 
     ## TODO: introduce new/prev assignment behaviour with a pipe to reduce the number of checks
 
-    while not all(map(lambda iterable: len(iterable) == 0, norms_to_update.vales())) and all(map(lambda iterable: len(iterable) == 0, signals_to_update.vales())):
+    while not all(map(lambda iterable: len(iterable) == 0, norms_to_update.values())) and all(map(lambda iterable: len(iterable) == 0, signals_to_update.values())):
 
         # things to update in the next update
 
@@ -206,7 +206,7 @@ def switch(assignment: Assignment, fingerprints: Dict[str, List[int]], fingerpri
             else:
                 nonsingular_fingerprints[name].append(key)
 
-    num_singular_fingerprints += len(singular_renaming.assignments) - 1
+    num_singular_fingerprints += len(singular_renaming.assignment) - 1
 
     ## needs to be new for if some key is singular in one but not the other
     new_assignment = Assignment(assignees=1, offset=num_singular_fingerprints)

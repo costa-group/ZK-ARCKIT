@@ -301,7 +301,7 @@ class DAGNode():
         """
         return {
             key: val for key, val in [
-                ("node_id", self.id), ("constraints", self.constraints),
+                ("node_id", self.id), ("constraints", self.constraints), ("signals", list(set(itertools.chain(*map(getvars, map(self.circ.constraints.__getitem__, self.constraints)))))),
                 # need to convert to hashable type list
                 ("input_signals", list(self.input_signals)), ("output_signals", list(self.output_signals)),
                 ("successors", self.successors)
