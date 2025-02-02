@@ -73,6 +73,7 @@ from structural_analysis.utilities.connected_preprocessing import componentwise_
 from structural_analysis.clustering_methods.nonlinear_attract import nonlinear_attract_clustering
 from structural_analysis.cluster_trees.dag_from_clusters import dag_from_partition, partition_from_partial_clustering, dag_to_nodes, nodes_to_json
 from structural_analysis.cluster_trees.equivalent_partitions import easy_fingerprint_then_equivalence, structural_augmentation_equivalence
+from structural_analysis.cluster_trees.full_equivalency_partitions import subcircuit_fingerprinting_equivalency, subcircuit_fingerprint_with_structural_augmentation_equivalency
 from structural_analysis.utilities.graph_to_img import dag_graph_to_img
 from structural_analysis.cluster_trees.dag_postprocessing import merge_passthrough, merge_only_nonlinear
 
@@ -151,10 +152,10 @@ def r1cs_cluster(
         match equivalence_method:
 
             case "fingerprint":
-                equivalency = easy_fingerprint_then_equivalence(nodes)
+                equivalency = subcircuit_fingerprinting_equivalency(nodes) # easy_fingerprint_then_equivalence(nodes)
 
             case "structural":
-                equivalency = structural_augmentation_equivalence(nodes)
+                equivalency = subcircuit_fingerprint_with_structural_augmentation_equivalency(nodes) # structural_augmentation_equivalence(nodes)
 
             case _ :
                 raise SyntaxError(f"{equivalence_method} is not a valid equivalence method")
@@ -243,4 +244,4 @@ if __name__ == '__main__':
 
     r1cs_cluster(*req_args, automerge_passthrough=automerge_passthrough, automerge_only_nonlinear=automerge_only_nonlinear, return_img=return_img, timing=timing)
 
-    # python3 cluster.py r1cs_files/binsub_test.r1cs -o structural_analysis/clustered_graphs -i
+    # python3 cluster.py r1cs_files/binsub_test.r1cs -o clustering_tests -e structural

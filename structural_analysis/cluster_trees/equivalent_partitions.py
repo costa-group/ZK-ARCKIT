@@ -10,7 +10,7 @@ from utilities import getvars
 from bij_encodings.assignment import Assignment
 from testing_harness import quick_compare
 
-def naive_equivalency_analysis(nodes: Dict[int, DAGNode], time_limit: int = 0) -> List[List[int]]:
+def naive_equivalency_analysis(nodes: Dict[int, DAGNode], time_limit: int = 0,  fingerprints_to_normi = None, fingerprints_to_signals = None) -> List[List[int]]:
     """
     iterates over the list of partition, definition sub-circuits for each partition and comparing with each class representative
         worst-case time: O(len(partition)^2
@@ -28,7 +28,11 @@ def naive_equivalency_analysis(nodes: Dict[int, DAGNode], time_limit: int = 0) -
 
             # subcircuit only calculated once then stored in the class so this isn't wasting time
             repr_circ = nodes[class_[0]].get_subcircuit()
-            equivalent = quick_compare(sub_circ, repr_circ, time_limit)
+
+            initial_norm_fingerprints = None if fingerprints_to_normi is None else { node.id : fingerprints_to_normi[node.id] for node in [node, nodes[class_[0]]]}
+            initial_signal_fingerprints = None if fingerprints_to_signals is None else { node.id : fingerprints_to_signals[node.id] for node in [node, nodes[class_[0]]]}
+
+            equivalent = quick_compare((node.id, sub_circ), (nodes[class_[0]].id, repr_circ), time_limit, fingerprints_to_normi = initial_norm_fingerprints, fingerprints_to_signals = initial_signal_fingerprints)
 
             if equivalent: 
                 class_.append(node_id)
