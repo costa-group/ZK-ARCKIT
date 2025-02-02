@@ -119,8 +119,7 @@ def encode_single_norm_pair(
     dicts = list(map(lambda norm : [norm.A, norm.B, norm.C], norms))
     allkeys = list(map(getvars, norms))
     
-    if is_ordered:
-        app, inv = (_compare_norms_with_ordered_parts if is_ordered else _compare_norms_with_unordered_parts)(dicts, allkeys)
+    app, inv = (_compare_norms_with_ordered_parts if is_ordered else _compare_norms_with_unordered_parts)(dicts, allkeys)
 
     for j in range(3):
         if len( set(inv[0][j].keys()).symmetric_difference(inv[1][j].keys()) ) != 0:
