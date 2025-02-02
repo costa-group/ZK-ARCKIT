@@ -1,3 +1,5 @@
+from typing import Tuple
+
 import time
 import json
 import signal # NOTE: use of signal as a timeout handler requires unix
@@ -36,7 +38,8 @@ def exception_catcher(
     test_data: Dict[str, any] = {},
     debug: bool = False,
     time_limit_seconds: int = 0, # 0 means no limit
-    encoder_kwargs: dict = {}
+    encoder_kwargs: dict = {},
+    **kwargs
     ):   
 
     start = time.time()
@@ -50,7 +53,8 @@ def exception_catcher(
                 encoder,
                 test_data,
                 debug,
-                encoder_kwargs
+                encoder_kwargs,
+                **kwargs
             )
     except Exception as e:
         # print(e)
@@ -71,7 +75,8 @@ def run_affirmative_test(
         encoder,
         debug: bool = False,
         time_limit: int = 0,
-        encoder_kwargs: dict = {}
+        encoder_kwargs: dict = {},
+        **kwargs
     ):
 
     in_pair = get_circuits(filename, seed = seed, 
@@ -91,7 +96,8 @@ def run_affirmative_test(
         test_data,
         debug,
         time_limit,
-        encoder_kwargs
+        encoder_kwargs,
+        **kwargs
     )
 
     # TODO: check result?
@@ -111,15 +117,16 @@ from bij_encodings.reduced_encoding.red_class_encoder import reduced_encoding_cl
 from bij_encodings.reduced_encoding.red_pseudoboolean_encoding import pseudoboolean_signal_encoder
 
 def quick_compare(
-    lcirc: Circuit,
-    rcirc: Circuit,
+    lpair: Tuple[str, Circuit],
+    rpair: Tuple[str, Circuit],
     time_limit_seconds: int = 0,
     debug: bool = False,
+    **kwargs
 ) -> bool:
     try:
         with time_limit(time_limit_seconds):
             data = circuit_equivalence(
-                [("S1", lcirc), ("S2", rcirc)],
+                [lpair, rpair],
                 None,
                 constraint_classes,
                 iterated_adjacency_reclassing,
@@ -129,6 +136,7 @@ def quick_compare(
                     "signal_encoding" : pseudoboolean_signal_encoder
                 },
                 debug=debug,
+                **kwargs
             )
     except TimeoutException:
         return False
