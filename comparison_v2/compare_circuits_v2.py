@@ -18,7 +18,7 @@ from bij_encodings.assignment import Assignment
 from bij_encodings.reduced_encoding.red_pseudoboolean_encoding import ReducedPseudobooleanEncoder
 from bij_encodings.preprocessing.iterated_adj_reclassing import iterated_label_propagation
 
-from comparison_v2.fingerprinting_v2 import back_and_forth_fingerprinting
+from comparison_v2.fingerprinting_v2 import back_and_forth_fingerprinting, early_exit
 from comparison_v2.constraint_encoding_v2 import encode_classes_v2
 
 # TODO: tomorrow
@@ -98,6 +98,9 @@ def circuit_equivalence(
             names, in_pair, normalised_constraints, signal_to_normi, fingerprints_to_normi, fingerprints_to_signals, return_index_to_fingerprint=True
         )
 
+        early_exit(fingerprints_to_normi)
+        early_exit(fingerprints_to_signals)
+
         back_and_forth_fingerprinting_time = time.time()
         test_data["timing"]["back_and_forth_fingerprinting"] = back_and_forth_fingerprinting_time - last_time
         last_time = back_and_forth_fingerprinting_time
@@ -109,8 +112,6 @@ def circuit_equivalence(
                 "counts": [x[1] for x in ints]
             }
         # now do label passing for constraints
-
-        ## TODO: double check early exits
 
         if len(fingerprints_to_normi[names[0]]) != len(normalised_constraints[names[0]]):
 
@@ -145,6 +146,9 @@ def circuit_equivalence(
             fingerprints_to_normi, fingerprints_to_signals, _, signal_to_fingerprints = back_and_forth_fingerprinting(
                 names, in_pair, normalised_constraints, signal_to_normi, fingerprints_to_normi, fingerprints_to_signals, initial_mode=False, return_index_to_fingerprint=True
             )
+
+            early_exit(fingerprints_to_normi)
+            early_exit(fingerprints_to_signals)
 
             back_and_forth_fingerprinting_time = time.time()
             test_data["timing"]["back_and_forth_redux"] = back_and_forth_fingerprinting_time - last_time
