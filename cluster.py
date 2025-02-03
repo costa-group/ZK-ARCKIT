@@ -71,6 +71,7 @@ from networkx.algorithms.community import louvain_communities
 from structural_analysis.utilities.constraint_graph import shared_signal_graph
 from structural_analysis.utilities.connected_preprocessing import componentwise_preprocessing
 from structural_analysis.clustering_methods.nonlinear_attract import nonlinear_attract_clustering
+from structural_analysis.clustering_methods.linear_coefficient import cluster_by_linear_coefficient
 from structural_analysis.cluster_trees.dag_from_clusters import dag_from_partition, partition_from_partial_clustering, dag_to_nodes, nodes_to_json
 from structural_analysis.cluster_trees.equivalent_partitions import easy_fingerprint_then_equivalence, structural_augmentation_equivalence
 from structural_analysis.cluster_trees.full_equivalency_partitions import subcircuit_fingerprinting_equivalency, subcircuit_fingerprint_with_structural_augmentation_equivalency
@@ -127,6 +128,10 @@ def r1cs_cluster(
             case "louvain":
                 g = shared_signal_graph(circ.constraints)
                 partition = list(map(list, louvain_communities(g, resolution=circ.nConstraints ** (0.5))))
+            
+            case "linear_coefficient":
+                clusters, _, remaining = cluster_by_linear_coefficient(circ, coefs=[-1])
+                partition = partition_from_partial_clustering(circ, clusters.values(), remaining=remaining)
 
             case _ :
                 raise SyntaxError(f"{clustering_method} is not a valid clustering_method")
@@ -149,6 +154,10 @@ def r1cs_cluster(
             timing['nonlinear_merge'] = time.time() - last_time
             last_time = time.time()
 
+        if return_img:
+            if g is None: g = shared_signal_graph(circ.constraints)
+            dag_graph_to_img(circ, g, nodes, get_outfile(index, clustering_method, "png"))
+
         match equivalence_method:
 
             case "fingerprint":
@@ -169,16 +178,9 @@ def r1cs_cluster(
             "equivalency": equivalency
         }
 
-        # TODO: implement flag behaviour
-
-        if return_img:
-            if g is None: g = shared_signal_graph(circ.constraints)
-            dag_graph_to_img(circ, g, nodes, get_outfile(index, clustering_method, "png"))
-
-        else:
-            f = open(get_outfile(index, clustering_method, "json"), "w")
-            json.dump(return_json, f, indent=4)
-            f.close()
+        f = open(get_outfile(index, clustering_method, "json"), "w")
+        json.dump(return_json, f, indent=4)
+        f.close()
 
 
 

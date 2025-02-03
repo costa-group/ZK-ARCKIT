@@ -92,7 +92,7 @@ def partition_graph_to_img(
     pd.Graph | None
         pydot version of the input graph
     """
-    g = circuit_graph_to_img(circ, G, **kwargs)
+    g = circuit_graph_to_img(circ, G, return_graph = True, **kwargs)
 
     # formatted this way to work with induced subgraphs
     for i, part in enumerate(partition):
