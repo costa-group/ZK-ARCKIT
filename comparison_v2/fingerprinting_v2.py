@@ -22,7 +22,7 @@ def back_and_forth_preprocessing(names, label_to_indices, index_to_label):
                 nonsingular_keys[name].append(key)
 
     to_update = {name: [] for name in names}
-    num_singular = len(singular_remapping.assignment) - 1
+    num_singular = len(singular_remapping.inv_assignment) - 1
 
     nonsingular_remapping = Assignment(assignees=1, offset=num_singular)
 
@@ -69,7 +69,7 @@ def back_and_forth_fingerprinting(
 
     ## TODO: introduce new/prev assignment behaviour with a pipe to reduce the number of checks
 
-    while not all(map(lambda iterable: len(iterable) == 0, norms_to_update.values())) and all(map(lambda iterable: len(iterable) == 0, signals_to_update.values())):
+    while not ( all(map(lambda iterable: len(iterable) == 0, norms_to_update.values())) and all(map(lambda iterable: len(iterable) == 0, signals_to_update.values())) ):
 
         # things to update in the next update
 
@@ -84,7 +84,7 @@ def back_and_forth_fingerprinting(
             norms_to_update = {name: set([]) for name in names}
                 
             break_on_next_norm = all(map(lambda name : num_singular_norm_fingerprints + len(fingerprints_to_normi[name].keys()) == previous_distinct_norm_fingerprints[name], names))
-            previous_distinct_norm_fingerprints = list(map(lambda name : num_singular_norm_fingerprints + len(fingerprints_to_normi[name].keys()), names))
+            previous_distinct_norm_fingerprints = { name : num_singular_norm_fingerprints + len(fingerprints_to_normi[name].keys()) for name in names}
 
             if not break_on_next_norm and not break_on_next_signal:
                 norm_assignment, norm_fingerprints, fingerprints_to_normi, num_singular_norm_fingerprints = switch(
@@ -102,8 +102,8 @@ def back_and_forth_fingerprinting(
             signals_to_update = {name: set([]) for name in names}
 
             # if we haven't made a new class - update signals then break
-            break_on_next_signal = all(map(lambda name : num_singular_norm_fingerprints + len(fingerprints_to_normi[name].keys()) == previous_distinct_signal_fingerprints[name], names))
-            previous_distinct_signal_fingerprints = list(map(lambda name : num_singular_norm_fingerprints + len(fingerprints_to_normi[name].keys()), names))
+            break_on_next_signal = all(map(lambda name : num_singular_signal_fingerprints + len(fingerprints_to_signals[name].keys()) == previous_distinct_signal_fingerprints[name], names))
+            previous_distinct_signal_fingerprints = { name : num_singular_signal_fingerprints + len(fingerprints_to_signals[name].keys()) for name in names}
 
             if not break_on_next_norm and not break_on_next_signal:
                 signal_assignment, signal_fingerprints, fingerprints_to_signals, num_singular_signal_fingerprints = switch(
@@ -139,7 +139,6 @@ def fingerprint(is_norm: bool, item: Constraint | int, index: int, assignment: A
     if new_hash != index_to_fingerprint[index]: 
         to_update.update(filter(lambda ind : other_index_to_fingerprint[ind] > other_num_singular, if_to_update))
 
-    new_hash = assignment.get_assignment(fingerprint) 
     index_to_fingerprint[index] = new_hash
     fingerprints_to_indices.setdefault(new_hash, []).append(index)    
 
@@ -206,7 +205,7 @@ def switch(assignment: Assignment, fingerprints: Dict[str, List[int]], fingerpri
             else:
                 nonsingular_fingerprints[name].append(key)
 
-    num_singular_fingerprints += len(singular_renaming.assignment) - 1
+    num_singular_fingerprints += len(singular_renaming.inv_assignment) - 1
 
     ## needs to be new for if some key is singular in one but not the other
     new_assignment = Assignment(assignees=1, offset=num_singular_fingerprints)
