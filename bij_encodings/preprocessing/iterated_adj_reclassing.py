@@ -80,7 +80,7 @@ def iterated_label_propagation(
             else:
                 non_singular_classes.append((key, name))
 
-        max_singular_label = max_singular_label + len(singular_renaming.assignment) - 1
+        max_singular_label = max_singular_label + len(singular_renaming.inv_assignment) - 1
         
         # TODO: more efficient way to remove conflicts with new_classes? 
         #       (could always add +len(classes) to right but that causes problems with int comparison)
