@@ -39,7 +39,19 @@ The following flags alter the behaviour of the file
             json file
         : alternative
             -i
+    
+    --timeout
+        defines the timeout time for the program in seconds
+        : default
+            0 seconds (no timeout)
+        : alternative
+            -t
 
+    --dont-undo-mapping
+        doesn't undo the mapping from preprocessing
+        : default
+            signal/constraint indices as per original .r1cs
+    
     --no-timing-information
         removes the timing breakdown from the JSON
         : default
@@ -67,6 +79,7 @@ import time
 from r1cs_scripts.circuit_representation import Circuit
 from r1cs_scripts.read_r1cs import parse_r1cs
 from networkx.algorithms.community import louvain_communities
+from testing_harness import time_limit
 
 from structural_analysis.utilities.constraint_graph import shared_signal_graph
 from structural_analysis.utilities.connected_preprocessing import componentwise_preprocessing
@@ -86,18 +99,27 @@ def r1cs_cluster(
         return_img: bool = False,
         automerge_passthrough: bool = False,
         automerge_only_nonlinear: bool = False,
-        timing: bool = True
+        timing: bool = True,
+        undo_remapping: bool = True
     ):
     """
     Manager function for handling the clustering methods, for a complete specification see `cluster.py'
     """
     
-    circ = Circuit()
-    parse_r1cs(input_filename, circ)
+    main_circ = Circuit()
+    parse_r1cs(input_filename, main_circ)
 
-    circs, sig_mapping, con_mapping = componentwise_preprocessing(circ)
+    circs, sig_mapping, con_mapping = componentwise_preprocessing(main_circ)
     # TODO: pass mapping data to output json
     # TODO: add timing information for utility/debugging
+
+    if undo_remapping:
+        coni_inverse, sig_inverse = [[None for _ in range(circ.nConstraints)] for circ in circs], [[None for _ in range(circ.nWires)] for circ in circs]
+        for mapping, inverse in zip([sig_mapping, con_mapping], [sig_inverse, coni_inverse]):
+            for val_index, value in enumerate(mapping):
+                if value is None: continue
+                circ_index, new_val_index = value
+                inverse[circ_index][new_val_index] = val_index
 
     g = None
 
@@ -171,10 +193,10 @@ def r1cs_cluster(
 
         timing['equivalency'] = time.time() - last_time
         timing['total'] = time.time() - start
-        
+
         return_json = {
             "timing": timing,
-            "nodes": list(map(lambda n : n.to_dict(), nodes.values())) ,
+            "nodes": list(map(lambda n : n.to_dict(inverse_mapping = (coni_inverse[index], sig_inverse[index]) if undo_remapping else None ), nodes.values())) ,
             "equivalency": equivalency
         }
 
@@ -187,7 +209,8 @@ def r1cs_cluster(
 if __name__ == '__main__':
 
     req_args = [None, None, None, None]
-    automerge_passthrough, automerge_only_nonlinear, return_img , timing = False, False, False, True
+    timeout = 0
+    automerge_passthrough, automerge_only_nonlinear, return_img , timing, undo_remapping = False, False, False, True, True
 
     def set_file(index: int, filename: str):
         if filename[0] == '-': raise SyntaxError(f"Invalid {'input' if not index else 'outout'} filename {filename}")
@@ -231,7 +254,16 @@ if __name__ == '__main__':
             case "--equivalence": 
                 set_file(3, sys.argv[i+1])
                 i += 2
+            case "-t":
+                if sys.argv[i+1][0] == '-': raise SyntaxError(f"Invalid timeout value {sys.argv[i+1]}")
+                timeout = int(sys.argv[i+1])
+                i += 2
+            case "--timeout":
+                if sys.argv[i+1][0] == '-': raise SyntaxError(f"Invalid timeout value {sys.argv[i+1]}")
+                timeout = int(sys.argv[i+1])
+                i += 2
             case "-i": return_img, i = True, i + 1
+            case "--dont-undo-mapping": undo_remapping = False
             case "--return_img": return_img, i = True, i + 1
             case "--automerge-passthrough": automerge_passthrough, i = True, i + 1
             case "--automerge-only-nonlinear": automerge_only_nonlinear, i = True, i + 1
@@ -244,6 +276,7 @@ if __name__ == '__main__':
     if req_args[2] is None: req_args[2] = "nonlinear_attract"
     if req_args[3] is None: req_args[3] = "structural"
 
-    r1cs_cluster(*req_args, automerge_passthrough=automerge_passthrough, automerge_only_nonlinear=automerge_only_nonlinear, return_img=return_img, timing=timing)
+    with time_limit(timeout):
+        r1cs_cluster(*req_args, automerge_passthrough=automerge_passthrough, automerge_only_nonlinear=automerge_only_nonlinear, return_img=return_img, timing=timing, undo_remapping = undo_remapping)
 
     # python3 cluster.py r1cs_files/binsub_test.r1cs -o clustering_tests -e structural
