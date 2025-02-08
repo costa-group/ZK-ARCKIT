@@ -295,15 +295,24 @@ class DAGNode():
 
         return self.subcircuit
     
-    def to_dict(self) -> Dict[str, int | List[int]]:
+    def to_dict(self, inverse_mapping = Tuple[dict] | None) -> Dict[str, int | List[int]]:
         """
         Returns a dictionary that contains the information required for outputting to JSON
         """
+
+        def inverse_coni(index):
+            if inverse_mapping is None: return index
+            return inverse_mapping[0][index]
+    
+        def inverse_signal(index):
+            if inverse_mapping is None: return index
+            return inverse_mapping[1][index]
+
         return {
             key: val for key, val in [
-                ("node_id", self.id), ("constraints", self.constraints), ("signals", list(set(itertools.chain(*map(getvars, map(self.circ.constraints.__getitem__, self.constraints)))))),
+                ("node_id", self.id), ("constraints", list(map(inverse_coni, self.constraints))), ("signals", list(map(inverse_signal, set(itertools.chain(*map(getvars, map(self.circ.constraints.__getitem__, self.constraints))))))),
                 # need to convert to hashable type list
-                ("input_signals", list(self.input_signals)), ("output_signals", list(self.output_signals)),
+                ("input_signals", list(map(inverse_signal, self.input_signals))), ("output_signals", list(map(inverse_signal, self.output_signals))),
                 ("successors", self.successors)
             ]
         }
