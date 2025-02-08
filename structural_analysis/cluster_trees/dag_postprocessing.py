@@ -58,56 +58,57 @@ def merge_under_property(circ: Circuit, nodes: Dict[int, DAGNode],
     def check_viability(lkey: int, rkey: int) -> bool:
         adjacencies[extra_key] = set(itertools.chain(*map(lambda key : nodes[key].successors, [lkey, rkey]))).difference([lkey, rkey])
         return not DFS_reachability(extra_key, [lkey, rkey], adjacencies)
+    
+    to_merge_queue = collections.deque(filter(lambda key : property(nodes[key]), nodes.keys()))
+    first_unmerged = None
 
-    merged_something = True
-    while merged_something:
+    while len(to_merge_queue) > 0:
 
-        merged_something = False
+        nkey = to_merge_queue.popleft()
 
-        # need list now because keys might be deleted. -- could fix other way if memory becomes a problem
-        passthrough_nodes = list(filter(lambda key : property(nodes[key]), nodes.keys()))
+        ## used to stop infinite looping when no viable merges available
+        if nkey == first_unmerged: break
 
-        for nkey in passthrough_nodes:
+        ## successor node merged with parent might not exist anymore
+        if nkey not in nodes.keys(): continue
 
-            # has already been merged
-            if nkey not in nodes.keys(): continue
+        index_to_nkeys = nodes[nkey].predecessors + nodes[nkey].successors
+        adjacent_to_property = [
+            parent_property(nodes[key], nodes[nkey]) for key in nodes[nkey].predecessors ] + [
+            child_property(nodes[nkey], nodes[key]) for key in nodes[nkey].successors ]
 
-            # we want a successor that has all sig_in_both as input and none as output.
-            #   otherwise, choose viable that maximises the number of sig_in_both dealt with (and deal with next on next iteration)
+        # check viability of adjacent nodes
+            # no path from key (adj) to nkey
+            # -- TODO: maybe cache this since it's the hardest information (can cache shortest path..?)
+        adjacent_is_viable = [
+            adjacent_to_property[i] > 0 and check_viability(nkey, key)
+            for i, key in enumerate(index_to_nkeys)
+        ]
 
-            # check outputs of adjacent nodes
+        # choose a viable successor
+        #   if no viable successor do nothing (one may appear layer)
+        to_merge = sorted(filter(adjacent_is_viable.__getitem__, range(len(index_to_nkeys))), 
+                        key = adjacent_to_property.__getitem__, reverse = True)
+        
+        ## no viable to match
+        if len(to_merge) == 0: 
+            if first_unmerged is None: first_unmerged = nkey
+            to_merge_queue.append(nkey)
+            continue
 
-            index_to_nkeys = nodes[nkey].predecessors + nodes[nkey].successors
-            adjacent_to_property = [
-                parent_property(nodes[key], nodes[nkey]) for key in nodes[nkey].predecessors ] + [
-                child_property(nodes[nkey], nodes[key]) for key in nodes[nkey].successors ]
+        first_unmerged = None
 
-            # check viability of adjacent nodes
-                # no path from key (adj) to nkey
-                # -- TODO: maybe cache this since it's the hardest information (can cache shortest path..?)
-            adjacent_is_viable = [
-                adjacent_to_property[i] > 0 and check_viability(nkey, key)
-                for i, key in enumerate(index_to_nkeys)
-            ]
+        index = to_merge[0]
+        is_predecessor = index < len(nodes[nkey].predecessors)
+        okey = index_to_nkeys[index]
 
-            # choose a viable successor
-            #   if no viable successor do nothing (one may appear layer)
-            to_merge = sorted(filter(adjacent_is_viable.__getitem__, range(len(index_to_nkeys))), 
-                            key = adjacent_to_property.__getitem__, reverse = True)
-            
-            if len(to_merge) == 0: continue
+        parent_key, child_key = (okey, nkey) if is_predecessor else (nkey, okey)
 
-            index = to_merge[0]
-            is_predecessor = index < len(nodes[nkey].predecessors)
-            okey = index_to_nkeys[index]
+        merge_nodes(parent_key, child_key, nodes, sig_to_coni, coni_to_node, adjacencies)
 
-            merged_something = True
-
-            merge_nodes(*((okey, nkey) if is_predecessor else (nkey, okey)), nodes, sig_to_coni, coni_to_node, adjacencies)
+        if property(nodes[parent_key]): to_merge_queue.append(parent_key)
 
     return nodes
-
-    # do we still only care about nonlinear constraints ?? presumably but I feel like this wouldn't hurt linear collapse
 
 def merge_passthrough(circ: Circuit, nodes: Dict[int, DAGNode]) -> Dict[int, DAGNode]:
     """
@@ -202,38 +203,34 @@ def merge_nodes(lkey: int, rkey: int, nodes: Dict[int, DAGNode],
     None
         nodes, coni_to_node, adjacencies are all mutated to update with the new data
     """
-
     assert any(map(lambda sig : sig in nodes[rkey].input_signals, nodes[lkey].output_signals)), "lkey is not successor of rkey"
 
-    newnode = DAGNode(
-        nodes[lkey].circ,
-        lkey,
-        nodes[lkey].constraints + nodes[rkey].constraints,
-        set([]), set([])
-    )
-
-    newnode.successors   = list(set(itertools.chain(*map(lambda key : nodes[key].successors,   [lkey, rkey]))).difference([lkey, rkey]))
-    newnode.predecessors = list(set(itertools.chain(*map(lambda key : nodes[key].predecessors, [lkey, rkey]))).difference([lkey, rkey]))
-
-    # input signals, any signals that form an edge to any constraint in a predecessor
-    #   likewise for outputs but with successors
-    # The input signals are the union of the two input signals, except for any that were only input signals from the lkey
-    signals_is_incident_with_node_set = lambda sig, node_set: any(map(lambda coni : coni_to_node[coni] in node_set, sig_to_coni[sig]))
-    newnode.input_signals = set(filter(lambda sig : signals_is_incident_with_node_set(sig, newnode.predecessors), 
-                                itertools.chain(nodes[lkey].input_signals, nodes[rkey].input_signals)))
-    newnode.output_signals = set(filter(lambda sig : signals_is_incident_with_node_set(sig, newnode.successors), 
-                                        itertools.chain(nodes[lkey].output_signals, nodes[rkey].output_signals)))
-
-    nodes[lkey] = newnode
-    adjacencies[lkey] = newnode.successors
-
     # fixes the succesors/predecessors of all the other nodes -- also updates adjacencies
+    # for each node_id in rkey.successor, finds rkey node_id.predecessor -- if lkey is a predecessor - delete rkey -- otherwise replace rkey with lkey (and add to lkey successors)
+    #   does inverse too
+
     funcs = [lambda key : nodes[key].successors, lambda key : nodes[key].predecessors]
     for i in range(2):
         for key in funcs[1-i](rkey):
-            if rkey in funcs[i](key):
-                if lkey in funcs[i](key): del funcs[i](key)[funcs[i](key).index(rkey)]
-                else: funcs[i](key)[funcs[i](key).index(rkey)] = lkey
+            rkey_index = funcs[i](key).index(rkey)
+            if key == lkey or lkey in funcs[i](key): del funcs[i](key)[rkey_index]
+            else: 
+                funcs[i](key)[rkey_index] = lkey
+                funcs[1-i](lkey).append(key)
+
+    nodes[lkey].constraints.extend(nodes[rkey].constraints)
+
+    # lkey inputs are still inputs -- rkey inputs are not inputs only if the only node they connected to was lkey
+    # rkey outputs are still outputs -- lkey outputs are not outputs only if the only node they connected to was rkey
+
+    nodes[lkey].input_signals.update(filter(
+        lambda sig : any(map(lambda coni : coni_to_node[coni] not in [lkey, rkey], sig_to_coni[sig])),
+        nodes[rkey].input_signals
+    ))
+    nodes[lkey].output_signals = nodes[rkey].output_signals.union(filter(
+        lambda sig : any(map(lambda coni : coni_to_node[coni] not in [lkey, rkey], sig_to_coni[sig])),
+        nodes[lkey].output_signals
+    ))
     
     # fixes coni_to_node
     collections.deque(map(lambda coni : coni_to_node.__setitem__(coni, lkey) , nodes[rkey].constraints), maxlen=0)
