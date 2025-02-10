@@ -7,7 +7,7 @@ from bij_encodings.assignment import Assignment
 from r1cs_scripts.circuit_representation import Circuit
 from r1cs_scripts.constraint import Constraint
 
-from utilities import getvars
+from utilities import getvars, count_ints
 
 def back_and_forth_preprocessing(names, label_to_indices, index_to_label):
     nonsingular_keys = {name : [] for name in names}
@@ -44,7 +44,8 @@ def back_and_forth_fingerprinting(
             fingerprints_to_normi: Dict[str, Dict[int, List[int]]],
             fingerprints_to_signals: Dict[str, Dict[int, List[int]]],
             initial_mode: bool = True,
-            return_index_to_fingerprint: bool = False
+            return_index_to_fingerprint: bool = False,
+            test_data: dict | None = None 
         ):
     
     # TODO: think about if we can keep a last_assignment to then check if the assignment has changed and use the pipe that way... this should hopefully reduce the number of checks...
@@ -85,6 +86,14 @@ def back_and_forth_fingerprinting(
                 
             break_on_next_norm = all(map(lambda name : num_singular_norm_fingerprints + len(fingerprints_to_normi[name].keys()) == previous_distinct_norm_fingerprints[name], names))
             previous_distinct_norm_fingerprints = { name : num_singular_norm_fingerprints + len(fingerprints_to_normi[name].keys()) for name in names}
+
+            if test_data is not None:
+                ints = count_ints(map(len, fingerprints_to_normi[names[0]].values()))
+                test_data.setdefault("fingerprinting_steps", []).append({
+                    "sqr_weight": sum([x[0]**2 * x[1] for x in ints]),
+                    "sizes": [x[0] for x in ints],
+                    "counts": [x[1] for x in ints]
+                })
 
             if not break_on_next_norm and not break_on_next_signal:
                 norm_assignment, norm_fingerprints, fingerprints_to_normi, num_singular_norm_fingerprints = switch(

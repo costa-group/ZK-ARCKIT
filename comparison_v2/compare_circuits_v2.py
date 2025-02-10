@@ -95,7 +95,8 @@ def circuit_equivalence(
 
         # encode initial fingerprints but norms now have signal class in norm
         fingerprints_to_normi, fingerprints_to_signals, _, signal_to_fingerprints = back_and_forth_fingerprinting(
-            names, in_pair, normalised_constraints, signal_to_normi, fingerprints_to_normi, fingerprints_to_signals, return_index_to_fingerprint=True
+            names, in_pair, normalised_constraints, signal_to_normi, fingerprints_to_normi, fingerprints_to_signals, return_index_to_fingerprint=True,
+            test_data = test_data
         )
 
         early_exit(fingerprints_to_normi)
