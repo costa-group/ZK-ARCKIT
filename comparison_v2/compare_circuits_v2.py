@@ -16,7 +16,6 @@ from structural_analysis.utilities.connected_preprocessing import connected_prep
 from bij_encodings.encoder import Encoder
 from bij_encodings.assignment import Assignment
 from bij_encodings.reduced_encoding.red_pseudoboolean_encoding import ReducedPseudobooleanEncoder
-from bij_encodings.preprocessing.iterated_adj_reclassing import iterated_label_propagation
 
 from comparison_v2.fingerprinting_v2 import back_and_forth_fingerprinting, early_exit
 from comparison_v2.constraint_encoding_v2 import encode_classes_v2
@@ -113,54 +112,6 @@ def circuit_equivalence(
                 "counts": [x[1] for x in ints]
             }
         # now do label passing for constraints
-
-        if len(fingerprints_to_normi[names[0]]) != len(normalised_constraints[names[0]]):
-
-            normi_to_adj_normi = {
-                name: [
-                        set(filter(lambda x : x != normi, itertools.chain(*map(signal_to_normi[name].__getitem__, getvars(con)))))
-                        for normi, con in enumerate(normalised_constraints[name])
-                    ]
-                    for name in names
-            }
-
-            fingerprints_to_normi = iterated_label_propagation(
-                names, 
-                {name: range(len(normalised_constraints[name])) for name in names}, 
-                normi_to_adj_normi, 
-                fingerprints_to_normi, 
-                input_inverse=True, return_inverse=True
-            )
-
-            label_passing_time = time.time()
-            test_data["timing"]["label_passing"] = label_passing_time - last_time
-            last_time = label_passing_time
-
-            ints = count_ints(map(len, fingerprints_to_normi[names[0]].values()))
-            test_data["group_sizes"]["post_label_propagation"] = {
-                    "sqr_weight": sum([x[0]**2 * x[1] for x in ints]),
-                    "sizes": [x[0] for x in ints],
-                    "counts": [x[1] for x in ints]
-            }
-        
-            # repeat previous step (with non-unique classes obviously) -- maybe use pipe?
-            fingerprints_to_normi, fingerprints_to_signals, _, signal_to_fingerprints = back_and_forth_fingerprinting(
-                names, in_pair, normalised_constraints, signal_to_normi, fingerprints_to_normi, fingerprints_to_signals, initial_mode=False, return_index_to_fingerprint=True
-            )
-
-            early_exit(fingerprints_to_normi)
-            early_exit(fingerprints_to_signals)
-
-            back_and_forth_fingerprinting_time = time.time()
-            test_data["timing"]["back_and_forth_redux"] = back_and_forth_fingerprinting_time - last_time
-            last_time = back_and_forth_fingerprinting_time
-
-            ints = count_ints(map(len, fingerprints_to_normi[names[0]].values()))
-            test_data["group_sizes"]["post_back_and_forth_redux"] = {
-                    "sqr_weight": sum([x[0]**2 * x[1] for x in ints]),
-                    "sizes": [x[0] for x in ints],
-                    "counts": [x[1] for x in ints]
-            }
 
         formula, assumptions = encode_classes_v2(names, normalised_constraints, fingerprints_to_normi, signal_to_fingerprints, fingerprints_to_signals)
 
