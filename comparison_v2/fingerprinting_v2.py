@@ -70,8 +70,8 @@ def back_and_forth_fingerprinting(
 
     ## TODO: introduce new/prev assignment behaviour with a pipe to reduce the number of checks
 
-    while not ( all(map(lambda iterable: len(iterable) == 0, norms_to_update.values())) and all(map(lambda iterable: len(iterable) == 0, signals_to_update.values())) ):
-
+    round_num = 0
+    while not ( all(map(lambda iterable: len(iterable) == 0, norms_to_update.values())) and all(map(lambda iterable: len(iterable) == 0, signals_to_update.values())) ):        
         # things to update in the next update
 
         if fingerprint_mode:
@@ -80,7 +80,7 @@ def back_and_forth_fingerprinting(
             for name in names:
                 for normi in norms_to_update[name]:
                     fingerprint(True, normalised_constraints[name][normi], normi, norm_assignment, norm_fingerprints[name], fingerprints_to_normi[name], 
-                                signal_fingerprints[name], num_singular_signal_fingerprints, signals_to_update[name], [signal_fingerprints[name]])
+                                signal_fingerprints[name], num_singular_signal_fingerprints, signals_to_update[name], [signal_fingerprints[name]], round_num)
             
             norms_to_update = {name: set([]) for name in names}
                 
@@ -106,7 +106,7 @@ def back_and_forth_fingerprinting(
                 for signal in signals_to_update[name]:
                     fingerprint(False, signal, signal, signal_assignment, signal_fingerprints[name], fingerprints_to_signals[name], 
                                 norm_fingerprints[name], num_singular_norm_fingerprints, norms_to_update[name], 
-                                [norm_fingerprints[name], signal_to_normi[name], normalised_constraints[name]])
+                                [norm_fingerprints[name], signal_to_normi[name], normalised_constraints[name]], round_num)
             
             signals_to_update = {name: set([]) for name in names}
 
@@ -119,6 +119,7 @@ def back_and_forth_fingerprinting(
                                    signal_assignment, signal_fingerprints, fingerprints_to_signals, num_singular_signal_fingerprints)
         
         fingerprint_mode = not fingerprint_mode
+        round_num += 1
 
     ## label_to_vertex gets reset every loop and hence we need to build a final ver to return
     fingerprints_to_normi, fingerprints_to_signals = {name: {} for name in names},  {name: {} for name in names}
@@ -133,7 +134,7 @@ def back_and_forth_fingerprinting(
 
 def fingerprint(is_norm: bool, item: Constraint | int, index: int, assignment: Assignment, index_to_fingerprint: List[int], 
                 fingerprints_to_indices: Dict[int, List[int]], other_index_to_fingerprint: List[int], other_num_singular: int, 
-                to_update: Set[int], fingerprint_data):
+                to_update: Set[int], fingerprint_data, round_num: int):
 
     if is_norm:
         fingerprint = fingerprint_norms(item, *fingerprint_data)
@@ -145,7 +146,7 @@ def fingerprint(is_norm: bool, item: Constraint | int, index: int, assignment: A
     new_hash = assignment.get_assignment(fingerprint)
 
     # update pipe with new items
-    if new_hash != index_to_fingerprint[index]: 
+    if round_num <= 1 or new_hash != index_to_fingerprint[index]: 
         to_update.update(filter(lambda ind : other_index_to_fingerprint[ind] > other_num_singular, if_to_update))
 
     index_to_fingerprint[index] = new_hash
