@@ -35,6 +35,8 @@ def connected_preprocessing(circ: Circuit, return_mapping: bool = False) -> Circ
 
     sig_to_coni = _signal_data_from_cons_list(circ.constraints)
 
+    inputs = list(filter(lambda sig : sig in sig_to_coni.keys(), inputs))
+
     dist_from_inputs = _distances_to_signal_set(circ.constraints, inputs, sig_to_coni)
     # now ignoring outputs not connected to any inputs
     # dist_from_outputs = _distances_to_signal_set(circ.constraints, outputs, sig_to_coni)
@@ -70,8 +72,8 @@ def connected_preprocessing(circ: Circuit, return_mapping: bool = False) -> Circ
     new_circ.update_header(
         circ.field_size, circ.prime_number, curr,
         nPubOut=len(list(filter(in_next_circuit, outputs))),
-        nPubIn=circ.nPubIn, # len(list(filter(in_next_circuit, pubInts))),
-        nPrvIn=circ.nPrvIn,# len(list(filter(in_next_circuit, prvInts))),
+        nPubIn=len(inputs), # len(list(filter(in_next_circuit, pubInts))),
+        nPrvIn=0,# len(list(filter(in_next_circuit, prvInts))),
         nLabels=None, # ??
         nConstraints=len(new_circ.constraints)
         )
@@ -103,7 +105,7 @@ def componentwise_preprocessing(circ: Circuit) -> Tuple[List[Circuit], List[Tupl
     """
 
     signal_to_conis = _signal_data_from_cons_list(circ.constraints)
-    inputs = set(range(circ.nPubOut+1, circ.nPubOut + circ.nPrvIn + circ.nPubIn + 1))
+    inputs = set(filter(lambda sig : sig in signal_to_conis.keys(), range(circ.nPubOut+1, circ.nPubOut + circ.nPrvIn + circ.nPubIn + 1)))
 
     signals_by_component = []
 
