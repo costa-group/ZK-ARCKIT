@@ -68,6 +68,7 @@ def back_and_forth_fingerprinting(
     
     fingerprints_to_normi, fingerprints_to_signals = {name: {} for name in names}, {name: {} for name in names}
 
+    prev_fingerprints_to_normi_count, prev_fingerprints_to_signals_count = {name: {} for name in names}, {name: {} for name in names}
     prev_fingerprints_to_normi, prev_fingerprints_to_signals = {name: {} for name in names}, {name: {} for name in names}
     prev_normi_to_fingerprints, prev_signals_to_fingerprints = {name: None for name in names}, {name: None for name in names}
     # normi_has_changed, signal_has_changed = {name: [True for _ in range(len(normalised_constraints))] for name in names}, {name: [True for _ in range(circ.nWires)] for name, circ in in_pair}
@@ -112,8 +113,8 @@ def back_and_forth_fingerprinting(
 
             if not break_on_next_norm and not break_on_next_signal:
                  # return assignment fingerprints fingerprints_to_index other_prev_fingerprints prev_fingerprints_to_index, num_singular_fingerprints, to_update 
-                norm_assignment, norm_fingerprints, fingerprints_to_normi, prev_signals_to_fingerprints, prev_fingerprints_to_normi, num_singular_norm_fingerprints, signals_to_update = switch(
-                    norm_assignment, norm_fingerprints, fingerprints_to_normi, num_singular_norm_fingerprints, prev_normi_to_fingerprints, prev_fingerprints_to_normi, norms_to_update, get_to_update_normi, 
+                norm_assignment, norm_fingerprints, fingerprints_to_normi, prev_signals_to_fingerprints, prev_fingerprints_to_normi, prev_fingerprints_to_normi_count, num_singular_norm_fingerprints, signals_to_update = switch(
+                    norm_assignment, norm_fingerprints, fingerprints_to_normi, num_singular_norm_fingerprints, prev_normi_to_fingerprints, prev_fingerprints_to_normi, prev_fingerprints_to_normi_count, norms_to_update, get_to_update_normi, 
                     signal_fingerprints, num_singular_signal_fingerprints, round_num
                 )
               
@@ -132,8 +133,8 @@ def back_and_forth_fingerprinting(
             previous_distinct_signal_fingerprints = { name : num_singular_signal_fingerprints + len(fingerprints_to_signals[name].keys()) for name in names}
 
             if not break_on_next_norm and not break_on_next_signal:
-                signal_assignment, signal_fingerprints, fingerprints_to_signals, prev_normi_to_fingerprints, prev_fingerprints_to_signals, num_singular_signal_fingerprints, norms_to_update = switch(
-                    signal_assignment, signal_fingerprints, fingerprints_to_signals, num_singular_signal_fingerprints, prev_signals_to_fingerprints, prev_fingerprints_to_signals, signals_to_update, get_to_update_signal, 
+                signal_assignment, signal_fingerprints, fingerprints_to_signals, prev_normi_to_fingerprints, prev_fingerprints_to_signals, prev_fingerprints_to_signals_count, num_singular_signal_fingerprints, norms_to_update = switch(
+                    signal_assignment, signal_fingerprints, fingerprints_to_signals, num_singular_signal_fingerprints, prev_signals_to_fingerprints, prev_fingerprints_to_signals, prev_fingerprints_to_signals_count, signals_to_update, get_to_update_signal, 
                     norm_fingerprints, num_singular_norm_fingerprints, round_num
                 )
         
@@ -215,10 +216,13 @@ def fingerprint_signals(signal : int, constraint_fingerprints: List[int], signal
     return tuple(sorted(fingerprint))
 
 def switch(assignment: Assignment, fingerprints: Dict[str, List[int]], fingerprints_to_index: Dict[str, Dict[int, List[int]]], num_singular_fingerprints: int, 
-           prev_fingerprints: Dict[str, List[int]], prev_fingerprints_to_index:  Dict[str, Dict[int, List[int]]], to_update: Dict[str, Set[int]], get_to_update: Callable[[int, str], List[int]],
-           other_fingerprints, other_num_singular, round_num: int):
+           prev_fingerprints: Dict[str, List[int]], prev_fingerprints_to_index:  Dict[str, Dict[int, List[int]]], prev_fingerprints_to_index_count:  Dict[str, Dict[int, int]], to_update: Dict[str, Set[int]],
+           get_to_update: Callable[[int, str], List[int]], other_fingerprints, other_num_singular, round_num: int):
 
     names = list(fingerprints_to_index.keys())
+    next_to_update = {name: set([]) for name in names}
+
+    add_to_update = lambda index, name : next_to_update[name].update(filter(lambda oind : other_fingerprints[name][oind][1] > other_num_singular, get_to_update(index, name)))
 
     # isolate singular classes
     nonsingular_fingerprints = {name: [] for name in names}
@@ -229,10 +233,13 @@ def switch(assignment: Assignment, fingerprints: Dict[str, List[int]], fingerpri
             if len(fingerprints_to_index[name][key]) == 1:
                 index = next(iter(fingerprints_to_index[name][key]))
                 fingerprints[name][index] = (round_num, singular_renaming.get_assignment(key))
+                add_to_update(index, name)
 
                 if round_num > 1:
-                    prev_fingerprints_to_index[name][prev_fingerprints[name][index]].remove(index)
-                    if len(prev_fingerprints_to_index[name][prev_fingerprints[name][index]]) == 0: del prev_fingerprints_to_index[name][prev_fingerprints[name][index]]
+                    prev_fingerprints_to_index_count[name][prev_fingerprints[name][index]] -= 1
+                    if prev_fingerprints_to_index_count[name][prev_fingerprints[name][index]] == 0: 
+                        del prev_fingerprints_to_index[name][prev_fingerprints[name][index]]
+                        del prev_fingerprints_to_index_count[name][prev_fingerprints[name][index]]
 
             else:
                 nonsingular_fingerprints[name].append(key)
@@ -254,8 +261,6 @@ def switch(assignment: Assignment, fingerprints: Dict[str, List[int]], fingerpri
 
             for index in fingerprints_to_index[name][key]:
                 fingerprints[name][index] = (round_num, new_key)
-    
-    next_to_update = {name: set([]) for name in names}
 
     ## TODO: do this better, so not comparing each class multiple times
     ## TODO: when the prev_fingerprint was from a very old round -- this struggles
@@ -265,37 +270,49 @@ def switch(assignment: Assignment, fingerprints: Dict[str, List[int]], fingerpri
 
     for name in names:
 
-        for index in to_update[name]:
-            if fingerprints[name][index][1] <= num_singular_fingerprints or round_num <= 1:
-                next_to_update[name].update(filter(lambda oind : other_fingerprints[name][oind][1] > other_num_singular, get_to_update(index, name)))
-            else:
-                # check if signals has actually been updated
-                prev_class = prev_fingerprints_to_index[name][prev_fingerprints[name][index]]
-                new_class = new_fingerprints_to_index[name][fingerprints[name][index]]
-                    
-                if len(prev_class) != len(new_class) or prev_class != new_class:
-                    next_to_update[name].update(filter(lambda oind : other_fingerprints[name][oind][1] > other_num_singular, get_to_update(index, name)))
-                else:
-                    num_og_skipped[name] += 1
-
+        # only add actually new classes
         for key in new_fingerprints_to_index[name].keys():
 
-            prev_fingerprints_to_index[name][key] = new_fingerprints_to_index[name][key]
+            new_class = new_fingerprints_to_index[name][key]
+            prev_fingerprints_to_index[name][key] = new_class
+            prev_fingerprints_to_index_count[name][key] = len(new_class)
 
-            if round_num > 1:
-                for index in new_fingerprints_to_index[name][key]:
-                    prev_fingerprints_to_index[name][prev_fingerprints[name][index]].remove(index)
-                    if len(prev_fingerprints_to_index[name][prev_fingerprints[name][index]]) == 0: del prev_fingerprints_to_index[name][prev_fingerprints[name][index]]
+            if round_num <= 1:
+                for index in new_fingerprints_to_index[name][key]: add_to_update(index, name)  
+            else:
+                
+                an_old_key = prev_fingerprints[name][next(iter(new_fingerprints_to_index[name][key]))]
+                prev_class = prev_fingerprints_to_index[name][an_old_key]
 
+                if len(prev_class) != len(new_class) or prev_class != new_class:
+                    for index in new_class: 
+                        add_to_update(index, name)
+
+                        # maintain prev to index
+                        index_old_key = prev_fingerprints[name][index]
+                        prev_fingerprints_to_index_count[name][index_old_key] -= 1
+
+                        if prev_fingerprints_to_index_count[name][index_old_key] == 0: 
+                            del prev_fingerprints_to_index[name][index_old_key]
+                            del prev_fingerprints_to_index_count[name][index_old_key]
+                    
+                else:
+                    num_og_skipped[name] += len(new_class)  
+                    
+                    # maintain prev to index
+                    del  prev_fingerprints_to_index[name][an_old_key]
+                    del  prev_fingerprints_to_index_count[name][an_old_key]
+
+    print('round_num', round_num)
     print('num_skipped', num_skipped)
     print('num_og_skipped', num_og_skipped)
     print('num_to_update', list(map(len, next_to_update.values())))
     print(num_singular_fingerprints)
-    # print(prev_fingerprints_to_index)
+    # print(prev_fingerprints_to_index_count)
     print()
     # return assignment fingerprints fingerprints_to_index other_prev_fingerprints prev_fingerprints_to_index, num_singular_fingerprints, to_update
 
-    return new_assignment, fingerprints, {name: {} for name in names}, {name: {index: other_fingerprints[name][index] for index in next_to_update[name]} for name in names}, prev_fingerprints_to_index, num_singular_fingerprints, next_to_update
+    return new_assignment, fingerprints, {name: {} for name in names}, {name: {index: other_fingerprints[name][index] for index in next_to_update[name]} for name in names}, prev_fingerprints_to_index, prev_fingerprints_to_index_count, num_singular_fingerprints, next_to_update
 
 def early_exit(fingerprint_to_size: Dict[str, Dict[int, int]]):
     names = list(fingerprint_to_size.keys())
