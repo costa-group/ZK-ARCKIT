@@ -144,12 +144,12 @@ def r1cs_cluster(
             # This is mostly merging various output types, we could probably reformat everything to make this better
 
             case "nonlinear_attract":
-                clusters, _, remaining = nonlinear_attract_clustering(circ)
+                clusters, _, remaining = nonlinear_attract_clustering(circ, pre_merge = automerge_only_nonlinear)
                 partition = partition_from_partial_clustering(circ, clusters.values(), remaining=remaining)
 
             case "louvain":
                 g = shared_signal_graph(circ.constraints)
-                partition = list(map(list, louvain_communities(g, resolution=circ.nConstraints ** (0.5))))
+                partition = list(map(list, louvain_communities(g, resolution=circ.nConstraints ** (0.75))))
             
             case "linear_coefficient":
                 clusters, _, remaining = cluster_by_linear_coefficient(circ, coefs=[-1])
