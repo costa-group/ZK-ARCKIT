@@ -149,7 +149,7 @@ def r1cs_cluster(
 
             case "louvain":
                 g = shared_signal_graph(circ.constraints)
-                partition = list(map(list, louvain_communities(g, resolution=circ.nConstraints ** (0.75))))
+                partition = list(map(list, louvain_communities(g, resolution=circ.nConstraints ** 0.5)))
             
             case "linear_coefficient":
                 clusters, _, remaining = cluster_by_linear_coefficient(circ, coefs=[-1])
