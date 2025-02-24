@@ -98,7 +98,7 @@ class UnionFind():
             This minimises the depth of later find operations
         """
 
-        representatives = sorted(set([self.find(i) for i in args]), key = lambda x: self.parent[x])
+        representatives = sorted(set(map(self.find, args)), key = lambda x: self.parent[x])
 
         if len(representatives) > 1 and self.parent[representatives[0]] == self.parent[representatives[1]]:
             self.parent[representatives[0]] -= 1
