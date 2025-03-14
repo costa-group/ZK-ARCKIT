@@ -1,7 +1,7 @@
 mod constraint_simplification;
 mod non_linear_simplification;
 use num_bigint_dig::BigInt;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use std::collections::{HashSet, LinkedList, HashMap};
 use circom_algebra::algebra::AIRConstraint;
 use circom_algebra::algebra::Substitution;
@@ -14,7 +14,7 @@ use std::env;
 
 use std::error::Error;
 use std::fs::File;
-use std::io::BufReader;
+use std::io::{BufReader, BufWriter, Write};
 use std::path::Path;
 
 
@@ -24,13 +24,13 @@ pub type C = AIRConstraint<usize>;
 pub type S = Substitution<usize>;
 pub type A = ArithmeticExpression<usize>;
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Debug, Serialize)]
 struct LinearInfo{
    witness: usize,
    coeff: String, 
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Debug, Serialize)]
 struct MulInfo{
     witness1: usize,
     witness2: usize,
@@ -38,14 +38,14 @@ struct MulInfo{
 }
 
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Debug, Serialize)]
 struct ConstraintInfo{
     linear: Vec<LinearInfo>,
     mul: Vec<MulInfo>,
     constant: String
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Debug, Serialize)]
 struct CircuitInfo{
     constraints: Vec<ConstraintInfo>,
     inputs: Vec<usize>,
@@ -66,6 +66,20 @@ fn read_air_constraint_info_from_file<P: AsRef<Path>>(path: P) -> Result<Circuit
 
     // Return the `StructureInfo`.
     Ok(u)
+}
+
+
+fn write_output_into_file<P: AsRef<Path>>(path: P, result: &CircuitInfo) -> Result<(), Box<dyn Error>> {
+    // Open the file in read-only mode with buffer.
+
+    let file = File::create(path)?;
+    let mut writer = BufWriter::new(file);
+
+    // Write the result.
+    let value = serde_json::to_string_pretty(result)?;
+    writer.write(value.as_bytes())?;
+    writer.flush()?;
+    Ok(())
 }
 
 
@@ -105,6 +119,38 @@ fn process_air_constraint(cinfo: ConstraintInfo) -> C{
     AIRConstraint::new(muls, linear)    
 }
 
+fn process_constraint_info(cons: C) -> ConstraintInfo{
+    let mut linear = Vec::new();
+    let mut mul = Vec::new();
+    let mut constant = "0".to_string();
+
+    for ((s1, s2), coef) in cons.muls(){
+        let new_mul = MulInfo{
+            witness1: *s1,
+            witness2: *s2,
+            coeff: coef.to_string()
+        };
+        mul.push(new_mul);
+    }  
+    for (s, coef) in cons.linear(){
+        if *s != C::constant_coefficient(){
+            let new_lin = LinearInfo{
+                witness: *s,
+                coeff: coef.to_string()
+            };
+            linear.push(new_lin);
+        } else{
+            constant = coef.to_string();
+        }
+        
+    }  
+    ConstraintInfo{
+        mul,
+        linear,
+        constant
+    }
+}
+
 
 fn move_constraint_info_to_storage(info: CircuitInfo) ->ProcessedCircuit{
     let mut storage = AIRConstraintStorage::new();
@@ -136,7 +182,26 @@ fn move_constraint_info_to_storage(info: CircuitInfo) ->ProcessedCircuit{
         linear, 
         forbidden,
         field: to_bi_field,
-        no_labels: info.number_of_signals
+        no_labels: signals.len()
+    }
+}
+
+fn move_storage_to_constraint_info(constraints: AIRConstraintStorage, no_signals: usize, outputs: Vec<usize>)
+-> CircuitInfo{
+
+    let mut info_constraints = Vec::new();
+    for c_id in constraints.get_ids(){
+        let c = constraints.read_constraint(c_id).unwrap();
+        let info = process_constraint_info(c);
+        info_constraints.push(info);
+    }
+
+    
+    CircuitInfo { 
+        constraints: info_constraints, 
+        inputs: Vec::new(),
+        outputs,
+         number_of_signals: no_signals
     }
 }
 
@@ -155,8 +220,10 @@ fn start() -> Result<(), ()> {
     use std::sync::Arc;
     let args: Vec<String> = env::args().collect();
     let circuit = read_air_constraint_info_from_file(&args[1]).unwrap();
+    let out_copy = circuit.outputs.clone();
     let proc_circuit = move_constraint_info_to_storage(circuit);
     
+
     
     let (new_constraints, signals) = simplification(
         proc_circuit.linear,
@@ -167,6 +234,11 @@ fn start() -> Result<(), ()> {
         proc_circuit.field,
 
     );
+
+
+    let circuit_info = move_storage_to_constraint_info(new_constraints, signals.len(), out_copy);
+    let _ = write_output_into_file(&args[2], &circuit_info);
+
 
     Result::Ok(())
 }

@@ -1670,7 +1670,7 @@ impl<C: Default + Clone + Display + Hash + Eq + PartialOrd + Ord> AIRConstraint<
     // is meant to be call each time a hashmap is going to be
     // part of a Expression
     // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-    fn constant_coefficient() -> C {
+    pub fn constant_coefficient() -> C {
         C::default()
     }
 
