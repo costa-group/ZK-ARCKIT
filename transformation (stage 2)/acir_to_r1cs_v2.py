@@ -41,7 +41,7 @@ def declare_coef(file, naux, ncons):
 
 def declare_is_needed(file, naux):
     for k in range(naux): 
-        write_declare(file, "is_needed_" + str(k), "Int")   
+        write_declare(file, "is_needed_" + str(k), "Bool")   
     write_declare(file, "total_needed", "Int")
 
 
@@ -87,9 +87,12 @@ def calculate_needed(file, nsignals, naux):
         for i in range(nsignals):
             name = generate_aux_name(k, True, i)
             isNeeded = binary_operation("or", isNeeded, name)
-        ite_needed = generate_ite(isNeeded, "1", "0")
-        write_assert(file, binary_operation("=","is_needed_" + str(k), ite_needed))
-        sum_needed = binary_operation("+", sum_needed, "is_needed_" + str(k))
+        write_assert(file, binary_operation("=","is_needed_" + str(k), isNeeded))
+        ite_needed = generate_ite("is_needed_" + str(k), "1", "0")
+        sum_needed = binary_operation("+", sum_needed, ite_needed)
+        # To reduce the number of symmetries?
+        #if k > 0:
+        	#write_assert(file, "(=> (not is_needed_" + str(k-1) + ") (not is_needed_" + str(k) + "))")
     write_assert(file, binary_operation("=", "total_needed", sum_needed))
     file.write('(minimize total_needed) \n')
 
