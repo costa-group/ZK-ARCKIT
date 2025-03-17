@@ -1,0 +1,51 @@
+{
+  "constraints": [
+    {
+      "constant": "0",
+      "linear": [],
+      "mul": [
+        {
+          "coeff": "2",
+          "witness1": 0,
+          "witness2": 1
+        },
+        {
+          "coeff": "2",
+          "witness1": 0,
+          "witness2": 2
+        },
+        {
+          "coeff": "2",
+          "witness1": 0,
+          "witness2": 3
+        },
+        {
+          "coeff": "2",
+          "witness1": 0,
+          "witness2": 4
+        }
+      ]
+    },
+    {
+      "constant": "0",
+      "linear": [],
+      "mul": [
+        {
+          "coeff": "2",
+          "witness1": 0,
+          "witness2": 1
+        },
+        {
+          "coeff": "2",
+          "witness1": 0,
+          "witness2": 2
+        },
+        {
+          "coeff": "2",
+          "witness1": 0,
+          "witness2": 3
+        }
+      ]
+    }
+  ]
+}

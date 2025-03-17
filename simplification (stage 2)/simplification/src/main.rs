@@ -223,8 +223,6 @@ fn start() -> Result<(), ()> {
     let out_copy = circuit.outputs.clone();
     let proc_circuit = move_constraint_info_to_storage(circuit);
     
-
-    
     let (new_constraints, signals) = simplification(
         proc_circuit.linear,
         proc_circuit.storage,
@@ -232,7 +230,7 @@ fn start() -> Result<(), ()> {
         proc_circuit.no_labels,
         proc_circuit.no_labels,
         proc_circuit.field,
-
+        false // CHOOSES IF APPLYING PLONK OR NOT
     );
 
 

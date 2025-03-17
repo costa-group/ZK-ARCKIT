@@ -117,10 +117,11 @@ fn substitution_process_3(
     constraints: &mut LinkedList<C>,
     substitutions: &mut SHNotNormalized,
     field: &BigInt,
+    only_plonk: bool,
 ) {
     let mut lconst = LinkedList::new();
     while let Option::Some(actual_constraint) = LinkedList::pop_back(constraints) {
-        treat_constraint_3(signals, substitutions, &mut lconst, actual_constraint, field);
+        treat_constraint_3(signals, substitutions, &mut lconst, actual_constraint, field, only_plonk);
     }
     *constraints = lconst;
 }
@@ -131,6 +132,7 @@ fn substitution_process_4(
     substitutions: &mut SHNotNormalized,
     num_signals: usize,
     field: &BigInt,
+    only_plonk: bool,
 ) {
     let mut lconst = LinkedList::new();
     let mut vec_constraints = Vec::new();
@@ -143,14 +145,14 @@ fn substitution_process_4(
         if !vec_constraints[index].is_empty(){
             let actual_constraint = replace(&mut vec_constraints[index], C::empty());
             info_ocurrences.remove_constraint(&actual_constraint, signals);  
-            treat_unique_constraint_4(signals, substitutions, &mut lconst, actual_constraint, &mut info_ocurrences, signal, field);
+            treat_unique_constraint_4(signals, substitutions, &mut lconst, actual_constraint, &mut info_ocurrences, signal, field, only_plonk);
         }
     }
 
     while !vec_constraints.is_empty(){
         if let Option::Some(actual_constraint) = Vec::pop(&mut vec_constraints) {
             info_ocurrences.remove_constraint(&actual_constraint, signals);    
-            treat_constraint_4(signals, substitutions, &mut lconst, actual_constraint, &mut info_ocurrences, field);
+            treat_constraint_4(signals, substitutions, &mut lconst, actual_constraint, &mut info_ocurrences, field, only_plonk);
         }
     }
     *constraints = lconst;
@@ -163,12 +165,13 @@ fn treat_constraint_3(
     lconst: &mut LinkedList<C>,
     mut work: C,
     field: &BigInt,
+    only_plonk: bool
 ) {
     loop {
         if C::is_empty(&work) {
             break;
         }
-        let out = take_signal_3(signals, &work);
+        let out = take_signal_3(signals, &work, only_plonk);
         if out.is_none() {
             LinkedList::push_back(lconst, work);
             break;
@@ -202,6 +205,7 @@ fn treat_unique_constraint_4(
     info_ocurrences: &mut SignalsInformation,
     signal: usize,
     field: &BigInt,
+    only_plonk: bool,
 ) {
 
     let (coefficient, substitution) = C::clear_signal_from_linear_not_normalized(work, &signal, field);
@@ -217,12 +221,13 @@ fn treat_constraint_4(
     mut work: C,
     info_ocurrences: &mut SignalsInformation,
     field: &BigInt,
+    only_plonk: bool,
 ) {
     loop {
         if C::is_empty(&work) {
             break;
         }
-        let out = take_signal_4(signals, info_ocurrences, &work);
+        let out = take_signal_4(signals, info_ocurrences, &work, only_plonk);
         if out.is_none() {
             LinkedList::push_back(lconst, work);
             break;
@@ -249,9 +254,17 @@ fn treat_constraint_4(
     }
 }
 
-fn take_signal_3(signals: &SignalDefinition, constraint: &C) -> Option<usize> {
+fn take_signal_3(signals: &SignalDefinition, constraint: &C, only_plonk: bool) -> Option<usize> {
     let mut ret = Option::None;
-    for k in constraint.linear().keys() {
+    let keys = constraint.linear().keys();
+
+    if only_plonk{ // check if the substitution is valid for the plonk format
+        if keys.len() > 3 || (keys.len() == 3 && constraint.linear().contains_key(&0)){
+            return None;
+        }
+    }
+
+    for k in keys {
         if signals.can_be_taken(*k) {
             let new_v = ret.map_or(*k, |v| std::cmp::max(*k, v));
             ret = Some(new_v);
@@ -260,10 +273,19 @@ fn take_signal_3(signals: &SignalDefinition, constraint: &C) -> Option<usize> {
     ret
 }
 
-fn take_signal_4(signals: &SignalDefinition4, info_ocurrences: &SignalsInformation, constraint: &C) -> Option<usize> {
+fn take_signal_4(signals: &SignalDefinition4, info_ocurrences: &SignalsInformation, constraint: &C, only_plonk: bool) -> Option<usize> {
     let mut ret = Option::None;
     let mut ocurrences_ret: Option<usize> = Option::None;
-    for k in constraint.linear().keys() {
+
+    let keys = constraint.linear().keys();
+
+    if only_plonk{ // check if the substitution is valid for the plonk format
+        if keys.len() > 3 || (keys.len() == 3 && constraint.linear().contains_key(&0)){
+            return None;
+        }
+    }
+
+    for k in keys {
         if signals.can_be_taken(*k) {
             if signals.is_deleted(*k) {
                 ret = Some(*k);
@@ -401,6 +423,8 @@ pub struct Config<T> {
     pub forbidden: T,
     pub num_signals: usize,
     pub use_old_heuristics: bool,
+    pub only_plonk: bool,
+
 }
 
 pub struct Simplified {
@@ -429,13 +453,13 @@ where
 
     if apply_less_ocurrences{
         let mut signals = SignalDefinition4 { forbidden: config.forbidden.as_ref(), deleted_symbols: HashSet::new(),  order_signals: LinkedList::new() };
-        substitution_process_4(&mut signals, &mut constraints, &mut holder, config.num_signals, &field);
+        substitution_process_4(&mut signals, &mut constraints, &mut holder, config.num_signals, &field, config.only_plonk);
         normalized_holder = normalize_substitutions(holder, &field);
         non_overlapping = create_nonoverlapping_substitutions_4(normalized_holder, &signals, &field);
     }
     else{
         let mut signals = SignalDefinition { forbidden: config.forbidden.as_ref(), deleted_symbols: HashSet::new() };
-        substitution_process_3(&mut signals, &mut constraints, &mut holder, &field);
+        substitution_process_3(&mut signals, &mut constraints, &mut holder, &field, config.only_plonk);
         normalized_holder = normalize_substitutions(holder, &field);
         non_overlapping = create_nonoverlapping_substitutions(normalized_holder, &field);
     }

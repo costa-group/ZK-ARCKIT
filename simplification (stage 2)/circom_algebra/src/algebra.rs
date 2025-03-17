@@ -1006,6 +1006,11 @@ impl<C: Default + Clone + Display + Hash + Eq> Substitution<C> {
     pub fn rmv_zero_coefficients(substitution: &mut Substitution<C>) {
         substitution.to = remove_zero_value_coefficients(std::mem::take(&mut substitution.to))
     }
+
+    pub fn is_valid_plonk_substitution(&self) -> bool{
+        let cq: C = ArithmeticExpression::constant_coefficient();
+        self.to.keys().len() < 2 || (self.to.keys().len() == 2 && self.to.contains_key(&cq))
+    }
 }
 
 impl<C: Default + Clone + Display + Hash + Eq + std::cmp::Ord> Substitution<C> {

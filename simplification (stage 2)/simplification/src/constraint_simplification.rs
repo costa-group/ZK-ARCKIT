@@ -266,6 +266,7 @@ fn linear_simplification(
     no_labels: usize,
     field: &BigInt,
     use_old_heuristics: bool,
+    only_plonk: bool
 ) -> (LinkedList<S>, LinkedList<C>) {
     use circom_algebra::simplification_utils::full_simplification;
     use circom_algebra::simplification_utils::Config;
@@ -289,6 +290,7 @@ fn linear_simplification(
             forbidden: Arc::clone(&forbidden),
             num_signals: cluster.num_signals,
             use_old_heuristics,
+            only_plonk
         };
         let job = move || {
             // println!("cluster: {}", id);
@@ -390,7 +392,8 @@ pub fn simplification(
     forbidden: Arc<HashSet<usize>>, 
     no_labels: usize, 
     max_signal: usize,  
-    field: BigInt
+    field: BigInt,
+    only_plonk: bool
 ) -> (AIRConstraintStorage, SignalMap) {
     use std::time::SystemTime;
 
@@ -426,9 +429,14 @@ pub fn simplification(
             no_labels,
             &field,
             use_old_heuristics,
+            only_plonk
         );
 
         for sub in &substitutions {
+            // TODO: just to check that all satisfy the plonk format in case plonk
+            if only_plonk{
+                assert!(sub.is_valid_plonk_substitution());
+            }
             deleted.insert(*sub.from());
         }
         lconst.append(&mut constants);
