@@ -1,5 +1,7 @@
+use crate::SimplificationType;
+
 // Uncomment lines 163, 165, 336 and 338 to print cluster information
-use super::{C, S, A, AIRConstraintStorage};
+use super::{C, S, A, AIRConstraintStorage, AIRSubstitution};
 type SignalMap = HashMap<usize, usize>;
 
 use circom_algebra::num_bigint::BigInt;
@@ -174,7 +176,7 @@ fn eq_cluster_simplification(
             let l = A::Signal { symbol: signal };
             let r = A::Signal { symbol: rh_signal };
             let expr = A::sub(&l, &r, field);
-            let c = A::transform_expression_to_AIR_constraint_form(expr, field).unwrap();
+            let c = A::transform_expression_to_air_constraint_form(expr, field).unwrap();
             LinkedList::push_back(&mut cons, c);
         }
 
@@ -330,6 +332,32 @@ fn build_non_linear_signal_map(non_linear: &AIRConstraintStorage) -> SignalToCon
     map
 }
 
+fn build_only_linear_signal_map(non_linear: &AIRConstraintStorage) -> SignalToConstraints {
+    let mut map_only_linear = SignalToConstraints::new();
+    let mut appear_non_linear = HashSet::new();
+    for c_id in non_linear.get_ids() {
+        let constraint = non_linear.read_constraint(c_id).unwrap();
+        
+        for signal in C::take_cloned_non_linear_signals(&constraint) {
+            map_only_linear.remove(&signal);
+            appear_non_linear.insert(signal);
+        }
+
+        for signal in C::take_cloned_linear_signals(&constraint) {
+            if !appear_non_linear.contains(&signal){
+                if let Some(list) = map_only_linear.get_mut(&signal) {
+                    list.push_back(c_id);
+                } else {
+                    let mut new = LinkedList::new();
+                    new.push_back(c_id);
+                    map_only_linear.insert(signal, new);
+                }
+            }
+        }
+    }
+    map_only_linear
+}
+
 fn apply_substitution_to_map(
     storage: &mut AIRConstraintStorage,
     map: &mut SignalToConstraints,
@@ -347,9 +375,33 @@ fn apply_substitution_to_map(
         let signals: LinkedList<_> = substitution.to().keys().cloned().collect();
         for c_id in c_ids {
             let c_id = *c_id;
+            /* 
+            println!("Substitution: from {} to ", substitution.from());
+            for (s, coef) in substitution.to(){
+                println!("--- {} * {}", coef, s);
+            }
+            */
             let mut constraint = storage.read_constraint(c_id).unwrap();
+            /* 
+            println!("In constraint: ");
+            for (s, coef) in constraint.linear(){
+                println!("--- {} * {}", coef, s);
+            }
+            for ((s1, s2), coef) in constraint.muls(){
+                println!("--- {} * {} {}", coef, s1, s2);
+            }*/
+
             C::apply_substitution(&mut constraint, substitution, field);
             C::fix_constraint(&mut constraint, field);
+            /* 
+            println!("*** RESULT *** ");
+            for (s, coef) in constraint.linear(){
+                println!("--- {} * {}", coef, s);
+            }
+            for ((s1, s2), coef) in constraint.muls(){
+                println!("--- {} * {} {}", coef, s1, s2);
+            }*/
+
             if C::is_linear(&constraint) {
                 linear.push_back(c_id);
             }
@@ -384,6 +436,46 @@ fn apply_substitution_to_map(
 }
 
 
+fn apply_air_substitution_to_only_linear_map(
+    storage: &mut AIRConstraintStorage,
+    map: &mut SignalToConstraints,
+    substitution: &AIRSubstitution<usize>,
+    field: &BigInt,
+) {
+    if let Some(c_ids) = map.get(substitution.from()).cloned() {
+        let signals: LinkedList<_> = substitution.to_linear().keys().cloned().collect();
+        for c_id in c_ids {
+            let mut constraint = storage.read_constraint(c_id).unwrap();
+            //println!("*** Before substitution ***");
+            //constraint.print_pretty_constraint();
+            C::apply_air_substitution(&mut constraint, substitution, field);
+            C::fix_constraint(&mut constraint, field);
+            //println!("*** After substitution ***");
+            //constraint.print_pretty_constraint();
+
+            if !constraint.is_empty(){
+
+                for signal in &signals {
+                    // only if the coefficient is not 0
+                    if constraint.linear().contains_key(signal){
+                        if let Some(list) = map.get_mut(&signal) {
+                            // If it only appeared in linear parts
+                            list.push_back(c_id);
+                        } else {
+                            // no need to include it, it is in a non linear part
+                        }
+                    }
+                }
+            }
+
+            storage.replace(c_id, constraint);
+        }
+        map.remove(substitution.from());
+    }
+ 
+}
+
+
 
 // returns the constraints, the assignment of the witness and the number of inputs in the witness
 pub fn simplification(
@@ -393,7 +485,7 @@ pub fn simplification(
     no_labels: usize, 
     max_signal: usize,  
     field: BigInt,
-    only_plonk: bool
+    simplification: SimplificationType
 ) -> (AIRConstraintStorage, SignalMap) {
     use std::time::SystemTime;
 
@@ -410,6 +502,13 @@ pub fn simplification(
     let _ = round_id;
     let mut no_rounds = 1000;
     let mut apply_round = apply_linear && !linear.is_empty();
+
+    let mut number_plonk_substitutions = 0;
+    let mut number_acir_substitutions = 0;
+
+
+    let only_plonk = simplification != SimplificationType::R1CS;
+
     let mut non_linear_map = if apply_round || remove_unused {
         // println!("Building non-linear map");
         let now = SystemTime::now();
@@ -420,6 +519,8 @@ pub fn simplification(
     } else {
         SignalToConstraints::with_capacity(0)
     };
+
+
     while apply_round {
         let now = SystemTime::now();
         // println!("Number of linear constraints: {}", linear.len());
@@ -431,20 +532,20 @@ pub fn simplification(
             use_old_heuristics,
             only_plonk
         );
-
+        number_plonk_substitutions += substitutions.len();
+        let has_changes = substitutions.len() > 0;
         for sub in &substitutions {
             // TODO: just to check that all satisfy the plonk format in case plonk
+            /* 
+            println!("Substitution: from {} to ", sub.from());
+            for (s, coef) in sub.to(){
+                println!("--- {} * {}", coef, s);
+            }*/
+            
             if only_plonk{
                 assert!(sub.is_valid_plonk_substitution());
             }
             deleted.insert(*sub.from());
-        }
-        lconst.append(&mut constants);
-        for constraint in &mut lconst {
-            for substitution in &substitutions {
-                C::apply_substitution(constraint, substitution, &field);
-            }
-            C::fix_constraint(constraint, &field);
         }
         linear = apply_substitution_to_map(
             &mut constraint_storage,
@@ -452,9 +553,19 @@ pub fn simplification(
             &substitutions,
             &field,
         );
+
+        for constraint in &mut constants {
+            for substitution in &substitutions {
+                C::apply_substitution(constraint, substitution, &field);
+            }
+            C::fix_constraint(constraint, &field);
+        }
+        linear.append(&mut constants);
+
+
         round_id += 1;
         no_rounds -= 1;
-        apply_round = !linear.is_empty() && no_rounds > 0;
+        apply_round = !linear.is_empty() && no_rounds > 0 && has_changes;
         let _dur = now.elapsed().unwrap().as_millis();
         // println!("Iteration no {} took {} ms", round_id, dur);
     }
@@ -498,6 +609,60 @@ pub fn simplification(
         }
     }
 
+    // We can eliminate signals that appear jusst in the linear part of 
+    // a single non_linear constraint in case we are in ACIR format
+
+    // x = expression
+    if simplification == SimplificationType::ACIR{
+        let mut only_linear_map = if apply_round || remove_unused {
+            build_only_linear_signal_map(&constraint_storage)
+        } else {
+            SignalToConstraints::with_capacity(0)
+        };
+
+        let signals_to_study = only_linear_map.clone();
+        let signals_to_study = signals_to_study.keys();
+
+        for s in signals_to_study{
+            if forbidden.contains(s){
+                continue;
+            }
+            let used_constraints = only_linear_map.get(s);
+
+            match used_constraints{
+                Some(list_c) =>{
+                    // We substitute in any case
+                    //if list_c.len() >= 2{
+                    let mut constraint_with_signal = None;
+                    for c_id in list_c{
+                        let constraint = constraint_storage.read_constraint(*c_id).unwrap();
+                        if constraint.linear().contains_key(s){
+                            constraint_with_signal = Some(constraint);
+                            break;
+                        }
+                    }
+                    if constraint_with_signal.is_some(){
+                        let constraint = constraint_with_signal.unwrap();
+                        let subs = C::clear_signal_from_non_linear(constraint, s, &field);
+                        number_acir_substitutions += 1;
+
+                        //subs.print_pretty_substitution();
+                        
+                        apply_air_substitution_to_only_linear_map(
+                            &mut constraint_storage,
+                            &mut only_linear_map,
+                            &subs,
+                            &field,
+                        );
+                    }    
+                },
+                None =>{}
+            }    
+        }
+    }
+    
+
+
     /*
     let erased = crate::non_linear_simplification::simplify(
         &mut constraint_storage,
@@ -511,7 +676,6 @@ pub fn simplification(
     }*/
 
     let _trash = constraint_storage.extract_with(&|c| C::is_empty(c));
-
 
     let signal_map = {
         // println!("Rebuild witness");
@@ -531,6 +695,9 @@ pub fn simplification(
 
     println!("NO CONSTRAINTS AFTER SIMPLIFICATION: {}", constraint_storage.get_ids().len());
     println!("NO SIGNALS AFTER SIMPLIFICATION: {}", signal_map.len());
+    println!("--> Number of PLONK substitutions (x = alpha*y + beta): {}", number_plonk_substitutions);
+    println!("--> Number of ACIR substitutions (signal in only linear): {}", number_acir_substitutions);
+
     (constraint_storage, signal_map)
 }
 

@@ -192,7 +192,7 @@ fn treat_constraint_3(
         let new_left  = A::mul(&exp_coef_right,&left,field);
         let new_right  = A::mul(&exp_coef_left,&right,field);
         let merge = A::sub(&new_left, &new_right, field);
-        work = A::transform_expression_to_AIR_constraint_form(merge, field).unwrap();
+        work = A::transform_expression_to_air_constraint_form(merge, field).unwrap();
         C::remove_zero_value_coefficients(&mut work);
     }
 }
@@ -207,6 +207,12 @@ fn treat_unique_constraint_4(
     field: &BigInt,
     only_plonk: bool,
 ) {
+
+    if only_plonk{ // check if the substitution is valid for the plonk format
+        if !work.can_take_plonk_signal(){
+            return;
+        }
+    }
 
     let (coefficient, substitution) = C::clear_signal_from_linear_not_normalized(work, &signal, field);
     substitutions.insert(*substitution.from(), (coefficient, substitution));
@@ -249,7 +255,7 @@ fn treat_constraint_4(
         let new_left  = A::mul(&exp_coef_right,&left,field);
         let new_right  = A::mul(&exp_coef_left,&right,field);
         let merge = A::sub(&new_left, &new_right, field);
-        work = A::transform_expression_to_AIR_constraint_form(merge, field).unwrap();
+        work = A::transform_expression_to_air_constraint_form(merge, field).unwrap();
         C::remove_zero_value_coefficients(&mut work);
     }
 }
@@ -259,7 +265,7 @@ fn take_signal_3(signals: &SignalDefinition, constraint: &C, only_plonk: bool) -
     let keys = constraint.linear().keys();
 
     if only_plonk{ // check if the substitution is valid for the plonk format
-        if keys.len() > 3 || (keys.len() == 3 && constraint.linear().contains_key(&0)){
+        if !constraint.can_take_plonk_signal(){
             return None;
         }
     }
@@ -280,7 +286,7 @@ fn take_signal_4(signals: &SignalDefinition4, info_ocurrences: &SignalsInformati
     let keys = constraint.linear().keys();
 
     if only_plonk{ // check if the substitution is valid for the plonk format
-        if keys.len() > 3 || (keys.len() == 3 && constraint.linear().contains_key(&0)){
+        if !constraint.can_take_plonk_signal(){
             return None;
         }
     }

@@ -86,14 +86,14 @@ impl AIRConstraintStorage {
 
     pub fn add_constraint(&mut self, constraint: AC) -> ConstraintID {
         let id = self.constraints.len();
-        let compressed = logic::code_AIR_constraint(constraint, &mut self.field_tracker);
+        let compressed = logic::code_air_constraint(constraint, &mut self.field_tracker);
         self.constraints.push(compressed);
         id
     }
 
     pub fn read_constraint(&self, id: ConstraintID) -> Option<AC> {
         if id < self.constraints.len() {
-            Some(logic::decode_AIR_constraint(&self.constraints[id], &self.field_tracker))
+            Some(logic::decode_air_constraint(&self.constraints[id], &self.field_tracker))
         } else {
             None
         }
@@ -101,7 +101,7 @@ impl AIRConstraintStorage {
 
     pub fn replace(&mut self, id: ConstraintID, new: AC) {
         if id < self.constraints.len() {
-            self.constraints[id] = logic::code_AIR_constraint(new, &mut self.field_tracker);
+            self.constraints[id] = logic::code_air_constraint(new, &mut self.field_tracker);
         }
     }
 
@@ -109,7 +109,7 @@ impl AIRConstraintStorage {
         let old = std::mem::take(&mut self.constraints);
         let mut removed = LinkedList::new();
         for c in old {
-            let decoded = logic::decode_AIR_constraint(&c, &self.field_tracker);
+            let decoded = logic::decode_air_constraint(&c, &self.field_tracker);
             if filter(&decoded) {
                 removed.push_back(decoded);
             } else {

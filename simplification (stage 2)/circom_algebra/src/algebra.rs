@@ -830,22 +830,22 @@ impl<C: Default + Clone + Display + Hash + Eq + PartialOrd + Ord> ArithmeticExpr
 
     // constraint generation utils
     // transforms constraints into a constraint, None if the expression was non-quadratic
-    pub fn transform_expression_to_AIR_constraint_form(
+    pub fn transform_expression_to_air_constraint_form(
         arithmetic_expression: ArithmeticExpression<C>,
         field: &BigInt,
     ) -> Option<AIRConstraint<C>> {
         use ArithmeticExpression::*;
         let mut linear = HashMap::new();
-        let mut muls = HashMap::new();
+        let muls = HashMap::new();
 
         ArithmeticExpression::initialize_hashmap_for_expression(&mut linear);
         match arithmetic_expression {
             NonQuadratic => {
                 return Option::None;
             }
-            Quadratic { a: old_a, b: old_b, c: old_c } => {
-                // TODO
-                return Option::None;
+            Quadratic { a: _old_a, b: _old_b, c: _old_c } => {
+                //TODO
+                unreachable!();
             }
             Number { value } => {
                 linear.insert(ArithmeticExpression::constant_coefficient(), value);
@@ -1010,6 +1010,13 @@ impl<C: Default + Clone + Display + Hash + Eq> Substitution<C> {
     pub fn is_valid_plonk_substitution(&self) -> bool{
         let cq: C = ArithmeticExpression::constant_coefficient();
         self.to.keys().len() < 2 || (self.to.keys().len() == 2 && self.to.contains_key(&cq))
+    }
+
+    pub fn print_pretty_substitution(&self){
+        println!("Substitution: from {} to ", self.from);
+            for (s, coef) in self.to(){
+                println!("--- {} * {}", coef, s);
+            }
     }
 }
 
@@ -1619,6 +1626,37 @@ impl<C: Default + Clone + Display + Hash + Eq + PartialOrd + Ord> AIRConstraint<
         (coefficient, Substitution {from: signal.clone(), to: raw_expression})
     }
 
+    pub fn clear_signal_from_non_linear(
+        constraint: AIRConstraint<C>,
+        signal: &C,
+        field: &BigInt,
+    ) -> AIRSubstitution<C> {
+        debug_assert!(constraint.linear.contains_key(signal));
+        let (coefficient, raw_expression) = AIRConstraint::clear_signal_not_normalized(constraint.linear, &signal, field);
+        let arith_sub = ArithmeticExpression::hashmap_into_arith(raw_expression);
+        let div_linear_sub = match ArithmeticExpression::div(
+            &arith_sub, 
+            &ArithmeticExpression::Number {value : coefficient.clone()}, 
+            field
+        ){
+            Ok(v) => v,
+            _ => unreachable!()
+        };
+        
+
+        let mut new_muls = HashMap::new();
+        for ((s1, s2), coef) in constraint.muls{
+            let div_coef = modular_arithmetic::div(&coef, &coefficient, field);
+            let div_coef = match div_coef{
+                Err(_) => unreachable!(),
+                Ok(v) => v
+            };
+            new_muls.insert((s1, s2), div_coef);
+        }
+        
+        AIRSubstitution::new(signal.clone(), div_linear_sub, new_muls).unwrap()
+    }
+
     pub fn remove_zero_value_coefficients(constraint: &mut AIRConstraint<C>) {
         constraint.linear = remove_zero_value_coefficients(std::mem::take(&mut constraint.linear));
         constraint.muls = remove_zero_value_coefficients_muls(std::mem::take(&mut constraint.muls));
@@ -1632,6 +1670,25 @@ impl<C: Default + Clone + Display + Hash + Eq + PartialOrd + Ord> AIRConstraint<
         }
         for signal in self.linear().keys() {
             signals.insert(signal.clone());
+        }
+        signals.remove(&AIRConstraint::constant_coefficient());
+        signals
+    }
+
+    pub fn take_cloned_linear_signals(&self) -> HashSet<C> {
+        let mut signals = HashSet::new();
+        for signal in self.linear().keys() {
+            signals.insert(signal.clone());
+        }
+        signals.remove(&AIRConstraint::constant_coefficient());
+        signals
+    }
+
+    pub fn take_cloned_non_linear_signals(&self) -> HashSet<C> {
+        let mut signals = HashSet::new();
+        for (signal_a, signal_b) in self.muls().keys() {
+            signals.insert(signal_a.clone());
+            signals.insert(signal_b.clone());
         }
         signals.remove(&AIRConstraint::constant_coefficient());
         signals
@@ -1660,6 +1717,57 @@ impl<C: Default + Clone + Display + Hash + Eq + PartialOrd + Ord> AIRConstraint<
         raw_substitution_muls(&mut constraint.muls, substitution, field);
         raw_substitution(&mut constraint.linear, substitution, field);
         //Constraint::fix_constraint(constraint, field);
+    }
+
+    pub fn apply_air_substitution(
+        constraint: &mut AIRConstraint<C>,
+        substitution: &AIRSubstitution<C>,
+        field: &BigInt,
+    ){
+
+        // To ensure that the signal is not in the non linear part
+        for (s1, s2) in constraint.muls().keys(){
+            assert!(s1 != substitution.from());
+            assert!(s2 != substitution.from());
+        }
+
+
+        let coefficient = if constraint.linear.contains_key(substitution.from()){
+            constraint.linear.get(substitution.from()).unwrap().clone()
+        } else{
+            BigInt::from(0)
+        };
+
+        // We remove the eliminated value
+        constraint.linear.remove(substitution.from());
+
+        if coefficient != BigInt::from(0){
+            
+            // update the linear part
+            for (s, value) in substitution.to_linear(){
+                let coef = modular_arithmetic::mul(&coefficient, value, field);
+                if constraint.linear.contains_key(s){
+                    let prev_coef = constraint.linear.get_mut(s).unwrap();
+                    *prev_coef = modular_arithmetic::add(&coef, prev_coef, field);
+                } else{
+                    constraint.linear.insert(s.clone(), coef);
+                }
+            }
+
+            // update the non linear part
+            for ((s1, s2), value) in substitution.to_muls(){
+                let coef = modular_arithmetic::mul(&coefficient, value, field);
+                let sigs = (s1.clone(), s2.clone());
+                if constraint.muls.contains_key(&sigs){
+                    let prev_coef = constraint.muls.get_mut(&sigs).unwrap();
+                    *prev_coef = modular_arithmetic::add(&coef, prev_coef, field);
+                } else{
+                    constraint.muls.insert(sigs, coef);
+                }
+            }
+
+        }
+        
     }
 
     pub fn fix_constraint(constraint: &mut AIRConstraint<C>, field: &BigInt) {
@@ -1726,7 +1834,85 @@ impl<C: Default + Clone + Display + Hash + Eq + PartialOrd + Ord> AIRConstraint<
         (value_to_the_right, symbols)
     }
 
+    pub fn print_pretty_constraint(&self){
+        println!("AIR Constraint: ");
+        for (s, coef) in self.linear(){
+            println!("--- {} * {}", coef, s);
+        }
+        for ((s1,s2), coef) in self.muls(){
+            println!("--- {} * {} {}", coef, s1, s2);
+        }
+    }
+
+    pub fn can_take_plonk_signal(&self) -> bool{
+        let keys = self.linear().keys();
+        let cq = ArithmeticExpression::constant_coefficient();
+        keys.len() <= 2 || (keys.len() == 2 && self.linear().contains_key(&cq))
+    }
 
 
+}
 
+
+#[derive(Clone)]
+pub struct AIRSubstitution<C>
+where
+    C: Hash + Eq,
+{
+    pub(crate) from: C,
+    pub(crate) to_linear: HashMap<C, BigInt>,
+    pub(crate) to_muls: HashMap<(C, C), BigInt>
+}
+impl<C: Default + Clone + Display + Hash + Eq> AIRSubstitution<C> {
+    // Substitution public utils
+    pub fn new(from: C, to_linear: ArithmeticExpression<C>, to_muls: HashMap<(C, C), BigInt>) -> Option<AIRSubstitution<C>> {
+        use ArithmeticExpression::*;
+        
+        // CHECK THAT MULS DOES NOT CONTAIN FROM
+        for (m1, m2) in to_muls.keys(){
+            if *m1 == from || *m2 == from{
+                return None
+            }
+        }
+        
+
+        match to_linear {
+            Number { value } => {
+                let mut to_linear = HashMap::new();
+                to_linear.insert(ArithmeticExpression::constant_coefficient(), value);
+                Option::Some(AIRSubstitution { from, to_linear, to_muls })
+            }
+            Signal { symbol } => {
+                let mut to_linear = HashMap::new();
+                to_linear.insert(symbol, BigInt::from(1));
+                Option::Some(AIRSubstitution { from, to_linear, to_muls })
+            }
+            Linear { coefficients: to_linear } if !to_linear.contains_key(&from) => {
+                Option::Some(AIRSubstitution { from, to_linear, to_muls })
+            }
+            _ => Option::None,
+        }
+    }
+
+    pub fn from(&self) -> &C {
+        &self.from
+    }
+
+    pub fn to_linear(&self) -> &HashMap<C, BigInt> {
+        &self.to_linear
+    }
+
+    pub fn to_muls(&self) -> &HashMap<(C, C), BigInt> {
+        &self.to_muls
+    }
+
+    pub fn print_pretty_substitution(&self){
+        println!("Substitution: from {} to ", self.from);
+            for (s, coef) in self.to_linear(){
+                println!("--- {} * {}", coef, s);
+            }
+            for ((s1,s2), coef) in self.to_muls(){
+                println!("--- {} * {} {}", coef, s1, s2);
+            }
+    }
 }

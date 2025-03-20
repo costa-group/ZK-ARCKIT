@@ -21,7 +21,7 @@ pub fn code_multiplication(expr: HashMap<(S, S), BigInt>, tracker: &mut FieldTra
     c_expr
 }
 
-pub fn code_AIR_constraint(constraint: AC, tracker: &mut FieldTracker) -> CompressedAIRConstraint {
+pub fn code_air_constraint(constraint: AC, tracker: &mut FieldTracker) -> CompressedAIRConstraint {
     let linear = code_expression(constraint.linear, tracker);
     let muls = code_multiplication(constraint.muls, tracker);
     (muls, linear)
@@ -59,6 +59,6 @@ pub fn decode_constraint(constraint: &CompressedConstraint, tracker: &FieldTrack
     C { a: decode_expr(a, tracker), b: decode_expr(b, tracker), c: decode_expr(c, tracker) }
 }
 
-pub fn decode_AIR_constraint(constraint: &CompressedAIRConstraint, tracker: &FieldTracker) -> AC {
+pub fn decode_air_constraint(constraint: &CompressedAIRConstraint, tracker: &FieldTracker) -> AC {
     AC { muls: decode_multiplication(&constraint.0, tracker), linear: decode_expr(&constraint.1, tracker) }
 }

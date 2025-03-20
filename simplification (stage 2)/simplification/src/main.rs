@@ -5,6 +5,8 @@ use serde::{Deserialize, Serialize};
 use std::collections::{HashSet, LinkedList, HashMap};
 use circom_algebra::algebra::AIRConstraint;
 use circom_algebra::algebra::Substitution;
+use circom_algebra::algebra::AIRSubstitution;
+
 use circom_algebra::algebra::ArithmeticExpression;
 use circom_algebra::constraint_storage::AIRConstraintStorage;
 use crate::constraint_simplification::simplification;
@@ -23,6 +25,14 @@ use ansi_term::Colour;
 pub type C = AIRConstraint<usize>;
 pub type S = Substitution<usize>;
 pub type A = ArithmeticExpression<usize>;
+
+#[derive(PartialEq)]
+pub enum SimplificationType{
+    PLONK,
+    ACIR,
+    R1CS
+}
+
 
 #[derive(Deserialize, Debug, Serialize)]
 struct LinearInfo{
@@ -74,15 +84,12 @@ fn write_output_into_file<P: AsRef<Path>>(path: P, result: &CircuitInfo) -> Resu
 
     let file = File::create(path)?;
     let mut writer = BufWriter::new(file);
-
     // Write the result.
     let value = serde_json::to_string_pretty(result)?;
     writer.write(value.as_bytes())?;
     writer.flush()?;
     Ok(())
 }
-
-
 
 struct ProcessedCircuit{
     storage: AIRConstraintStorage,
@@ -174,7 +181,7 @@ fn move_constraint_info_to_storage(info: CircuitInfo) ->ProcessedCircuit{
     }
     let field = "21888242871839275222246405745257275088548364400416034343698204186575808495617";
     let to_bi_field = field.parse::<BigInt>().unwrap();
-    if signals.len() != info.number_of_signals{
+    if signals.len() + 1 != info.number_of_signals{
         println!("Different number of signals: Real -> {}, Given -> {}", signals.len(), info.number_of_signals);
     }
     ProcessedCircuit{
@@ -182,7 +189,7 @@ fn move_constraint_info_to_storage(info: CircuitInfo) ->ProcessedCircuit{
         linear, 
         forbidden,
         field: to_bi_field,
-        no_labels: signals.len()
+        no_labels: signals.len() + 1
     }
 }
 
@@ -223,6 +230,19 @@ fn start() -> Result<(), ()> {
     let out_copy = circuit.outputs.clone();
     let proc_circuit = move_constraint_info_to_storage(circuit);
     
+    let simp_mode = if args.len() == 4{
+        match args[3].as_str(){
+            "plonk" => {SimplificationType::PLONK },
+            "acir" => {SimplificationType::ACIR },
+            "r1cs" => {SimplificationType::R1CS },
+            _ => {unreachable!()}
+
+        }
+    } else{
+        SimplificationType::ACIR 
+    };
+
+
     let (new_constraints, signals) = simplification(
         proc_circuit.linear,
         proc_circuit.storage,
@@ -230,13 +250,12 @@ fn start() -> Result<(), ()> {
         proc_circuit.no_labels,
         proc_circuit.no_labels,
         proc_circuit.field,
-        false // CHOOSES IF APPLYING PLONK OR NOT
+        simp_mode // CHOOSES IF APPLYING PLONK OR NOT
     );
 
 
     let circuit_info = move_storage_to_constraint_info(new_constraints, signals.len(), out_copy);
     let _ = write_output_into_file(&args[2], &circuit_info);
-
 
     Result::Ok(())
 }
