@@ -17,78 +17,68 @@ def generate_problem_plonk_transformation(constraints, nsignals, naux):
     # To rebuild the solution
     
     if(s.check() == sat): 
-        print(s.model())
+        #print(s.model())
         m = s.model()
         #print(m[z3.Int('needed_variables')])
         
-        coefs = [] # One coef for each variable and constraint
+        coefs_constraints = [] # One coef for each variable and constraint
         used_signals = []
         total_aux = m[z3.Int("total_needed")]
         
-        
+        new_signals_coefs = {}
+        index = nsignals
+        for s in range(naux):
+            if (m[z3.Bool("is_needed_" + str(s))]):
+                new_signals_coefs[s] = index
+                index += 1
+                
         for s in range(naux):
             if (m[z3.Bool("is_needed_" + str(s))]):
                 print("Signal aux_"+ str(s) + "is defined as:")
                 involved = ""
+                signal_def = []
                 for s1 in range(nsignals):
                     if (m[z3.Bool(generate_aux_name(s, s1, False))]):
                         involved += " + s_"+str(s1)
-                for s1 in range(naux):
-                    if (m[z3.Bool(generate_aux_name(s, s1, True))]):
-                        involved += " + aux_"+str(s1)
+                        signal_def.append(s1)
+                #for s1 in range(naux):
+                #    if (m[z3.Bool(generate_aux_name(s, s1, True))]):
+                #       involved += " + aux_"+str(s1)
+                #       signal_def.append(new_signals_coefs[s1])
+                used_signals.append(signal_def)
+
                 print(involved)
         
         for c in range(len(constraints)):
             coefs = ""
+            coefs_c = []
             for s in range(nsignals):
                 if m[z3.Int(generate_coef_name(c, s, False))] == 0:
                     pass
                 else:
                     coefs += " + " + str(m[z3.Int(generate_coef_name(c, s, False))]) + "* s_" + str(s) 
+                    coefs_c.append((s, m[z3.Int(generate_coef_name(c, s, False))].as_long()))
             for s in range(naux):
                 if m[z3.Int(generate_coef_name(c, s, True))] == 0:
                     pass 
                 else:
                     coefs += " + " + str(m[z3.Int(generate_coef_name(c, s, True))]) + "* aux_" + str(s)  
+                    s_index = new_signals_coefs[s]
+                    coefs_c.append((s_index, m[z3.Int(generate_coef_name(c, s, True))].as_long()))
+            
+            if -1 in constraints[c]:
+                coefs += "+ " + constraints[c][-1]
+                coefs_c.append((-1, constraints[c][-1]))
+            
+            coefs_constraints.append(coefs_c)
+
             print("Constraint " + str(c) + ":")
             print(coefs)
+        return total_aux, used_signals, coefs_constraints
+    else: 
+        return -1, [], []
         
-# =============================================================================
-#         for s in range(naux):
-#             if m[z3.Int('is_needed_' + str(s))] == 1:
-#             
-#                 # We use the signal, study the coef and signals that appear in A and B
-#                 # Study the coefs for each one of the constraints
-#                 coefs_cons = []
-#                 for cindex in range(len(constraints)):
-#                     name_coef = generate_coef_name(s, cindex)
-#                     coef = m[z3.Int(name_coef)].as_long()
-#                     coefs_cons.append(coef)
-#                 coefs.append(coefs_cons)
-#                                 
-#                 # Study the signals that are in A
-#                 signals_A = []
-#                 for i in range(nsignals):
-#                     name_aux = generate_aux_name(s, True, i)
-#                     aux = m[z3.Bool(name_aux)]
-#                     if aux: 
-#                         signals_A.append(i)
-#                 
-#                 # Study the signals that are in B
-#                 signals_B = []
-#                 for i in range(nsignals):
-#                     name_aux = generate_aux_name(s, False, i)
-#                     aux = m[z3.Bool(name_aux)]
-#                     if aux: 
-#                         signals_B.append(i)
-#                 
-#                 used_signals.append((signals_A, signals_B))
-#                  
-#         return total_aux, coefs, used_signals
-#     else:
-#         return -1, [], []
-# 
-# =============================================================================
+
 
 def restrict_size_coefs(solver, nconstraints, nsignals, naux):
     for c in range(nconstraints):
@@ -109,9 +99,9 @@ def restrict_number_additions_aux(solver, nsignals, naux):
     	    var = Bool(generate_aux_name(i, j, False))
     	    sum_needed = sum_needed + If(var, 1, 0)
     	# If we can use the signals and the previous aux
-        for j in range(i):
-            var = Bool(generate_aux_name(i, j, True))
-            sum_needed = sum_needed + If(var, 1, 0)
+        #for j in range(i):
+        #    var = Bool(generate_aux_name(i, j, True))
+        #    sum_needed = sum_needed + If(var, 1, 0)
     	
         condition_only_two = sum_needed <= 2
         solver.add(condition_only_two)
@@ -126,9 +116,9 @@ def minimize_needed(solver, nsignals, naux):
             var = Bool(generate_aux_name(i, j, False))
             is_needed = Or(is_needed, var)
     	# If we can use the signals and the previous aux
-        for j in range(i):
-    	    var = Bool(generate_aux_name(i, j, True))
-    	    is_needed = Or(is_needed, var)
+        #for j in range(i):
+    	#    var = Bool(generate_aux_name(i, j, True))
+    	#    is_needed = Or(is_needed, var)
     	
         solver.add(Bool("is_needed_" + str(i)) == is_needed)
         total_needed = total_needed + If(Bool("is_needed_" + str(i)), 1, 0)
@@ -197,10 +187,11 @@ def compute_nadds_signal(index_aux, index_signal):
     name_aux_signal = Bool(generate_aux_name(index_aux, index_signal, False))
     nadds = nadds + If(name_aux_signal, 1, 0)
     
-    for i in range(index_aux):
-        name_aux_i = Bool(generate_aux_name(index_aux, i, True))
-        nadds_i = compute_nadds_signal(i, index_signal)
-        nadds = nadds +  If(name_aux_i, nadds_i, 0)
+    # If we can use the previous aux when generating an aux signal
+    #for i in range(index_aux):
+    #    name_aux_i = Bool(generate_aux_name(index_aux, i, True))
+    #    nadds_i = compute_nadds_signal(i, index_signal)
+    #    nadds = nadds +  If(name_aux_i, nadds_i, 0)
     
     return nadds
 

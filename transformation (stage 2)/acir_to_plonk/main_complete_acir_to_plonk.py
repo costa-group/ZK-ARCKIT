@@ -14,7 +14,7 @@ Created on Mon Mar 17 15:07:28 2025
 @author: clara
 """
 
-import solver_linear_to_plonk
+import solver_linear_to_plonk_simple
 import json
 
 
@@ -58,51 +58,57 @@ def parse_circuit(circuit):
     
 
 
-def build_constraint_aux(signals_A, signals_B, n_aux):
-    map_A = {}
-    map_B = {}
-    map_C = {}
-    for i in signals_A:
-        map_A[i + 1] = 1
-    for i in signals_B:
-        map_B[i + 1] = 1
-    map_C[n_aux + 1] = -1
-    return (map_A, map_B, map_C)
+def build_linear_constraint_aux(naux, used_signals):
+    constraint = {}
+    
+    constraint["s_a"] = used_signals[0]
+    constraint["coef_a"] = 1
+    constraint["s_b"] = used_signals[1]
+    constraint["coef_b"] = 1
+
+    constraint["s_c"] = naux
+    constraint["coef_c"] = -1
+    
+    return constraint
+    
     
 
+def build_linear_previous_constraint(coefficients):
+    found_a = False
+    found_b = False
 
-def build_previous_constraint(coefs, constraint_index, linear_coefficients, n_signals):
-    map_A = {}
-    map_B = {}
-    map_C = {}
-        
-    for (s, coef) in linear_coefficients.items():
-        map_C[s + 1] = coef
+    constraint = {}
+    for (s, coef) in coefficients:
+        if s == -1:
+            constraint["coef_cte"] = coef
+        elif not found_a:
+            constraint["s_a"] = s
+            constraint["coef_a"] = coef
+            found_a = True
+        elif not found_b:
+            constraint["s_b"] = s
+            constraint["coef_b"] = coef
+            found_b = True
+        else: 
+            constraint["s_c"] = s
+            constraint["coef_c"] = coef
+            
+    return constraint
     
-    index = 0
-    for coefs_signal in coefs:
-        coef = coefs_signal[constraint_index]
-        if coef != 0:
-            map_C[n_signals + index + 1] = coef
-        index += 1
     
-    return (map_A, map_B, map_C)
 
-
-def build_constraints(coefs, signals_aux, linear_part_constraints, n_signals):
+def build_linear_constraints(signals_aux, new_constraints, nsignals):
     constraints = []
     
     index_aux = 0
     # Build the new auxiliar constraints
-    for (signals_A, signals_B) in signals_aux:
-        constraints.append(build_constraint_aux(signals_A, signals_B, index_aux))
+    for used in signals_aux:
+        constraints.append(build_linear_constraint_aux(nsignals + index_aux, used))
         index_aux += 1
     
     # Transform the previous constraints
-    index_cons = 0
-    for linear in linear_part_constraints:    
-        constraints.append(build_previous_constraint(coefs, index_cons, linear, n_signals))
-        index_cons += 1
+    for linear in new_constraints:    
+        constraints.append(build_linear_previous_constraint(linear))
     
     return constraints
 
@@ -133,23 +139,21 @@ non_linear_part_constraints, linear_part_constraints, n_signals = parse_circuit(
 #print(constraints)
 
 # Generate the Z3 problem and solve it
-solver_linear_to_plonk.generate_problem_plonk_transformation(linear_part_constraints, n_signals, int(args.n))
+naux, signals_aux, new_constraints = solver_linear_to_plonk_simple.generate_problem_plonk_transformation(linear_part_constraints, n_signals, int(args.n))
 
 
 # Rebuild the constraints
-# =============================================================================
-# if naux == -1:
-#     print("UNSAT: The number of auxiliar variables is not enough, try with more")
-# else:
-#     print("SAT: Found solution using " +str(naux) + " variables")
-#     
-#     constraints = build_constraints(coefs, signals_aux, linear_part_constraints, n_signals)
-#     map_result = {}
-#     map_result["constraints"] = constraints
-#     json_object = json.dumps(map_result, indent = 4, sort_keys=True) 
-#     file = open(args.fileout, "w")
-#     file.write(json_object)
-# =============================================================================
+if naux == -1:
+    print("UNSAT: The number of auxiliar variables is not enough, try with more")
+else:
+    print("SAT: Found solution using " +str(naux) + " variables")
+     
+    constraints = build_linear_constraints(signals_aux, new_constraints, n_signals)
+    map_result = {}
+    map_result["constraints"] = constraints
+    json_object = json.dumps(map_result, indent = 4, sort_keys=True) 
+    file = open(args.fileout, "w")
+    file.write(json_object)
 
     
     

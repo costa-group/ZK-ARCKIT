@@ -2,60 +2,117 @@
   "constraints": [
     {
       "constant": "0",
-      "linear": [],
-      "mul": [
-        {
+      "linear": [
+      {
           "coeff": "1",
-          "witness1": 0,
-          "witness2": 0
+          "witness": 0
         },
         {
           "coeff": "1",
-          "witness1": 0,
-          "witness2": 1
+          "witness": 1
         },
         {
           "coeff": "1",
-          "witness1": 0,
-          "witness2": 2
+          "witness": 2
+        },
+        {
+          "coeff": "1",
+          "witness": 3
+        },
+        {
+          "coeff": "1",
+          "witness": 4
         }
+      ],
+      "mul": [
       ]
     },
     {
       "constant": "0",
-      "linear": [],
-      "mul": [
-                {
+      "linear": [
+      {
           "coeff": "1",
-          "witness1": 0,
-          "witness2": 0
+          "witness": 2
         },
         {
           "coeff": "1",
-          "witness1": 0,
-          "witness2": 1
+          "witness": 3
         },
         {
           "coeff": "1",
-          "witness1": 0,
-          "witness2": 2
+          "witness": 4
         },
         {
           "coeff": "1",
-          "witness1": 1,
-          "witness2": 1
+          "witness": 7
         }
+      ],
+      "mul": [
       ]
     },
-    {
-      "constant": "0",
-      "linear": [],
-      "mul": [
+        {
+      "constant": "3",
+      "linear": [
+      {
+          "coeff": "-1",
+          "witness": 0
+        },
         {
           "coeff": "1",
-          "witness1": 1,
-          "witness2": 1
+          "witness": 2
+        },
+        {
+          "coeff": "1",
+          "witness": 4
         }
+      ],
+      "mul": [
+      ]
+    },
+        {
+      "constant": "0",
+      "linear": [
+      {
+          "coeff": "1",
+          "witness": 7
+        },
+        {
+          "coeff": "1",
+          "witness": 6
+        },
+        {
+          "coeff": "1",
+          "witness": 5
+        },
+        {
+          "coeff": "1",
+          "witness": 2
+        }
+      ],
+      "mul": [
+      ]
+    },
+            {
+      "constant": "5",
+      "linear": [
+      {
+          "coeff": "1",
+          "witness": 1
+        },
+        {
+          "coeff": "1",
+          "witness": 2
+        },
+        {
+          "coeff": "1",
+          "witness": 3
+        },
+        {
+          "coeff": "1",
+          "witness": 5
+        }
+      ],
+      "mul": [
       ]
     }
   ]
