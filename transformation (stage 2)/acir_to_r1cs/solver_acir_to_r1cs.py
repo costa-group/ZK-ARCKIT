@@ -70,34 +70,6 @@ def generate_problem_r1cs_transformation(constraints, nsignals, naux):
 
 
 
-# =============================================================================
-# def declare_aux(file, nsignals, naux):
-#     for k in range(naux): 
-#         for i in range(nsignals):
-#             coef_a_i = generate_aux_name(k, True, i)
-#             write_declare(file, coef_a_i, "Bool")
-# 
-#             coef_b_i = generate_aux_name(k, False, i)
-#             write_declare(file, coef_b_i, "Bool")
-# 
-#     
-# def declare_coef(file, naux, ncons):
-#     for k in range(naux): 
-#         for i in range(ncons):
-#             coef_cons_i = generate_coef_name(k, i)
-#             write_declare(file, coef_cons_i, "Int")   
-#             #write_assert(file, binary_operation("<=", coef_cons_i, "3"))
-#             #write_assert(file, binary_operation(">=", coef_cons_i, "0"))
-#     
-# 
-# 
-# def declare_is_needed(file, naux):
-#     for k in range(naux): 
-#         write_declare(file, "is_needed_" + str(k), "Int")   
-#     write_declare(file, "total_needed", "Int")
-# 
-# =============================================================================
-
 def write_all_constraints(solver, constraints, nsignals, naux):
     index = 0
     for coefs in constraints:

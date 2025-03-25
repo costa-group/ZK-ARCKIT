@@ -8,7 +8,7 @@ def generate_problem_plonk_transformation(constraints, nsignals, naux):
     s = Optimize()
     
     restrict_number_additions_aux(s, nsignals, naux)
-    restrict_size_coefs(s, len(constraints), nsignals, naux)
+    #restrict_size_coefs(s, len(constraints), nsignals, naux)
     write_all_constraints(s, constraints, nsignals, naux)
     minimize_needed(s, nsignals, naux)
     
