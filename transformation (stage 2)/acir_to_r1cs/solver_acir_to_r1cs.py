@@ -26,19 +26,20 @@ def generate_problem_r1cs_transformation(constraints, nsignals, naux):
     # To rebuild the solution
     
     if(s.check() == sat): 
-#        print(s.model())
+        print(s.model())
         m = s.model()
         #print(m[z3.Int('needed_variables')])
         coefs = [] # One coef for each variable and constraint
         used_signals = []
-        total_aux = m[z3.Int("total_needed")]
+        total_aux = 0
         
         
         for s in range(naux):
-            if m[z3.Int('is_needed_' + str(s))] == 1:
-            
+            if m[z3.Bool('is_needed_' + str(s))]:
+            	
                 # We use the signal, study the coef and signals that appear in A and B
                 # Study the coefs for each one of the constraints
+                total_aux += 1
                 coefs_cons = []
                 for cindex in range(len(constraints)):
                     name_coef = generate_coef_name(s, cindex)
@@ -112,11 +113,8 @@ def calculate_needed(solver, nsignals, naux):
         for i in range(nsignals):
             name = Bool(generate_aux_name(k, True, i))
             isNeeded = Or(isNeeded, name)
-        ite_needed = If(isNeeded, 1, 0)
-        solver.add(Int("is_needed_" + str(k)) == ite_needed)
-        sum_needed = sum_needed + Int("is_needed_" + str(k))
-    solver.add(Int("total_needed") == sum_needed)
-    solver.minimize(Int('total_needed'))
+        solver.add(Bool("is_needed_" + str(k)) == isNeeded)
+        solver.add_soft(Not(Bool('is_needed_'+ str(k))))    
 
 
 def calculate_needed_2(solver, nsignals, naux):
@@ -126,14 +124,12 @@ def calculate_needed_2(solver, nsignals, naux):
         for i in range(nsignals):
             name = Bool(generate_aux_name(k, True, i))
             isNeeded = Or(isNeeded, name)
-        solver.add(Bool("is_needed_" + str(k)), isNeeded)
-        ite_needed = If(Bool("is_needed_" + str(k)), 1, 0)
-        sum_needed = sum_needed + ite_needed
+        solver.add(Bool("is_needed_" + str(k)) == isNeeded)
+        solver.add_soft(Not(Bool('is_needed_'+ str(k))))  
         # To reduce the number of symmetries?
         #if k > 0:
         	#write_assert(file, "(=> (not is_needed_" + str(k-1) + ") (not is_needed_" + str(k) + "))")
-    solver.add(Int("total_needed") == sum_needed)
-    solver.minimize(Int('total_needed'))
+
 
 
 def generate_coef_name(iaux, icons):

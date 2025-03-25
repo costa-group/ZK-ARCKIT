@@ -23,7 +23,7 @@ def generate_problem_plonk_transformation(constraints, nsignals, naux):
         
         coefs_constraints = [] # One coef for each variable and constraint
         used_signals = []
-        total_aux = m[z3.Int("total_needed")]
+        total_aux = 0
         
         new_signals_coefs = {}
         index = nsignals
@@ -31,10 +31,11 @@ def generate_problem_plonk_transformation(constraints, nsignals, naux):
             if (m[z3.Bool("is_needed_" + str(s))]):
                 new_signals_coefs[s] = index
                 index += 1
+                total_aux += 1
                 
         for s in range(naux):
             if (m[z3.Bool("is_needed_" + str(s))]):
-                print("Signal aux_"+ str(s) + "is defined as:")
+                print("Signal aux_"+ str(s) + " is defined as:")
                 involved = ""
                 signal_def = []
                 for s1 in range(nsignals):
@@ -121,10 +122,7 @@ def minimize_needed(solver, nsignals, naux):
     	#    is_needed = Or(is_needed, var)
     	
         solver.add(Bool("is_needed_" + str(i)) == is_needed)
-        total_needed = total_needed + If(Bool("is_needed_" + str(i)), 1, 0)
-    
-    solver.add(Int("total_needed") == total_needed)
-    solver.minimize(Int("total_needed"))
+        solver.add_soft(Not(Bool('is_needed_'+ str(i))))  
 
     	
     	    
