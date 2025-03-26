@@ -54,6 +54,9 @@
 !comparison_v2
 !comparison_v2/*.py
 
+!maximal_equivalence
+!mazimal_equivalence/*.py
+
 !README.md
 !.gitignore
 !questions.txt
