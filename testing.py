@@ -35,6 +35,8 @@ from structural_analysis.utilities.connected_preprocessing import connected_prep
 from normalisation import r1cs_norm
 from utilities import count_ints, _signal_data_from_cons_list, getvars
 from comparison.static_distance_preprocessing import _distances_to_signal_set
+from maximal_equivalence.shortest_minimum_span import shortest_minimum_span
+from maximal_equivalence.max_equiv_encoding import maximal_equivalence_encoding
 import itertools
 
 def cons_eq(C1: Constraint, C2: Constraint):
@@ -54,49 +56,31 @@ def get_absmax_lit(clauses):
     
 if __name__ == '__main__':
 
-    filenames = ["Poseidon", "Reveal", "Biomebase", "Move", "test_ecdsa", "test_ecdsa_verify"]
-    compilers = ["O0", "O1", "O2"]
+    filenames = ["Poseidon", "Reveal", "Biomebase", "Move", "sha256", "test_ecdsa", "test_ecdsa_verify"]
+    compilers = ["O0", "O1"]
 
-    filenames = filenames[:]
-    compilers = compilers[:]
+    clustering = "louvain"
+    test_dir = "official"
 
-    RNG = np.random.default_rng(312)
+    for name, comp in itertools.product(filenames[:-1], compilers):
 
-    # test_dir = "no_preprocessing/"
-    # preprocessing = None
+        print(f"########################### {name} {comp} ###########################")
 
-    # TODO: memory optimisation
-    test_dir = "official_tests/"
-    preprocessing = iterated_adjacency_reclassing
+        try:
+            circ = Circuit()
+            parse_r1cs(f"r1cs_files/{name}{comp}.r1cs", circ)
 
-    # test_dir = "method_tests/"
+            jsonfile = f"clustering_tests/{test_dir}/{name}{comp}_{clustering}.json"
 
-    for test, comp in product(filenames, compilers):
+            fp = open(jsonfile, 'r')
+            clusters = json.load(fp)
+            fp.close()
+        except FileNotFoundError:
+            continue
 
-        if test == "Poseidon" and comp == "O2": continue
+        print(len(clusters["nodes"]))
 
-        print(test, comp, "                                      ")
-        file = "r1cs_files/"+ test + comp +".r1cs"
-    
-        circ = Circuit()
-        parse_r1cs(file, circ)
-        print(file, circ.nConstraints, circ.nConstraints**2)
-
-        run_affirmative_test(
-            file,
-            "test_results/" + test_dir + test + comp + "_60min.json",
-            int(RNG.integers(0, 25565)),
-            None,
-            constraint_classes, # groups_from_clusters,
-            preprocessing,
-            OnlineInfoPassEncoder,
-            encoder_kwargs={
-                "class_encoding": reduced_encoding_class,
-                "signal_encoding": pseudoboolean_signal_encoder
-            },
-            debug=False,
-            time_limit= 60 * 60
-        )
-
-    # NOTE: previous slowdowns likely due to overuse of memory bc of not itersection with known info at signal level
-        # TODO: investigate weirdly slow encodings of small classes (e.g. 4 x 3)
+        num_in_core = map(len, map(lambda node : shortest_minimum_span(circ, node["constraints"], node["signals"]), clusters["nodes"]))
+        pairs = zip(map(lambda node : len(node["constraints"]), clusters["nodes"]), num_in_core)
+        
+        print(count_ints(pairs))
