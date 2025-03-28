@@ -7,7 +7,7 @@
         ##  use singular_options_v2 to further restrict signal mappings for > 1
         ##  then to signal_bijection on signals classes of length > 1
 from typing import Dict, List, Tuple, Set
-from pysat.formula import CNF
+from pysat.formula import CNF, WCNF
 from pysat.pb import PBEnc, EncType
 from functools import reduce
 import itertools
@@ -24,12 +24,13 @@ def encode_classes_v2(
         normalised_constraints,
         fingerprint_to_normi,
         signal_to_fingerprint,
-        fingerprint_to_signals
+        fingerprint_to_signals,
+        weighted_cnf: bool = False,
     ):
 
     # encode classes
 
-    formula = CNF()
+    formula = WCNF() if weighted_cnf else CNF()
     assumptions = set([])
 
     norm_pair_encoder   = Assignment(assignees=2)
@@ -43,21 +44,21 @@ def encode_classes_v2(
     # Add clauses for classes of size > 1
     for key in classes_to_encode:
 
-        formula.extend(encode_single_norm_class(
+        encode_single_norm_class(
             names, normalised_constraints, {name: fingerprint_to_normi[name][key] for name in names}, norm_pair_encoder,
-            signal_pair_encoder, signal_to_fingerprint, fingerprint_to_signals
-        ))
+            signal_pair_encoder, signal_to_fingerprint, fingerprint_to_signals, formula, weighted_cnf = weighted_cnf
+        )
 
     # Add bijection clauses for all signals
     for key in fingerprint_to_signals[names[0]].keys():
 
         if len(fingerprint_to_signals[names[0]][key]) == 1:
-            assumptions.add(signal_pair_encoder.get_assignment(fingerprint_to_signals[names[0]][key][0], fingerprint_to_signals[names[1]][key][0]))
-
+            literal = signal_pair_encoder.get_assignment(fingerprint_to_signals[names[0]][key][0], fingerprint_to_signals[names[1]][key][0])
+            (formula.append if weighted_cnf else assumptions.add)([literal])
         else:
-            formula.extend(encode_single_signal_class([fingerprint_to_signals[name][key] for name in names], signal_pair_encoder))
+            encode_single_signal_class([fingerprint_to_signals[name][key] for name in names], signal_pair_encoder, formula, weighted_cnf = weighted_cnf)
     
-    return formula, assumptions
+    return formula, assumptions, norm_pair_encoder, signal_pair_encoder
 
 def encode_single_norm_class(
         names: List[str],
@@ -66,10 +67,10 @@ def encode_single_norm_class(
         norm_pair_encoder: Assignment,
         signal_pair_encoder: Assignment,
         signal_to_fingerprint: Dict[str, List[int]],
-        fingerprint_to_signals: Dict[str, Dict[int, List[int]]]
+        fingerprint_to_signals: Dict[str, Dict[int, List[int]]],
+        formula: WCNF | CNF,
+        weighted_cnf: bool = False
     ):
-    clauses = []
-
     norm = normalised_constraints[names[0]][class_[names[0]][0]]
     is_ordered = not ( len(norm.A) > 0 and len(norm.B) > 0 and sorted(norm.A.values()) == sorted(norm.B.values()) )
 
@@ -88,14 +89,12 @@ def encode_single_norm_class(
             sat_variable = norm_pair_encoder.get_assignment(normi, normj)
             normi_options.append(sat_variable)
 
-            clauses.extend(map(lambda clause: clause + [-sat_variable] , ij_clauses))
+            formula.extend(map(lambda clause: clause + [-sat_variable] , ij_clauses))
     
         if len(normi_options) == 0:
             raise AssertionError(f"norm {normi} cannot be mapped to")
         
-        clauses.append(normi_options)
-    
-    return clauses
+        formula.append(normi_options, *([1] if weighted_cnf else []))
 
     # for each norm, we need to pair it with one norm on the right
         # for each pair we encode the if_pair -> restriction clauses
@@ -155,11 +154,8 @@ def encode_single_norm_pair(
     
     return clauses
     
-def encode_single_signal_class(signals: List[List[int]], signal_pair_encoder: Assignment):
+def encode_single_signal_class(signals: List[List[int]], signal_pair_encoder: Assignment, formula : WCNF | CNF, weighted_cnf: bool = False):
     # Adaptation of red_pseudoboolean_encoding to new class system
-
-    clauses = []
-
     sign = lambda x: -1 if x < 0 else 1
 
     for index in range(2):
@@ -167,7 +163,8 @@ def encode_single_signal_class(signals: List[List[int]], signal_pair_encoder: As
 
             sat_variables = list(map(lambda osignal: signal_pair_encoder.get_assignment(*((signal, osignal) if not index else (osignal, signal))), signals[1-index]))
 
-            direction_clauses = PBEnc.equals(
+            atleast_clause = sat_variables
+            atmost_clauses = PBEnc.atmost(
                 lits = sat_variables,
                 bound = 1,
                 encoding = EncType.best
@@ -177,13 +174,11 @@ def encode_single_signal_class(signals: List[List[int]], signal_pair_encoder: As
 
             # PBEnc adds new variables which might already be used, they will always be bigger than the largest introduced variable
             aux_variable_reencoding = Assignment(assignees=1, link = signal_pair_encoder)
-
-            clauses.extend(map(
+            
+            formula.append(atleast_clause, *([1] if weighted_cnf else []))
+            formula.extend(map(
                 lambda clause : list(map(lambda x : x if abs(x) <= maxval else sign(x) * aux_variable_reencoding.get_assignment(abs(x)),
                                     clause)),
-                direction_clauses
-            ))
-    
-    return clauses
-
+                atmost_clauses,
+            )) # weights if appropriate
         

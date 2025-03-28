@@ -1,6 +1,6 @@
 from typing import Tuple, List, Callable, Dict, Set, Iterable
 from pysat.formula import CNF
-from pysat.solvers import Solver
+from pysat.examples.rc2 import RC2
 import time
 import itertools
 from collections import deque 
@@ -17,11 +17,13 @@ from bij_encodings.encoder import Encoder
 from bij_encodings.assignment import Assignment
 from bij_encodings.reduced_encoding.red_pseudoboolean_encoding import ReducedPseudobooleanEncoder
 
+from comparison_v2.constraint_encoding_v2 import encode_classes_v2
+
 from maximal_equivalence.iterated_fingerprints_with_pausing import iterated_fingerprints_w_reverting, coefficient_only_fingerprinting
 
 # TODO: tomorrow
 
-def circuit_equivalence(
+def maximum_equivalence(
         in_pair: List[Tuple[str, Circuit]],
         info_preprocessing: Callable[["In_Pair", Assignment], "Signal_Info"] | None = None,
         cons_grouping: Callable[["In_Pair", "Clusters", "Signal_Info", Assignment], "Classes"] | None = None,
@@ -85,7 +87,7 @@ def circuit_equivalence(
         # signals initially classed on input / output / neither
     
         if fingerprints_to_signals is None:
-            fingerprints_to_signals = {name: { 1 : list(range(len(normalised_constraints[name])))} for name in names}
+            fingerprints_to_signals = {name: { 0: [0], 1 : list(range(1, circ.nWires))} for name, circ in in_pair}
 
         # encode initial fingerprints but norms now have signal class in norm
         fingerprints_to_normi, fingerprints_to_signals, _, signal_to_fingerprints = iterated_fingerprints_w_reverting(
@@ -93,7 +95,47 @@ def circuit_equivalence(
             initial_mode = False
         )
 
-        raise ValueError("done, fingerprinting")
+        ## SatEncoding needs same classes
+
+        fingerprints_key_intersection = set(fingerprints_to_normi[names[0]].keys()).intersection(fingerprints_to_normi[names[1]].keys())
+        signals_key_intersection = set(fingerprints_to_signals[names[0]].keys()).intersection(fingerprints_to_signals[names[1]].keys())
+
+        fingerprints_to_normi = {name: {key : fingerprints_to_normi[name][key] for key in fingerprints_key_intersection} for name in names}
+        fingerprints_to_signals = {name: {key : fingerprints_to_signals[name][key] for key in signals_key_intersection} for name in names}
+
+        back_and_forth_fingerprinting_time = time.time()
+        test_data["timing"]["back_and_forth_fingerprinting"] = back_and_forth_fingerprinting_time - last_time
+        last_time = back_and_forth_fingerprinting_time
+
+        ints = count_ints(map(len, fingerprints_to_normi[names[0]].values()))
+        test_data["group_sizes"]["post_back_and_forth"] = {
+                "sqr_weight": sum([x[0]**2 * x[1] for x in ints]),
+                "sizes": [x[0] for x in ints],
+                "counts": [x[1] for x in ints]
+            }
+
+        formula, _, norm_assignment, signal_assignment= encode_classes_v2(names, normalised_constraints, fingerprints_to_normi, signal_to_fingerprints, fingerprints_to_signals, weighted_cnf=True)
+
+        test_data["formula_size"] = len(formula.unweighted().clauses)
+        solver = RC2(formula, solver='cadical195')
+
+        encoding_time = time.time()
+        test_data["timing"]["encoding_time"] = encoding_time - last_time
+
+        model = solver.compute()
+
+        solving_time = time.time()
+        test_data["timing"]["solving_time"] = solving_time - encoding_time
+        test_data["timing"]["total_time"] = solving_time - start
+
+        # TODO: make more efficient
+        norm_vals = { val : True for val in itertools.chain(*map(lambda key : norm_assignment.assignment[key].values(), norm_assignment.assignment.keys()))}
+        signal_vals = { val : True for val in itertools.chain(*map(lambda key : signal_assignment.assignment[key].values(), signal_assignment.assignment.keys()))}
+
+        norm_pairs = list(map(norm_assignment.get_inv_assignment, filter(lambda lit : norm_vals.setdefault(lit, False), filter(lambda x : x > 0, model))))
+        signal_pairs = list(map(signal_assignment.get_inv_assignment, filter(lambda lit : signal_vals.setdefault(lit, False), filter(lambda x : x > 0, model))))
+
+        return norm_pairs, signal_pairs
 
         early_exit(fingerprints_to_normi)
         early_exit(fingerprints_to_signals)
