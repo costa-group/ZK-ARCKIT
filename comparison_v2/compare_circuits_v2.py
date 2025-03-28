@@ -113,7 +113,7 @@ def circuit_equivalence(
             }
         # now do label passing for constraints
 
-        formula, assumptions = encode_classes_v2(names, normalised_constraints, fingerprints_to_normi, signal_to_fingerprints, fingerprints_to_signals)
+        formula, assumptions, _, _ = encode_classes_v2(names, normalised_constraints, fingerprints_to_normi, signal_to_fingerprints, fingerprints_to_signals)
 
         test_data["formula_size"] = len(formula.clauses)
         solver = Solver(name='cadical195', bootstrap_with=formula)
