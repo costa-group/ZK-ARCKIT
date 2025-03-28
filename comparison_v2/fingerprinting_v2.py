@@ -44,6 +44,7 @@ def back_and_forth_fingerprinting(
             fingerprints_to_normi: Dict[str, Dict[int, List[int]]],
             fingerprints_to_signals: Dict[str, Dict[int, List[int]]],
             initial_mode: bool = True,
+            per_iteration_postprocessing: Callable[[List[str], Dict[str, List[Tuple[int, int]]], Dict[str, Dict[Tuple[int, int], List[int]]], Dict, Dict], None] = lambda *args : None,
             return_index_to_fingerprint: bool = False,
             test_data: dict | None = None 
         ):
@@ -72,7 +73,8 @@ def back_and_forth_fingerprinting(
 
     prev_fingerprints_to_normi_count, prev_fingerprints_to_signals_count = {name: {} for name in names}, {name: {} for name in names}
     prev_fingerprints_to_normi, prev_fingerprints_to_signals = {name: {} for name in names}, {name: {} for name in names}
-    prev_normi_to_fingerprints, prev_signals_to_fingerprints = {name: None for name in names}, {name: None for name in names}
+    prev_normi_to_fingerprints = {name: [norm_fingerprints[name][normi] for normi in range(len(normalised_constraints[name]))] for name in names}
+    prev_signals_to_fingerprints = {name: [signal_fingerprints[name][sig] for sig in range(circ.nWires)] for name, circ in in_pair}
     # normi_has_changed, signal_has_changed = {name: [True for _ in range(len(normalised_constraints))] for name in names}, {name: [True for _ in range(circ.nWires)] for name, circ in in_pair}
 
     get_to_update_normi = lambda normi, name : getvars(normalised_constraints[name][normi])
@@ -99,6 +101,8 @@ def back_and_forth_fingerprinting(
                 for normi in norms_to_update[name]:
                     fingerprint(True, normalised_constraints[name][normi], normi, norm_assignment, norm_fingerprints[name], fingerprints_to_normi[name], 
                                 [signal_fingerprints[name]], round_num)
+                    
+            per_iteration_postprocessing(names, norm_fingerprints, fingerprints_to_normi, prev_normi_to_fingerprints, prev_fingerprints_to_normi, prev_fingerprints_to_normi_count)
             
             # norms_to_update = {name: set([]) for name in names}
                 
@@ -127,6 +131,8 @@ def back_and_forth_fingerprinting(
                 for signal in signals_to_update[name]:
                     fingerprint(False, signal, signal, signal_assignment, signal_fingerprints[name], fingerprints_to_signals[name], 
                                 [norm_fingerprints[name], signal_to_normi[name], normalised_constraints[name]], round_num)
+            
+            per_iteration_postprocessing(names, signal_fingerprints, fingerprints_to_signals, prev_signals_to_fingerprints, prev_fingerprints_to_signals, prev_fingerprints_to_signals_count)
             
             # signals_to_update = {name: set([]) for name in names}
 
