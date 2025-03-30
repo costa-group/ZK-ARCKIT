@@ -20,12 +20,14 @@ from z3 import *
 def generate_problem_r1cs_transformation(constraints, signals, naux):
     s = Optimize()
     
+    signals.sort()
+
+    
     write_all_constraints(s, constraints, signals, naux)
     calculate_needed(s, signals, naux)
     
     # To rebuild the solution    
     if(s.check() == sat): 
-        print(s.model())
         m = s.model()
         #print(m[z3.Int('needed_variables')])
         coefs = [] # One coef for each variable and constraint

@@ -127,7 +127,8 @@ def compute_cluster(signal_to_cluster_rep, s1):
     else: 
         return s1
 
-def add_constraint_to_clusters(signal_to_cluster_rep, c, maxSignal):
+
+def add_constraint_to_clusters_old(signal_to_cluster_rep, c, maxSignal):
     minRep = maxSignal
     for (s1, s2) in c.keys():
         c_s1 = compute_cluster(signal_to_cluster_rep, s1)
@@ -144,8 +145,49 @@ def add_constraint_to_clusters(signal_to_cluster_rep, c, maxSignal):
         c_s2 = compute_cluster(signal_to_cluster_rep, s2)
         signal_to_cluster_rep[c_s2] = minRep
         signal_to_cluster_rep[s2] = minRep
+        
+        
+
+def add_constraint_to_clusters(signal_to_cluster_rep, c, maxSignal):
+    # Instead of adding all the signals in the same cluster, this is not needede: divide just considering the signals 
+    # (Same constraint in multiple  clusters)
+    
+    for (s1, s2) in c.keys():
+        c_s1 = compute_cluster(signal_to_cluster_rep, s1)
+        c_s2 = compute_cluster(signal_to_cluster_rep, s2)
+        if c_s1 < c_s2:
+            signal_to_cluster_rep[s2] = c_s1
+            signal_to_cluster_rep[c_s2] = c_s1
+        else:
+            signal_to_cluster_rep[s1] = c_s2
+            signal_to_cluster_rep[c_s1] = c_s2
+    
 
     
+
+def generate_clusters_old(signals, difs):
+    signal_to_cluster = {}
+    maxSignal = 0
+    for s in signals:
+        signal_to_cluster[s] = s
+        if s > maxSignal: 
+            maxSignal = s
+    
+    for (c, index) in difs:
+        add_constraint_to_clusters_old(signal_to_cluster, c, maxSignal)
+    
+    cluster_to_constraints = {}
+    for (c, index) in difs:
+        cluster = 0
+        for ((s1, s2), coef) in c.items():
+            cluster = compute_cluster(signal_to_cluster, s1)
+            break
+        if cluster in cluster_to_constraints: 
+            cluster_to_constraints[cluster].append((c, index))
+        else:
+            cluster_to_constraints[cluster] = [(c, index)]
+    
+    return cluster_to_constraints
 
 def generate_clusters(signals, difs):
     signal_to_cluster = {}
@@ -161,13 +203,12 @@ def generate_clusters(signals, difs):
     cluster_to_constraints = {}
     for (c, index) in difs:
         cluster = 0
-        for (s1, s2) in c.keys():
+        for ((s1, s2), coef) in c.items():
             cluster = compute_cluster(signal_to_cluster, s1)
-            break
-        if cluster in cluster_to_constraints: 
-            cluster_to_constraints[cluster].append((c, index))
-        else:
-            cluster_to_constraints[cluster] = [(c, index)]
+            if cluster in cluster_to_constraints: 
+                cluster_to_constraints[cluster].append(({(s1, s2): coef}, index))
+            else:
+                cluster_to_constraints[cluster] = [({(s1, s2): index}, index)]
     
     return cluster_to_constraints
         
@@ -200,6 +241,19 @@ data = json.load(f)
 # Parse the input file and generate the needed non linear coefficients
 non_linear_part_constraints, linear_part_constraints, n_signals = parse_circuit(data)
 
+#######              Hust for texting, get the number of different monomials that the naive approach would add
+
+naive_added_monomials = set()
+for monomials_cons in non_linear_part_constraints:
+    isFirst = True
+    for mon in monomials_cons.keys():
+        if isFirst:
+            isFirst = False
+        else: 
+            naive_added_monomials.add(mon)
+print("Number of added monomials following the naive approach: "+ str(len(naive_added_monomials)))
+print("Number of constraint: "+ str(len(non_linear_part_constraints)))
+
 
 
 
@@ -220,7 +274,7 @@ for constraint in non_linear_part_constraints:
         signals.add(coef_j)
         
     print("For constraint ", constraint)
-    expr_A, expr_B, difs = solver_acir_to_r1cs_phase1.generate_problem_r1cs_transformation(constraint, list(signals))
+    expr_A, expr_B, difs = solver_acir_to_r1cs_phase1.complete_phase1_transformation(constraint, list(signals))
     print("### Choosen A: ", expr_A)
     print("### Choosen B: ", expr_B)
     choosen_AB.append((expr_A, expr_B))
@@ -240,7 +294,14 @@ print("#################### FINISHED PHASE 1 ####################")
 #######              Clustering of the difs obtained to reduce the problem considered in phase 2
 
 clusters = generate_clusters(complete_signals_in_difs, remaining_difs)
-print("Clusters of constraints that need to be solved: ", clusters)
+maxSize = 0
+for (c, list_mons) in clusters.items():
+    if len(list_mons) > maxSize:
+        maxSize = len(list_mons)
+print("Maximum size of the clusters of constraints that need to be solved: " + str(maxSize))
+
+#    print(len(list_mons))
+#    print(list_mons)
 print("#################### FINISHED CLUSTERING ####################")
 
 #######              Phase 2 ----> Build auxiliar signals to eliminate the difs
@@ -253,6 +314,7 @@ for (n_clus, constraints) in clusters.items():
     signals = set()
     cons_sys = []
     indexes = []
+    
     # Build the set of signals and the constraint system:
     for (c, index) in constraints:
         for (s1, s2) in c:
@@ -266,6 +328,7 @@ for (n_clus, constraints) in clusters.items():
     
     ### TODO: instead of using args.n compute a pesimistic bound for the number of signals
     signals = list(signals)
+    signals.sort()
     naux, coefs, signals_aux = solver_acir_to_r1cs_phase2.generate_problem_r1cs_transformation(cons_sys, signals, int(args.n))
     if naux == -1:
         print("UNSAT: The number of auxiliar variables is not enough, try with more")
@@ -282,7 +345,11 @@ for (n_clus, constraints) in clusters.items():
             if coefs_s[s] != 0:
                 coefs_index[real_s] = coefs_s[s]
             s += 1
-        coefs_for_difs[index] = coefs_index
+        if not index in coefs_for_difs:
+            coefs_for_difs[index] = {}
+        
+        for (s, coef) in coefs_index.items():    
+            coefs_for_difs[index][s] = coefs
     
     total_number_of_aux += naux
 
