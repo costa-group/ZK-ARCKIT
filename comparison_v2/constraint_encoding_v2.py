@@ -54,7 +54,8 @@ def encode_classes_v2(
 
         if len(fingerprint_to_signals[names[0]][key]) == 1:
             literal = signal_pair_encoder.get_assignment(fingerprint_to_signals[names[0]][key][0], fingerprint_to_signals[names[1]][key][0])
-            (formula.append if weighted_cnf else assumptions.add)([literal])
+            if weighted_cnf: formula.append([literal])
+            else: assumptions.add(literal)
         else:
             encode_single_signal_class([fingerprint_to_signals[name][key] for name in names], signal_pair_encoder, formula, weighted_cnf = weighted_cnf)
     
