@@ -90,6 +90,7 @@ from structural_analysis.cluster_trees.equivalent_partitions import easy_fingerp
 from structural_analysis.cluster_trees.full_equivalency_partitions import subcircuit_fingerprinting_equivalency, subcircuit_fingerprint_with_structural_augmentation_equivalency
 from structural_analysis.utilities.graph_to_img import dag_graph_to_img
 from structural_analysis.cluster_trees.dag_postprocessing import merge_passthrough, merge_only_nonlinear
+from structural_analysis.clustering_methods.iterated_louvain import iterated_louvain
 
 def r1cs_cluster(
         input_filename: str,
@@ -136,6 +137,7 @@ def r1cs_cluster(
     for index, circ in enumerate(circs):
 
         timing = {}
+        data = {}
 
         start = time.time()
         last_time = start
@@ -150,6 +152,12 @@ def r1cs_cluster(
             case "louvain":
                 g = shared_signal_graph(circ.constraints)
                 partition = list(map(list, louvain_communities(g, resolution=circ.nConstraints ** 0.5)))
+
+            case "iterated_louvain":
+                g = shared_signal_graph(circ.constraints)
+                partition, resolution = iterated_louvain(g, init_resolution=circ.nConstraints ** 0.5)
+                partition = list(map(list, partition))
+                data["final_resolution"] = resolution
             
             case "linear_coefficient":
                 clusters, _, remaining = cluster_by_linear_coefficient(circ, coefs=[-1])
@@ -196,6 +204,7 @@ def r1cs_cluster(
 
         return_json = {
             "timing": timing,
+            "data": data,
             "nodes": list(map(lambda n : n.to_dict(inverse_mapping = (coni_inverse[index], sig_inverse[index]) if undo_remapping else None ), nodes.values())) ,
             "equivalency": equivalency
         }
