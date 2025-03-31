@@ -1,0 +1,20 @@
+{
+  "constraints": [
+    {
+      "constant": "0",
+      "linear": [],
+      "mul": [
+        {
+          "coeff": "1",
+          "witness1": 0,
+          "witness2": 1
+        },
+        {
+          "coeff": "2",
+          "witness1": 0,
+          "witness2": 2
+        }
+      ]
+    }
+  ]
+}

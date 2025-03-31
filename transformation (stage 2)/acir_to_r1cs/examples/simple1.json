@@ -1,0 +1,92 @@
+{
+  "constraints": [
+    {
+      "constant": "-1",
+      "linear": [
+      	{
+      	  "coeff": "1",
+      	  "witness": 2
+      	}, 
+      	{
+      	  "coeff": "9",
+      	  "witness": 1
+      	}
+      ],
+      "mul": []
+    },
+    {
+      "constant": "-5",
+      "linear": [
+      	{
+      	  "coeff": "1",
+      	  "witness": 2
+      	}, 
+      	{
+      	  "coeff": "9",
+      	  "witness": 3
+      	},
+      	{
+      	  "coeff": "9",
+      	  "witness": 1
+      	}
+      ],
+      "mul": []
+    },
+    {
+      "constant": "0",
+      "linear": [
+        {
+          "coeff": "-1",
+          "witness": 0
+        },
+        {
+          "coeff": "1",
+          "witness": 2
+        }
+      ],
+      "mul": [
+        {
+          "coeff": "-1",
+          "witness1": 0,
+          "witness2": 0
+        },
+        {
+          "coeff": "1",
+          "witness1": 2,
+          "witness2": 2
+        }
+      ]
+    },
+    {
+      "constant": "0",
+      "linear": [
+        {
+          "coeff": "-1",
+          "witness": 1
+        },
+        {
+          "coeff": "1",
+          "witness": 3
+        }
+      ],
+      "mul": [
+      	{
+          "coeff": "-1",
+          "witness1": 1,
+          "witness2": 3
+        },
+        {
+          "coeff": "1",
+          "witness1": 3,
+          "witness2": 3
+        }
+      ]
+    }
+  ],
+  "inputs": [
+  ],
+  "outputs": [
+  ],
+  "field": "37",
+  "number_of_signals": 7
+}

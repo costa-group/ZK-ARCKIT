@@ -57,6 +57,9 @@
 !maximal_equivalence
 !mazimal_equivalence/*.py
 
+!test_zips
+!test_zips/*.zip
+
 !README.md
 !.gitignore
 !questions.txt
