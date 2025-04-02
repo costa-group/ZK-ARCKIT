@@ -14,7 +14,6 @@ Created on Mon Mar 17 15:07:28 2025
 @author: clara
 """
 
-import solver_linear_to_plonk_matrix_inc_old
 import solver_linear_to_plonk_matrix_inc
 import json
 
