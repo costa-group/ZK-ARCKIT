@@ -329,7 +329,7 @@ for (n_clus, constraints) in clusters.items():
     ### TODO: instead of using args.n compute a pesimistic bound for the number of signals
     signals = list(signals)
     signals.sort()
-    naux, coefs, signals_aux = solver_acir_to_r1cs_phase2.generate_problem_r1cs_transformation(cons_sys, signals, int(args.n))
+    naux, coefs, signals_aux = solver_acir_to_r1cs_phase2.complete_phase2_transformation(cons_sys, signals, int(args.n))
     if naux == -1:
         print("UNSAT: The number of auxiliar variables is not enough, try with more")
     else:

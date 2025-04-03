@@ -181,7 +181,10 @@ fn move_constraint_info_to_storage(info: CircuitInfo) ->ProcessedCircuit{
     }
     let field = "21888242871839275222246405745257275088548364400416034343698204186575808495617";
     let to_bi_field = field.parse::<BigInt>().unwrap();
-    if signals.len() + 1 != info.number_of_signals{
+    let max_signal = signals.iter().max().unwrap();
+
+    
+    if *max_signal != info.number_of_signals{
         println!("Different number of signals: Real -> {}, Given -> {}", signals.len(), info.number_of_signals);
     }
     ProcessedCircuit{
@@ -189,7 +192,7 @@ fn move_constraint_info_to_storage(info: CircuitInfo) ->ProcessedCircuit{
         linear, 
         forbidden,
         field: to_bi_field,
-        no_labels: signals.len() + 1
+        no_labels: *max_signal +1
     }
 }
 
