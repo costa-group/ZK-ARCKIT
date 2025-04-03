@@ -1,64 +1,67 @@
 *
 
-!*.py
-!r1cs_scripts
-!r1cs_scripts/*.py
+# parent directory
+!clustering_and_equivalence\ \(stage\ 1\)/
 
-!bij_encodings
-!bij_encodings/*.py
+!clustering_and_equivalence\ \(stage\ 1\)/*.py
+!clustering_and_equivalence\ \(stage\ 1\)/r1cs_scripts
+!clustering_and_equivalence\ \(stage\ 1\)/r1cs_scripts/*.py
 
-!bij_encodings/preprocessing
-!bij_encodings/preprocessing/*.py
+!clustering_and_equivalence\ \(stage\ 1\)/bij_encodings
+!clustering_and_equivalence\ \(stage\ 1\)/bij_encodings/*.py
 
-!bij_encodings/reduced_encoding
-!bij_encodings/reduced_encoding/*.py
+!clustering_and_equivalence\ \(stage\ 1\)/bij_encodings/preprocessing
+!clustering_and_equivalence\ \(stage\ 1\)/bij_encodings/preprocessing/*.py
 
-!structural_analysis
-!structural_analysis/*.py
+!clustering_and_equivalence\ \(stage\ 1\)/bij_encodings/reduced_encoding
+!clustering_and_equivalence\ \(stage\ 1\)/bij_encodings/reduced_encoding/*.py
 
-!structural_analysis/cluster_trees
-!structural_analysis/cluster_trees/*.py
+!clustering_and_equivalence\ \(stage\ 1\)/structural_analysis
+!clustering_and_equivalence\ \(stage\ 1\)/structural_analysis/*.py
 
-!structural_analysis/clustering_methods
+!clustering_and_equivalence\ \(stage\ 1\)/structural_analysis/cluster_trees
+!clustering_and_equivalence\ \(stage\ 1\)/structural_analysis/cluster_trees/*.py
 
-!structural_analysis/clustering_methods/modularity
-!structural_analysis/clustering_methods/modularity/*.py
+!clustering_and_equivalence\ \(stage\ 1\)/structural_analysis/clustering_methods
 
-!structural_analysis/clustering_methods/naive
-!structural_analysis/clustering_methods/naive/*.py
+!clustering_and_equivalence\ \(stage\ 1\)/structural_analysis/clustering_methods/modularity
+!clustering_and_equivalence\ \(stage\ 1\)/structural_analysis/clustering_methods/modularity/*.py
 
-!structural_analysis/clustering_methods/networkx
-!structural_analysis/clustering_methods/networkx/*.py
+!clustering_and_equivalence\ \(stage\ 1\)/structural_analysis/clustering_methods/naive
+!clustering_and_equivalence\ \(stage\ 1\)/structural_analysis/clustering_methods/naive/*.py
 
-!structural_analysis/utilities
-!structural_analysis/utilities/*.py
+!clustering_and_equivalence\ \(stage\ 1\)/structural_analysis/clustering_methods/networkx
+!clustering_and_equivalence\ \(stage\ 1\)/structural_analysis/clustering_methods/networkx/*.py
 
-!deprecated
-!deprecated/*
+!clustering_and_equivalence\ \(stage\ 1\)/structural_analysis/utilities
+!clustering_and_equivalence\ \(stage\ 1\)/structural_analysis/utilities/*.py
 
-!deprecated/minizinc
-!deprecated/minizinc/*.mzn
+!clustering_and_equivalence\ \(stage\ 1\)/deprecated
+!clustering_and_equivalence\ \(stage\ 1\)/deprecated/*
 
-!deprecated/cons_propagator
-!deprecated/cons_propagator/*.py
+!clustering_and_equivalence\ \(stage\ 1\)/deprecated/minizinc
+!clustering_and_equivalence\ \(stage\ 1\)/deprecated/minizinc/*.mzn
 
-!deprecated/cluster_trees
-!deprecated/cluster_trees/*.py
+!clustering_and_equivalence\ \(stage\ 1\)/deprecated/cons_propagator
+!clustering_and_equivalence\ \(stage\ 1\)/deprecated/cons_propagator/*.py
 
-!deprecated/preprocessing
-!deprecated/preprocessing/*.py
+!clustering_and_equivalence\ \(stage\ 1\)/deprecated/cluster_trees
+!clustering_and_equivalence\ \(stage\ 1\)/deprecated/cluster_trees/*.py
 
-!comparison
-!comparison/*.py
+!clustering_and_equivalence\ \(stage\ 1\)/deprecated/preprocessing
+!clustering_and_equivalence\ \(stage\ 1\)/deprecated/preprocessing/*.py
 
-!comparison_v2
-!comparison_v2/*.py
+!clustering_and_equivalence\ \(stage\ 1\)/comparison
+!clustering_and_equivalence\ \(stage\ 1\)/comparison/*.py
 
-!maximal_equivalence
-!mazimal_equivalence/*.py
+!clustering_and_equivalence\ \(stage\ 1\)/comparison_v2
+!clustering_and_equivalence\ \(stage\ 1\)/comparison_v2/*.py
 
-!test_zips
-!test_zips/*.zip
+!clustering_and_equivalence\ \(stage\ 1\)/maximal_equivalence
+!clustering_and_equivalence\ \(stage\ 1\)/maximal_equivalence/*.py
+
+!clustering_and_equivalence\ \(stage\ 1\)/test_zips
+!clustering_and_equivalence\ \(stage\ 1\)/test_zips/*.zip
 
 !README.md
 !.gitignore
