@@ -25,27 +25,13 @@ from maximal_equivalence.iterated_fingerprints_with_pausing import iterated_fing
 
 def maximum_equivalence(
         in_pair: List[Tuple[str, Circuit]],
-        info_preprocessing: Callable[["In_Pair", Assignment], "Signal_Info"] | None = None,
-        cons_grouping: Callable[["In_Pair", "Clusters", "Signal_Info", Assignment], "Classes"] | None = None,
-        cons_preprocessing: Callable | None = None,
-        encoder: Encoder = ReducedPseudobooleanEncoder,
         test_data: Dict[str, any] = {},
         debug: bool = False,
-        encoder_kwargs: dict = {},
         fingerprints_to_normi: Dict[str, Dict[int, List[int]]] | None = None,
         fingerprints_to_signals: Dict[str, Dict[int, List[int]]] | None = None
         ) -> Dict[str, any]:
     
     names = [in_pair[0][0], in_pair[1][0]]
-
-    def _check_early_exit(classes):
-        for key in set(classes[names[0]].keys()).union(classes[names[1]].keys()):
-            for name, _ in in_pair:
-                if key not in classes[name].keys():
-                    raise AssertionError(f"EE: Group with fingerprint {key} not in circuit {name}")
-            
-            if len(classes[names[0]][key]) != len(classes[names[1]][key]):
-                raise AssertionError(f"EE: Group with fingerprint {key} has size {len(classes['S1'][key])} in 'S1', and {len(classes['S2'][key])} in 'S2'")
 
     for key, init in [("result", None), ("timing", {}), ("result_explanation", None), ("formula_size", None), ("group_sizes", {})]:
         test_data[key] = init
@@ -76,7 +62,20 @@ def maximum_equivalence(
         formula = CNF()
 
         # the norms for each constraint
-        normalised_constraints = { name : list(itertools.chain(*map(r1cs_norm, circ.constraints))) for name, circ in in_pair}
+        normalised_constraints = { name : [] for name in names}
+        normi_to_coni = {name : [] for name in names}
+
+        def _normalised_constraint_building_step(name, con):
+            coni, cons = con
+            norms = r1cs_norm(cons)
+            normalised_constraints[name].extend(norms)
+            normi_to_coni[name].extend(coni for _ in range(len(norms)))
+
+        deque(
+            maxlen=0,
+            iterable = itertools.starmap(_normalised_constraint_building_step, itertools.chain(*itertools.starmap(lambda name, circ : itertools.product([name], enumerate(circ.constraints)), in_pair)))
+        )
+
         signal_to_normi = {name: _signal_data_from_cons_list(normalised_constraints[name]) for name in names}
 
         # if len(normalised_constraints[names[0]]) != len(normalised_constraints[names[1]]): 
@@ -135,7 +134,9 @@ def maximum_equivalence(
         norm_pairs = list(map(norm_assignment.get_inv_assignment, filter(lambda lit : norm_vals.setdefault(lit, False), filter(lambda x : x > 0, model))))
         signal_pairs = list(map(signal_assignment.get_inv_assignment, filter(lambda lit : signal_vals.setdefault(lit, False), filter(lambda x : x > 0, model))))
 
-        return norm_pairs, signal_pairs
+        coni_pairs = list(set(map(lambda pair : tuple(normi_to_coni[names[i]][pair[i]] for i in range(2)), norm_pairs)))
+
+        return coni_pairs, signal_pairs
 
         early_exit(fingerprints_to_normi)
         early_exit(fingerprints_to_signals)
