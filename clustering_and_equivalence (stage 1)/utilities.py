@@ -7,6 +7,9 @@ from typing import Iterable, Dict, List, Set, Tuple
 from itertools import chain
 from collections import deque
 
+def _is_nonlinear(con: Constraint) -> bool:
+        return len(con.A) > 0 and len(con.B) > 0
+
 def getvars(con: Constraint) -> Set[int]:
     """For a given constraint, returns the set of non-constant signals that appear in it"""
     return set(filter(lambda x : x != 0, chain(con.A.keys(), con.B.keys(), con.C.keys())))
