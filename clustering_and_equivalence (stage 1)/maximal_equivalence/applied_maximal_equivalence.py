@@ -112,7 +112,9 @@ def maximally_equivalent_classes(nodes: Dict[int, DAGNode], tol: float = 0.8) ->
     # filter by size tolerance
     classes = itertools.chain(*map(lambda class_ : get_subclasses_by_size(class_, tol=tol), classes))
 
-    print(count_ints(map(len, classes)))
 
-    classes = list(itertools.chain(*map(lambda ns : pairwise_maximally_equivalent_classes(ns, tol=tol), classes)))
-    return classes
+    classes = list(classes) # annoying iterable stuff
+    print('classes', count_ints(map(len, classes)))
+
+    res = list(itertools.chain(*map(lambda ns : pairwise_maximally_equivalent_classes(ns, tol=tol), classes)))
+    return res
