@@ -17,10 +17,11 @@ Created on Mon Mar 17 12:33:56 2025
 
 from z3 import *
 
-def complete_phase2_transformation(constraints, signals, naux):
+def complete_phase2_transformation(constraints, signals, naux, verbose):
     if len(constraints) == 1:
         # Single element, just consider and return its solution (aux with the signals mult by the coef)
-        print("Solving easy case")
+        if verbose:
+            print("Solving easy case")
         for c in constraints:
             for ((s1, s2), coef) in c.items():
                 coefs = [[coef]]
