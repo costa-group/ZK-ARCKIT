@@ -44,6 +44,7 @@ def back_and_forth_fingerprinting(
             fingerprints_to_normi: Dict[str, Dict[int, List[int]]],
             fingerprints_to_signals: Dict[str, Dict[int, List[int]]],
             initial_mode: bool = True,
+            signal_sets : Dict[str, List[int]] | None = None,
             per_iteration_postprocessing: Callable[[List[str], Dict[str, List[Tuple[int, int]]], Dict[str, Dict[Tuple[int, int], List[int]]], Dict, Dict], None] = lambda *args : None,
             return_index_to_fingerprint: bool = False,
             test_data: dict | None = None 
@@ -51,9 +52,11 @@ def back_and_forth_fingerprinting(
     
     # TODO: think about if we can keep a last_assignment to then check if the assignment has changed and use the pipe that way... this should hopefully reduce the number of checks...
 
+    if signal_sets is None: signal_sets = { name : range(circ.nWires) for name, circ in in_pair}
+
     fingerprint_mode = initial_mode
     norm_fingerprints = {name: [None for _ in range(len(normalised_constraints[name]))] for name in names}
-    signal_fingerprints = {name: [None for _ in range(circ.nWires)] for name, circ in in_pair}
+    signal_fingerprints = {name: {sig : None for sig in signal_sets[name]} for name in names}
     
     num_singular_norm_fingerprints, norms_to_update = back_and_forth_preprocessing(names, fingerprints_to_normi, norm_fingerprints, -2 if initial_mode else -1)
     num_singular_signal_fingerprints, signals_to_update = back_and_forth_preprocessing(names, fingerprints_to_signals, signal_fingerprints, -2 if not initial_mode else -1)
@@ -74,7 +77,7 @@ def back_and_forth_fingerprinting(
     prev_fingerprints_to_normi_count, prev_fingerprints_to_signals_count = {name: {} for name in names}, {name: {} for name in names}
     prev_fingerprints_to_normi, prev_fingerprints_to_signals = {name: {} for name in names}, {name: {} for name in names}
     prev_normi_to_fingerprints = {name: [norm_fingerprints[name][normi] for normi in range(len(normalised_constraints[name]))] for name in names}
-    prev_signals_to_fingerprints = {name: [signal_fingerprints[name][sig] for sig in range(circ.nWires)] for name, circ in in_pair}
+    prev_signals_to_fingerprints = {name: { sig : signal_fingerprints[name][sig] for sig in signal_sets[name]} for name in names}
     # normi_has_changed, signal_has_changed = {name: [True for _ in range(len(normalised_constraints))] for name in names}, {name: [True for _ in range(circ.nWires)] for name, circ in in_pair}
 
     get_to_update_normi = lambda normi, name : getvars(normalised_constraints[name][normi])
@@ -129,6 +132,7 @@ def back_and_forth_fingerprinting(
 
             for name in names:
                 for signal in signals_to_update[name]:
+                    if signal not in signal_sets[name]: raise AssertionError(f"signal {signal} not in {signal_sets[name]}")
                     fingerprint(False, signal, signal, signal_assignment, signal_fingerprints[name], fingerprints_to_signals[name], 
                                 [norm_fingerprints[name], signal_to_normi[name], normalised_constraints[name]], round_num)
             
@@ -155,7 +159,7 @@ def back_and_forth_fingerprinting(
     fingerprints_to_normi, fingerprints_to_signals = {name: {} for name in names},  {name: {} for name in names}
     for name in names:
         for normi in range(len(norm_fingerprints[name])): fingerprints_to_normi[name].setdefault(norm_fingerprints[name][normi], []).append(normi)
-        for signal in range(len(signal_fingerprints[name])): fingerprints_to_signals[name].setdefault(signal_fingerprints[name][signal], []).append(signal)
+        for signal in signal_sets[name]: fingerprints_to_signals[name].setdefault(signal_fingerprints[name][signal], []).append(signal)
     
     if return_index_to_fingerprint: return fingerprints_to_normi, fingerprints_to_signals, norm_fingerprints, signal_fingerprints
 
