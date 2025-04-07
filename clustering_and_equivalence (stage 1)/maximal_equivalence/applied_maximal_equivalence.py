@@ -6,13 +6,12 @@ To apply this we process each node - check compatability with next node in set -
 """
 from typing import List, Dict
 import itertools
-from collections import deque
 
-from bij_encodings.assignment import Assignment
 from structural_analysis.cluster_trees.dag_from_clusters import DAGNode
 from maximal_equivalence.maximal_equivalence import maximum_equivalence
-from maximal_equivalence.iterated_fingerprints_with_pausing import coefficient_only_fingerprinting
-from utilities import UnionFind, _is_nonlinear, count_ints
+from utilities import count_ints, _is_nonlinear
+from maximal_equivalence.subclassing.by_nonlinears import get_subclasses_by_nonlinear_relation, get_subclasses_by_nonlinears
+from maximal_equivalence.subclassing.by_size import get_subclasses_by_size
 
 def pairwise_maximally_equivalent_classes(nodes: Dict[int, DAGNode], tol: float = 0.8) -> List[List[DAGNode]]:
     """
@@ -28,7 +27,7 @@ def pairwise_maximally_equivalent_classes(nodes: Dict[int, DAGNode], tol: float 
     names = ["Left", "Right"]
 
     for id, node in nodes.items():
-        print(id, end='\r')
+        print(id, len(node.constraints), "         ", end='\r')
 
         matched = False
         
@@ -63,58 +62,22 @@ def pairwise_maximally_equivalent_classes(nodes: Dict[int, DAGNode], tol: float 
         if not matched:
             classes[node.id] = [node]
             class_circuit[node.id] = node.get_subcircuit()
-
-    print('done: ', classes)
     return classes.values()
 
-def get_subclasses_by_size(nodes: Dict[int, DAGNode], tol: float = 0.8) -> List[Dict[int, DAGNode]]:
-    ComparableKeys = UnionFind()
-
-    # size tolerance based
-    for lkey, rkey in itertools.combinations(nodes.keys(), r=2):
-        msize, lsize = max(len(nodes[lkey].constraints), len(nodes[rkey].constraints)), min(len(nodes[lkey].constraints), len(nodes[rkey].constraints))
-        if msize * tol <= lsize or abs(msize - lsize) <= 1:
-            ComparableKeys.union(lkey, rkey)
-
-    key_classes = {}
-    for key in nodes.keys():
-        key_classes.setdefault(ComparableKeys.find(key), {}).__setitem__(key, nodes[key])
-
-    return key_classes.values()
-
-def get_subclasses_by_nonlinears(nodes: Dict[int, DAGNode]) -> List[Dict[int, DAGNode]]:
-    names = nodes.keys()
-    circ = next(iter(nodes.values())).circ
-    
-    fingerprints = coefficient_only_fingerprinting(
-        names,
-        { node.id : list(filter(_is_nonlinear, map(circ.constraints.__getitem__, node.constraints))) for node in nodes.values() }
-    )
-
-    class_fingerprints = Assignment(assignees=1)
-    fingerprints = { node_id : class_fingerprints.get_assignment(tuple(sorted(itertools.starmap(lambda fp, conis : (fp, len(conis)), fingerprints[node_id].items())))) for node_id in names }
-    
-    fingerprint_to_DAGNode = {}
-    
-    deque(
-        maxlen = 0,
-        iterable = map(lambda node : fingerprint_to_DAGNode.setdefault(fingerprints[node.id], {}).__setitem__(node.id, node), nodes.values())
-    )
-
-    return fingerprint_to_DAGNode.values()
-
-
-def maximally_equivalent_classes(nodes: Dict[int, DAGNode], tol: float = 0.8) -> List[List[DAGNode]]:
+def maximally_equivalent_classes(nodes: Dict[int, DAGNode], tol: float = 0.8, just_subclasses: bool = False) -> List[List[DAGNode]]:
 
     # filter by equivalent nonlinears
-    classes = get_subclasses_by_nonlinears(nodes)
+    # classes = get_subclasses_by_nonlinears(nodes)
+    nodes_with_at_least_1_nonlinear = dict(filter(lambda tup : any(map(_is_nonlinear, map(tup[1].circ.constraints.__getitem__, tup[1].constraints))), nodes.items()))
+    classes = get_subclasses_by_nonlinear_relation(nodes_with_at_least_1_nonlinear)
 
     # filter by size tolerance
     classes = itertools.chain(*map(lambda class_ : get_subclasses_by_size(class_, tol=tol), classes))
 
-
     classes = list(classes) # annoying iterable stuff
     print('classes', count_ints(map(len, classes)))
+
+    if just_subclasses: return count_ints(map(len, classes))
 
     res = list(itertools.chain(*map(lambda ns : pairwise_maximally_equivalent_classes(ns, tol=tol), classes)))
     return res
