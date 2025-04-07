@@ -12,6 +12,7 @@ from maximal_equivalence.maximal_equivalence import maximum_equivalence
 from utilities import count_ints, _is_nonlinear
 from maximal_equivalence.subclassing.by_nonlinears import get_subclasses_by_nonlinear_relation, get_subclasses_by_nonlinears
 from maximal_equivalence.subclassing.by_size import get_subclasses_by_size
+from maximal_equivalence.subclassing.by_nonlinear_shortest_path import get_subclasses_by_nonlinear_shortest_path
 
 def pairwise_maximally_equivalent_classes(nodes: Dict[int, DAGNode], tol: float = 0.8) -> List[List[DAGNode]]:
     """
@@ -66,16 +67,16 @@ def pairwise_maximally_equivalent_classes(nodes: Dict[int, DAGNode], tol: float 
 
 def maximally_equivalent_classes(nodes: Dict[int, DAGNode], tol: float = 0.8, just_subclasses: bool = False) -> List[List[DAGNode]]:
 
-    # filter by equivalent nonlinears
-    # classes = get_subclasses_by_nonlinears(nodes)
-    nodes_with_at_least_1_nonlinear = dict(filter(lambda tup : any(map(_is_nonlinear, map(tup[1].circ.constraints.__getitem__, tup[1].constraints))), nodes.items()))
-    classes = get_subclasses_by_nonlinear_relation(nodes_with_at_least_1_nonlinear)
+    # filter by nonlinear shortest path
+    classes = get_subclasses_by_nonlinear_shortest_path(nodes)
 
+    # filters out to only ones with nonlinear
+    classes = filter(lambda class_ : len(class_) > 0, map(lambda class_ : dict(filter(lambda tup : any(map(_is_nonlinear, map(tup[1].circ.constraints.__getitem__, tup[1].constraints))), class_.items())), classes))
+    
+    # filter by nonlinear fingerprinting
+    classes = itertools.chain(*map(get_subclasses_by_nonlinear_relation, classes))
     # filter by size tolerance
     classes = itertools.chain(*map(lambda class_ : get_subclasses_by_size(class_, tol=tol), classes))
-
-    classes = list(classes) # annoying iterable stuff
-    print('classes', count_ints(map(len, classes)))
 
     if just_subclasses: return count_ints(map(len, classes))
 

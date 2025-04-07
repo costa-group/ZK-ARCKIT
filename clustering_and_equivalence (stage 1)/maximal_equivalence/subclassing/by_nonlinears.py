@@ -44,8 +44,6 @@ def get_subclasses_by_nonlinear_relation(nodes: Dict[int, DAGNode]) -> List[Dict
     signal_to_normi = {name: _signal_data_from_cons_list(normalised_constraints[name]) for name in names}
     signal_sets = {name: signal_to_normi[name].keys() for name in names}
     fingerprints_to_signals = {name: { 0: [0], 1 : list(signal_sets[name])} for name in names}
-
-    print('fingerprinting')
     fingerprints_to_normi, _ = back_and_forth_fingerprinting(names, itertools.product(names, [circ]), normalised_constraints, signal_to_normi, fingerprints_to_normi, fingerprints_to_signals, signal_sets = signal_sets, initial_mode=False)
 
 
