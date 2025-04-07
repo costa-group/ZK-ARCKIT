@@ -6,6 +6,7 @@ from r1cs_scripts.constraint import Constraint
 from typing import Iterable, Dict, List, Set, Tuple
 from itertools import chain
 from collections import deque
+import heapq
 
 def _is_nonlinear(con: Constraint) -> bool:
         return len(con.A) > 0 and len(con.B) > 0
@@ -170,7 +171,7 @@ def DFS_reachability(S: int | List[int], T: int | List[int], adjacencies: List[L
     """
 
     if type(S) == int: S = [S]
-    if type(S) == int: T = [T]
+    if type(T) == int: T = [T]
 
     to_check = {s: True for s in S}
     stack = list(S)
@@ -188,3 +189,34 @@ def DFS_reachability(S: int | List[int], T: int | List[int], adjacencies: List[L
             reached_T = any(map(lambda t : t in to_add, T))
     
     return reached_T
+
+def dijkstras_shortest_weight(s:int, T: int | List[int], adjacencies: List[Dict[int, int]]):
+    """
+    assumes non-negative weights
+    """
+    
+    
+    if type(T) == int: T = [T]
+
+    distances = {s : 0}
+    reached = {}
+
+    minheap = [(0, s)]
+    heapq.heapify(minheap)
+
+    while all(map(lambda t : reached.setdefault(t, False) == False, T)) and len(minheap) > 0:
+        
+        val, vert = heapq.heappop(minheap)
+
+        if val > distances[vert]: continue
+
+        reached[vert] = True
+
+        for adj in filter(lambda adj : distances.setdefault(adj, float("inf")) > distances[vert] + adjacencies[vert][adj], adjacencies[vert].keys()):
+            distances[adj] = distances[vert] + adjacencies[vert][adj]
+            heapq.heappush(minheap, (distances[adj], adj))
+
+    return min(map(lambda t : distances.setdefault(t, float("inf")), T))
+
+
+
