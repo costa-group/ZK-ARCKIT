@@ -92,10 +92,11 @@ def encode_single_norm_class(
 
             formula.extend(map(lambda clause: clause + [-sat_variable] , ij_clauses))
     
-        if len(normi_options) == 0:
+        if len(normi_options) == 0 and not weighted_cnf:
             raise AssertionError(f"norm {normi} cannot be mapped to")
         
-        formula.append(normi_options, *([1] if weighted_cnf else []))
+        if len(normi_options) > 0:
+            formula.append(normi_options, *([1] if weighted_cnf else []))
 
     # for each norm, we need to pair it with one norm on the right
         # for each pair we encode the if_pair -> restriction clauses
@@ -144,7 +145,7 @@ def encode_single_norm_pair(
                 allkeys[1-i]
             )
 
-            oset.intersection_update(fingerprint_to_signals[names[1-i]][signal_to_fingerprint[names[i]][key]])
+            oset.intersection_update(fingerprint_to_signals[names[1-i]].setdefault(signal_to_fingerprint[names[i]][key], []))
 
             if len(oset) == 0: return []
 
