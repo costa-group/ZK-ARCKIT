@@ -30,7 +30,10 @@ def generate_expression_declaration(tree, expressions, zero_expressions, one_exp
     #solver.add_soft(Not(Bool('k_exp_'+ str(position))))
     solver.add_soft(Not(Bool('k_exp_'+ str(position))),1,id = "degree")
     if "dim" in expressions[position]:
-        solver.add_soft(Not(Bool('k_exp_'+ str(position))),expressions[position]["dim"], id = "dimension")    
+        if expressions[position]["dim"] == None:
+            solver.add(Not(Bool('k_exp_'+ str(position))))
+        else:
+            solver.add_soft(Not(Bool('k_exp_'+ str(position))),expressions[position]["dim"], id = "dimension")    
     else:
         solver.add(Not(Bool('k_exp_'+ str(position))))
 

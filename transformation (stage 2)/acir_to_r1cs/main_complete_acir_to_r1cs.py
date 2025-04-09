@@ -265,6 +265,9 @@ complete_signals_in_difs = set()
 
 choosen_AB = []
 
+number_solved = 0
+max_difs = 0
+
 
 for constraint in non_linear_part_constraints:
     signals = set()
@@ -280,6 +283,9 @@ for constraint in non_linear_part_constraints:
         print("### Choosen B: ", expr_B)
     choosen_AB.append((expr_A, expr_B))
     if len(difs) != 0:
+        if len(difs) > max_difs:
+            max_difs = len(difs)
+        
         if verbose:
             print("### REMAINING NON LINEAR (to solve later): ", difs) 
         remaining_difs.append((difs, index))
@@ -290,7 +296,12 @@ for constraint in non_linear_part_constraints:
     else: 
         if verbose:
             print("### CONSTRAINT SOLVED (no difs)")
+        number_solved += 1
     index += 1
+
+print("Number of completely solved constraints: " + str(number_solved))
+print("Maximum number of missing monomials added by a constraint: " + str(max_difs))
+
 
 print("#################### FINISHED PHASE 1 ####################")
     
@@ -302,6 +313,7 @@ for (c, list_mons) in clusters.items():
     if len(list_mons) > maxSize:
         maxSize = len(list_mons)
 print("Maximum size of the clusters of constraints that need to be solved: " + str(maxSize))
+print("Number of clusters: "+ str(len(clusters)))
 
 #    print(len(list_mons))
 #    print(list_mons)
