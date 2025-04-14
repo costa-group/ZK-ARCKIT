@@ -60,6 +60,9 @@
 !clustering_and_equivalence\ \(stage\ 1\)/maximal_equivalence
 !clustering_and_equivalence\ \(stage\ 1\)/maximal_equivalence/*.py
 
+!clustering_and_equivalence\ \(stage\ 1\)/maximal_equivalence/subclassing
+!clustering_and_equivalence\ \(stage\ 1\)/maximal_equivalence/subclassing/*.py
+
 !clustering_and_equivalence\ \(stage\ 1\)/test_zips
 !clustering_and_equivalence\ \(stage\ 1\)/test_zips/*.zip
 
