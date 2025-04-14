@@ -44,7 +44,7 @@ def pairwise_maximally_equivalent_classes(nodes: Dict[int, DAGNode], tol: float 
 
             coni_pairs, _ = maximum_equivalence(list(zip(names, [comp_circ, sub_circ])), solver_timeout=solver_timeout)
 
-            if len(coni_pairs) > (1 if len(classes[key]) > 1 else tol) * comp_circ.nConstraints:
+            if len(coni_pairs) >= (1 if len(classes[key]) > 1 else tol) * comp_circ.nConstraints:
                 matched = True
                 if len(classes[key]) > 1:
                     # reduce sub_circ and append
@@ -69,6 +69,11 @@ def pairwise_maximally_equivalent_classes(nodes: Dict[int, DAGNode], tol: float 
     return classes.values()
 
 def maximally_equivalent_classes(nodes: Dict[int, DAGNode], tol: float = 0.8, just_subclasses: bool = False, solver_timeout: int | None = None) -> List[List[DAGNode]]:
+    """
+    Step 1: Split nodes into classes
+    Step 2: Find maximally equivalent classes (up to size tol) which define new partitions
+    Step 3 - TODO: Redo the partitioning -> DAGNodes calculations.
+    """
 
     # filter by nonlinear shortest path
     classes = get_subclasses_by_nonlinear_shortest_path(nodes)
