@@ -230,7 +230,7 @@ def merge_nodes(lkey: int, rkey: int, nodes: Dict[int, DAGNode],
         nodes[rkey].input_signals
     ))
     nodes[lkey].output_signals = nodes[rkey].output_signals.union(filter(
-        lambda sig : 0 < sig < circ.nPubOut or any(map(lambda coni : coni_to_node[coni] not in [lkey, rkey], sig_to_coni[sig])),
+        lambda sig : 0 < sig <= circ.nPubOut or any(map(lambda coni : coni_to_node[coni] not in [lkey, rkey], sig_to_coni[sig])),
         nodes[lkey].output_signals
     ))
     
