@@ -40,10 +40,15 @@ def encode_classes_v2(
         filter(lambda key : len(fingerprint_to_normi[names[0]][key]) > 1, fingerprint_to_normi[names[0]].keys()), 
         key = lambda k : len(fingerprint_to_normi[names[0]][k]
         ))
+    
+    if weighted_cnf:
+        for key in filter(lambda key : len(fingerprint_to_normi[names[0]][key]) == 1, fingerprint_to_normi[names[0]].keys()):
+            if len(fingerprint_to_normi[names[1]].setdefault(key, [])) == 1:
+                literal = norm_pair_encoder.get_assignment(fingerprint_to_normi[names[0]][key][0], fingerprint_to_normi[names[1]][key][0])
+                formula.append([literal])
 
     # Add clauses for classes of size > 1
     for key in classes_to_encode:
-
         encode_single_norm_class(
             names, normalised_constraints, {name: fingerprint_to_normi[name][key] for name in names}, norm_pair_encoder,
             signal_pair_encoder, signal_to_fingerprint, fingerprint_to_signals, formula, weighted_cnf = weighted_cnf
