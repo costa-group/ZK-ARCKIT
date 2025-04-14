@@ -68,15 +68,14 @@ def pairwise_maximally_equivalent_classes(nodes: Dict[int, DAGNode], tol: float 
             class_circuit[node.id] = node.get_subcircuit()
     return classes.values()
 
-def maximally_equivalent_classes(nodes: Dict[int, DAGNode], tol: float = 0.8, just_subclasses: bool = False, solver_timeout: int | None = None) -> List[List[DAGNode]]:
+def maximally_equivalent_classes(nodes: Dict[int, DAGNode], equivalency: List[int] | None = None, tol: float = 0.8, just_subclasses: bool = False, solver_timeout: int | None = None) -> List[List[DAGNode]]:
     """
     Step 1: Split nodes into classes
     Step 2: Find maximally equivalent classes (up to size tol) which define new partitions
     Step 3 - TODO: Redo the partitioning -> DAGNodes calculations.
     """
-
     # filter by nonlinear shortest path
-    classes = get_subclasses_by_nonlinear_shortest_path(nodes)
+    classes = get_subclasses_by_nonlinear_shortest_path(nodes, equivalency)
 
     # filters out to only ones with nonlinear
     classes = filter(lambda class_ : len(class_) > 0, map(lambda class_ : dict(filter(lambda tup : any(map(_is_nonlinear, map(tup[1].circ.constraints.__getitem__, tup[1].constraints))), class_.items())), classes))

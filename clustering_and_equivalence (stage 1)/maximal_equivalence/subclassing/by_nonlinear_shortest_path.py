@@ -6,9 +6,11 @@ from bij_encodings.assignment import Assignment
 from structural_analysis.cluster_trees.dag_from_clusters import DAGNode
 from utilities import dijkstras_shortest_weight, getvars, _is_nonlinear
 
-def get_subclasses_by_nonlinear_shortest_path(nodes: Dict[int, DAGNode]) -> List[Dict[int, DAGNode]]:
+def get_subclasses_by_nonlinear_shortest_path(nodes: Dict[int, DAGNode], equivalency: List[int] | None = None) -> List[Dict[int, DAGNode]]:
     ## weighted shortest path where weight is number of nonlinears in target vertex.
     # doesn't seem super necessary rn
+
+    if equivalency is None: equivalency = nodes.keys()
 
     circ = next(iter(nodes.values())).circ
     _is_input_signal = lambda sig : circ.nPubOut < sig <= circ.nPubOut + circ.nPubIn + circ.nPrvIn
@@ -40,17 +42,17 @@ def get_subclasses_by_nonlinear_shortest_path(nodes: Dict[int, DAGNode]) -> List
             )
     )
 
-    shortest_weight_to_input = { node_id : dijkstras_shortest_weight(node_id, input_parts, adjacencies) for node_id in nodes.keys() }
-    shortest_weight_to_output = { node_id : dijkstras_shortest_weight(node_id, output_parts, adjacencies) for node_id in nodes.keys() }
+    shortest_weight_to_input = { node_id : dijkstras_shortest_weight(node_id, input_parts, adjacencies) for node_id in equivalency }
+    shortest_weight_to_output = { node_id : dijkstras_shortest_weight(node_id, output_parts, adjacencies) for node_id in equivalency }
 
     node_hashing = Assignment(assignees=2)
-    node_fingerprints = {node_id : node_hashing.get_assignment(shortest_weight_to_input[node_id], shortest_weight_to_output[node_id]) for node_id in nodes.keys()}
+    node_fingerprints = {node_id : node_hashing.get_assignment(shortest_weight_to_input[node_id], shortest_weight_to_output[node_id]) for node_id in equivalency}
         
     fingerprint_to_DAGNode = {}
     
     deque(
         maxlen = 0,
-        iterable = map(lambda node : fingerprint_to_DAGNode.setdefault(node_fingerprints[node.id], {}).__setitem__(node.id, node), nodes.values())
+        iterable = map(lambda nodeid : fingerprint_to_DAGNode.setdefault(node_fingerprints[nodeid], {}).__setitem__(nodeid, nodes[nodeid]), equivalency)
     )
 
     return fingerprint_to_DAGNode.values()
