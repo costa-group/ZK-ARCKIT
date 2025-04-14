@@ -223,12 +223,14 @@ def merge_nodes(lkey: int, rkey: int, nodes: Dict[int, DAGNode],
     # lkey inputs are still inputs -- rkey inputs are not inputs only if the only node they connected to was lkey
     # rkey outputs are still outputs -- lkey outputs are not outputs only if the only node they connected to was rkey
 
+    circ = next(iter(nodes.values())).circ
+
     nodes[lkey].input_signals.update(filter(
-        lambda sig : any(map(lambda coni : coni_to_node[coni] not in [lkey, rkey], sig_to_coni[sig])),
+        lambda sig : circ.nPubOut < sig <= circ.nPubOut + circ.nPrvIn + circ.nPubIn or  any(map(lambda coni : coni_to_node[coni] not in [lkey, rkey], sig_to_coni[sig])),
         nodes[rkey].input_signals
     ))
     nodes[lkey].output_signals = nodes[rkey].output_signals.union(filter(
-        lambda sig : any(map(lambda coni : coni_to_node[coni] not in [lkey, rkey], sig_to_coni[sig])),
+        lambda sig : 0 < sig < circ.nPubOut or any(map(lambda coni : coni_to_node[coni] not in [lkey, rkey], sig_to_coni[sig])),
         nodes[lkey].output_signals
     ))
     
