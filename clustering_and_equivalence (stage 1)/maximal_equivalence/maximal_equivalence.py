@@ -42,15 +42,9 @@ def maximum_equivalence(
     S1 = in_pair[0][1]
     S2 = in_pair[1][1]
     start = time.time()
+    last_time = start
 
-    S1 = connected_preprocessing(S1)
-    S2 = connected_preprocessing(S2)
-
-    in_pair = [(names[0], S1), (names[1], S2)]
-
-    connected_preprocessing_time = time.time()
-    last_time = connected_preprocessing_time
-    test_data["timing"]["connected_preprocessing"] = connected_preprocessing_time - start
+    # No preprocessing here as we no longer care about inputs/outputs
 
     try: 
         # N = S1.nConstraints
@@ -118,11 +112,11 @@ def maximum_equivalence(
                 "counts": [x[1] for x in ints]
             }
 
-        formula, _, norm_assignment, signal_assignment= encode_classes_v2(names, normalised_constraints, fingerprints_to_normi, signal_to_fingerprints, fingerprints_to_signals, weighted_cnf=True)
+        formula, _, norm_assignment, signal_assignment = encode_classes_v2(names, normalised_constraints, fingerprints_to_normi, signal_to_fingerprints, fingerprints_to_signals, weighted_cnf=True)
         test_data["formula_size"] = len(formula.hard) + len(formula.soft)
 
         solver = LSU(formula, solver='glucose4' if solver_timeout is not None else 'cadical195', expect_interrupt=solver_timeout is not None, verbose=debug, incr=solver_timeout is not None)
-        solver.oracle.solve_limited(expect_interrupt=solver.expect_interrupt) ## For some reason, running the oracle once here (which is done in the solve loop) makes it work??
+        # solver.oracle.solve_limited(expect_interrupt=solver.expect_interrupt) ## For some reason, running the oracle once here (which is done in the solve loop) makes it work??
 
         encoding_time = time.time()
         test_data["timing"]["encoding_time"] = encoding_time - last_time
@@ -136,7 +130,7 @@ def maximum_equivalence(
         if solver_timeout is not None: timer.cancel()
 
         try:
-            model = solver.get_model()
+            model = list(solver.get_model())
         except AttributeError:
             return [], []
 
