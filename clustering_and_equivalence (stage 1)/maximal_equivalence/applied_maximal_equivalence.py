@@ -14,13 +14,16 @@ from maximal_equivalence.subclassing.by_nonlinears import get_subclasses_by_nonl
 from maximal_equivalence.subclassing.by_size import get_subclasses_by_size
 from maximal_equivalence.subclassing.by_nonlinear_shortest_path import get_subclasses_by_nonlinear_shortest_path
 
-def pairwise_maximally_equivalent_classes(nodes: Dict[int, DAGNode], tol: float = 0.8) -> List[List[DAGNode]]:
+def pairwise_maximally_equivalent_classes(nodes: Dict[int, DAGNode], tol: float = 0.8, solver_timeout: int | None = None) -> List[List[DAGNode]]:
     """
     each in nodes is potentially a pair so we check each
 
     returns new list of DAGNodes (with no input/output pair) s.t. each class is equivalent w/o inputs
     """
     # TODO: what happens if are closely maximally equivalent but the two first compared have an extra constraint -- deal with this case
+
+    if len(nodes) == 1:
+        return [list(nodes.values())]
 
     class_circuit = {}
     classes: Dict[int, List[DAGNode]] = {}
@@ -39,7 +42,7 @@ def pairwise_maximally_equivalent_classes(nodes: Dict[int, DAGNode], tol: float 
             msize, lsize = sorted(map(lambda c : c.nConstraints, [sub_circ, comp_circ]))
             if msize * tol > lsize: continue
 
-            coni_pairs, _ = maximum_equivalence(list(zip(names, [comp_circ, sub_circ])))
+            coni_pairs, _ = maximum_equivalence(list(zip(names, [comp_circ, sub_circ])), solver_timeout=solver_timeout)
 
             if len(coni_pairs) > (1 if len(classes[key]) > 1 else tol) * comp_circ.nConstraints:
                 matched = True
@@ -65,7 +68,7 @@ def pairwise_maximally_equivalent_classes(nodes: Dict[int, DAGNode], tol: float 
             class_circuit[node.id] = node.get_subcircuit()
     return classes.values()
 
-def maximally_equivalent_classes(nodes: Dict[int, DAGNode], tol: float = 0.8, just_subclasses: bool = False) -> List[List[DAGNode]]:
+def maximally_equivalent_classes(nodes: Dict[int, DAGNode], tol: float = 0.8, just_subclasses: bool = False, solver_timeout: int | None = None) -> List[List[DAGNode]]:
 
     # filter by nonlinear shortest path
     classes = get_subclasses_by_nonlinear_shortest_path(nodes)
@@ -80,5 +83,5 @@ def maximally_equivalent_classes(nodes: Dict[int, DAGNode], tol: float = 0.8, ju
 
     if just_subclasses: return count_ints(map(len, classes))
 
-    res = list(itertools.chain(*map(lambda ns : pairwise_maximally_equivalent_classes(ns, tol=tol), classes)))
+    res = list(itertools.chain(*map(lambda ns : pairwise_maximally_equivalent_classes(ns, tol=tol, solver_timeout = solver_timeout), classes)))
     return res

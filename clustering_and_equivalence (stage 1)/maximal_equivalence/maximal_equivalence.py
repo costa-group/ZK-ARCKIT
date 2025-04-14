@@ -1,6 +1,8 @@
 from typing import Tuple, List, Callable, Dict, Set, Iterable
 from pysat.formula import CNF
-from pysat.examples.rc2 import RC2
+from pysat.solvers import Solver
+from pysat.examples.lsu import LSU
+from threading import Timer
 import time
 import itertools
 from collections import deque 
@@ -28,7 +30,8 @@ def maximum_equivalence(
         test_data: Dict[str, any] = {},
         debug: bool = False,
         fingerprints_to_normi: Dict[str, Dict[int, List[int]]] | None = None,
-        fingerprints_to_signals: Dict[str, Dict[int, List[int]]] | None = None
+        fingerprints_to_signals: Dict[str, Dict[int, List[int]]] | None = None,
+        solver_timeout: float | None = None
         ) -> Dict[str, any]:
     
     names = [in_pair[0][0], in_pair[1][0]]
@@ -106,6 +109,8 @@ def maximum_equivalence(
         test_data["timing"]["back_and_forth_fingerprinting"] = back_and_forth_fingerprinting_time - last_time
         last_time = back_and_forth_fingerprinting_time
 
+        if debug: print("fingerprinting took : ", test_data["timing"]["back_and_forth_fingerprinting"] )
+
         ints = count_ints(map(len, fingerprints_to_normi[names[0]].values()))
         test_data["group_sizes"]["post_back_and_forth"] = {
                 "sqr_weight": sum([x[0]**2 * x[1] for x in ints]),
@@ -114,18 +119,32 @@ def maximum_equivalence(
             }
 
         formula, _, norm_assignment, signal_assignment= encode_classes_v2(names, normalised_constraints, fingerprints_to_normi, signal_to_fingerprints, fingerprints_to_signals, weighted_cnf=True)
+        test_data["formula_size"] = len(formula.hard) + len(formula.soft)
 
-        test_data["formula_size"] = len(formula.unweighted().clauses)
-        solver = RC2(formula, solver='cadical195')
+        solver = LSU(formula, solver='glucose4' if solver_timeout is not None else 'cadical195', expect_interrupt=solver_timeout is not None, verbose=debug, incr=solver_timeout is not None)
+        solver.oracle.solve_limited(expect_interrupt=solver.expect_interrupt) ## For some reason, running the oracle once here (which is done in the solve loop) makes it work??
 
         encoding_time = time.time()
         test_data["timing"]["encoding_time"] = encoding_time - last_time
+        if debug: print("encoding took : ", test_data["timing"]["encoding_time"], " and formula size: ", test_data["formula_size"] )
 
-        model = solver.compute()
+        if solver_timeout is not None:
+            timer = Timer(interval = solver_timeout, function = lambda lsu : lsu.interrupt(), args = [solver]) ## needs to be passed as an argument for some reason. Testing with solver.interrupt() gave weird behaviour -- TODO: understand
+            timer.start()
+
+        solver.solve()
+        if solver_timeout is not None: timer.cancel()
+
+        try:
+            model = solver.get_model()
+        except AttributeError:
+            return [], []
 
         solving_time = time.time()
         test_data["timing"]["solving_time"] = solving_time - encoding_time
         test_data["timing"]["total_time"] = solving_time - start
+
+        if debug: print("solving took : ", test_data["timing"]["solving_time"] )
 
         # TODO: make more efficient
         norm_vals = { val : True for val in itertools.chain(*map(lambda key : norm_assignment.assignment[key].values(), norm_assignment.assignment.keys()))}
@@ -174,7 +193,7 @@ def maximum_equivalence(
         if debug: print("Finished encoding                                     ", end='\r')
 
     except AssertionError as e:
-
+        print(e)
         test_data["result"] = False
         test_data["result_explanation"] = repr(e)
     
