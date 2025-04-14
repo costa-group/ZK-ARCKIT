@@ -144,7 +144,12 @@ def maximum_equivalence(
         norm_vals = { val : True for val in itertools.chain(*map(lambda key : norm_assignment.assignment[key].values(), norm_assignment.assignment.keys()))}
         signal_vals = { val : True for val in itertools.chain(*map(lambda key : signal_assignment.assignment[key].values(), signal_assignment.assignment.keys()))}
 
-        norm_pairs = list(map(norm_assignment.get_inv_assignment, filter(lambda lit : norm_vals.setdefault(lit, False), filter(lambda x : x > 0, model))))
+        norm_pairs = list(itertools.chain( 
+                # norm pairs from uniquely identified norms
+             map(lambda key : (fingerprints_to_normi[names[0]][key][0], fingerprints_to_normi[names[1]][key][0]), filter(lambda key : len(fingerprints_to_normi[names[0]][key]) == 1 and len(fingerprints_to_normi[names[1]].setdefault(key, [])) == 1, fingerprints_to_normi[names[0]].keys()))
+            , # norm pairs from MaxSAT solver
+            map(norm_assignment.get_inv_assignment, filter(lambda lit : norm_vals.setdefault(lit, False), filter(lambda x : x > 0, model))) 
+        ))
         signal_pairs = list(map(signal_assignment.get_inv_assignment, filter(lambda lit : signal_vals.setdefault(lit, False), filter(lambda x : x > 0, model))))
 
         coni_pairs = list(set(map(lambda pair : tuple(normi_to_coni[names[i]][pair[i]] for i in range(2)), norm_pairs)))
