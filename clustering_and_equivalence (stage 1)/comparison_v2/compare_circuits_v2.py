@@ -24,15 +24,10 @@ from comparison_v2.constraint_encoding_v2 import encode_classes_v2
 
 def circuit_equivalence(
         in_pair: List[Tuple[str, Circuit]],
-        info_preprocessing: Callable[["In_Pair", Assignment], "Signal_Info"] | None = None,
-        cons_grouping: Callable[["In_Pair", "Clusters", "Signal_Info", Assignment], "Classes"] | None = None,
-        cons_preprocessing: Callable | None = None,
-        encoder: Encoder = ReducedPseudobooleanEncoder,
         test_data: Dict[str, any] = {},
         debug: bool = False,
-        encoder_kwargs: dict = {},
         fingerprints_to_normi: Dict[str, Dict[int, List[int]]] | None = None,
-        fingerprints_to_signals: Dict[str, Dict[int, List[int]]] | None = None
+        fingerprints_to_signals: Dict[str, Dict[int, List[int]]] | None = None,
         ) -> Dict[str, any]:
     
     names = [in_pair[0][0], in_pair[1][0]]
@@ -75,7 +70,20 @@ def circuit_equivalence(
         formula = CNF()
 
         # the norms for each constraint
-        normalised_constraints = { name : list(itertools.chain(*map(r1cs_norm, circ.constraints))) for name, circ in in_pair}
+        normalised_constraints = { name : [] for name in names}
+        normi_to_coni = {name : [] for name in names}
+
+        def _normalised_constraint_building_step(name, con):
+            coni, cons = con
+            norms = r1cs_norm(cons)
+            normalised_constraints[name].extend(norms)
+            normi_to_coni[name].extend(coni for _ in range(len(norms)))
+
+        deque(
+            maxlen=0,
+            iterable = itertools.starmap(_normalised_constraint_building_step, itertools.chain(*itertools.starmap(lambda name, circ : itertools.product([name], enumerate(circ.constraints)), in_pair)))
+        )
+
         signal_to_normi = {name: _signal_data_from_cons_list(normalised_constraints[name]) for name in names}
 
         if len(normalised_constraints[names[0]]) != len(normalised_constraints[names[1]]): 
@@ -113,7 +121,7 @@ def circuit_equivalence(
             }
         # now do label passing for constraints
 
-        formula, assumptions, _, _ = encode_classes_v2(names, normalised_constraints, fingerprints_to_normi, signal_to_fingerprints, fingerprints_to_signals)
+        formula, assumptions, norm_assignment, signal_assignment = encode_classes_v2(names, normalised_constraints, fingerprints_to_normi, signal_to_fingerprints, fingerprints_to_signals)
 
         test_data["formula_size"] = len(formula.clauses)
         solver = Solver(name='cadical195', bootstrap_with=formula)
@@ -124,6 +132,29 @@ def circuit_equivalence(
 
         result = solver.solve(assumptions)
         solving_time = time.time()
+
+        if result:
+            # TODO: make faster (have each Assignment keep track of its variables)
+            model = solver.get_model()    
+            norm_vals = { val : True for val in norm_assignment.has_assigned}
+            signal_vals = { val : True for val in signal_assignment.has_assigned}
+
+            norm_pairs = list(itertools.chain( 
+                    # norm pairs from uniquely identified norms
+                map(lambda key : (fingerprints_to_normi[names[0]][key][0], fingerprints_to_normi[names[1]][key][0]), filter(lambda key : len(fingerprints_to_normi[names[0]][key]) == 1, fingerprints_to_normi[names[0]].keys()))
+                , # norm pairs from SAT solver
+                map(norm_assignment.get_inv_assignment, filter(lambda lit : norm_vals.setdefault(lit, False), filter(lambda x : x > 0, model))) 
+            ))
+
+            signal_pairs = list(itertools.chain(
+                # from assumptions
+                map(signal_assignment.get_inv_assignment, filter(lambda x : x > 0, assumptions))
+                , # from SAT solver
+                map(signal_assignment.get_inv_assignment, filter(lambda lit : signal_vals.setdefault(lit, False), filter(lambda x : x > 0, model)))
+            ))
+            coni_pairs = list(set(map(lambda pair : tuple(normi_to_coni[names[i]][pair[i]] for i in range(2)), norm_pairs)))
+
+            test_data["mapping"] = {"coni" : coni_pairs, "sig" : signal_pairs}
 
         test_data["result"] = result
         test_data["result_explanation"] = "" if result else "Unsatisfiable Formula"

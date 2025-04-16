@@ -4,15 +4,18 @@ We have maximal equivalence but:
 
 To apply this we process each node - check compatability with next node in set -- if pair is maximal already then:
 """
-from typing import List, Dict
+from typing import List, Dict, Tuple
 import itertools
 
+from r1cs_scripts.circuit_representation import Circuit
 from structural_analysis.cluster_trees.dag_from_clusters import DAGNode
 from maximal_equivalence.maximal_equivalence import maximum_equivalence
 from utilities import count_ints, _is_nonlinear
-from maximal_equivalence.subclassing.by_nonlinears import get_subclasses_by_nonlinear_relation, get_subclasses_by_nonlinears
+from maximal_equivalence.subclassing.by_nonlinears import get_subclasses_by_nonlinear_relation
 from maximal_equivalence.subclassing.by_size import get_subclasses_by_size
 from maximal_equivalence.subclassing.by_nonlinear_shortest_path import get_subclasses_by_nonlinear_shortest_path
+from structural_analysis.cluster_trees.dag_from_clusters import dag_from_partition, dag_to_nodes
+from structural_analysis.cluster_trees.full_equivalency_partitions import subcircuit_fingerprint_with_structural_augmentation_equivalency
 
 def pairwise_maximally_equivalent_classes(nodes: Dict[int, DAGNode], tol: float = 0.8, solver_timeout: int | None = None) -> List[List[DAGNode]]:
     """
@@ -68,24 +71,80 @@ def pairwise_maximally_equivalent_classes(nodes: Dict[int, DAGNode], tol: float 
             class_circuit[node.id] = node.get_subcircuit()
     return classes.values()
 
-def maximally_equivalent_classes(nodes: Dict[int, DAGNode], equivalency: List[int] | None = None, tol: float = 0.8, just_subclasses: bool = False, solver_timeout: int | None = None) -> List[List[DAGNode]]:
+def maximally_equivalent_classes(
+            nodes: Dict[int, DAGNode], 
+            equivalency: List[List[int]] | None = None, 
+            equivalent_coni_map: List[List[List[int]]] | None = None,
+            tol: float = 0.8, 
+            solver_timeout: int | None = None,
+            exit_subclasses : bool = False,
+            exit_max_classes : bool = False
+        ) -> List[List[DAGNode]]:
     """
     Step 1: Split nodes into classes
     Step 2: Find maximally equivalent classes (up to size tol) which define new partitions
     Step 3 - TODO: Redo the partitioning -> DAGNodes calculations.
     """
-    # filter by nonlinear shortest path
-    classes = get_subclasses_by_nonlinear_shortest_path(nodes, equivalency)
+    # TODO: with no equivalent
 
-    # filters out to only ones with nonlinear
-    classes = filter(lambda class_ : len(class_) > 0, map(lambda class_ : dict(filter(lambda tup : any(map(_is_nonlinear, map(tup[1].circ.constraints.__getitem__, tup[1].constraints))), class_.items())), classes))
+    # filter by nonlinear shortest path
+    if equivalency is None:
+        equivalent = { nodeid : [nodeid] for nodeid in nodes.keys() }
+    else:
+        equivalent = { lst[0] : lst for lst in equivalency }
+        equivalent_index = {lst[0] : i for i, lst in enumerate(equivalency)}
+
+    equivalent_with_nonlinear = list(filter(lambda id : any(map(_is_nonlinear, map(nodes[id].circ.constraints.__getitem__, nodes[id].constraints))), equivalent.keys()))
+    classes = get_subclasses_by_nonlinear_shortest_path(nodes, equivalent_with_nonlinear)
+
+    # classes = get_subclasses_by_nonlinear_shortest_path(nodes, equivalent.keys())
     
     # filter by nonlinear fingerprinting
     classes = itertools.chain(*map(get_subclasses_by_nonlinear_relation, classes))
     # filter by size tolerance
     classes = itertools.chain(*map(lambda class_ : get_subclasses_by_size(class_, tol=tol), classes))
 
-    if just_subclasses: return count_ints(map(len, classes))
+    if exit_subclasses: return count_ints(map(len, classes))
 
     res = list(itertools.chain(*map(lambda ns : pairwise_maximally_equivalent_classes(ns, tol=tol, solver_timeout = solver_timeout), classes)))
-    return res
+    
+    if exit_max_classes: 
+        return len(res), count_ints( map(lambda class_ : sum(map(lambda id : len(equivalent[id]), map(lambda node : node.id, class_))), res))
+
+    ## get into format of partition of constraints
+
+    partition = []
+
+    # parts from linear nodes that are not equivalenced
+    for key in filter(lambda id : not any(map(_is_nonlinear, map(nodes[id].circ.constraints.__getitem__, nodes[id].constraints))), equivalent.keys()):
+        partition.extend(map(lambda id : nodes[id].constraints, equivalent[key]))
+
+    # parts from nonlinear nodes now made equivalent
+    # TODO: some coni are appearing in two or more partitions
+    for class_ in res:
+        for node in class_:
+            removed_coni = set(nodes[node.id].constraints).difference(node.constraints)
+
+            partition.append(node.constraints) # self coni
+            partition.extend(itertools.starmap(lambda onode_id, mapping : 
+                                list(map(nodes[onode_id].constraints.__getitem__, map(mapping.__getitem__, map(nodes[node.id].constraints.index, node.constraints))))
+                                , zip(equivalent[node.id], equivalent_coni_map[equivalent_index[node.id]])
+                                )) # coni from equivalent
+
+            partition.extend(map(lambda int_ : [int_], removed_coni)) # removed coni - left unclustered
+            partition.extend(itertools.chain(*itertools.starmap(lambda onode_id, mapping : 
+                            map(lambda int_ : [int_], map(nodes[onode_id].constraints.__getitem__, map(mapping.__getitem__, map(nodes[node.id].constraints.index, removed_coni))))   
+                            , zip(equivalent[node.id], equivalent_coni_map[equivalent_index[node.id]]) 
+                            ))) # equiv removed coni - left unclustered
+    circ = next(iter(nodes.values())).circ            
+    partition, arcs = dag_from_partition(circ, partition)
+    nodes = dag_to_nodes(circ, partition, arcs)
+    equivalency, mapping = subcircuit_fingerprint_with_structural_augmentation_equivalency(nodes)
+
+    return nodes, equivalency
+
+    ### need to find maps for non-equivalent circuits .. TODO: is this worth it? it seems like the timing doesn't support it
+
+    
+
+    

@@ -48,6 +48,7 @@ class Assignment():
             self.curr = SharedInt(1)
             self.assignees = assignees
             self.offset = offset
+            self.has_assigned = []
 
             if link is not None:
                 self.inv_assignment = link.inv_assignment
@@ -96,6 +97,7 @@ class Assignment():
                     return None
                 # set value
                 curr[args[-1]] = self.curr.val + self.offset
+                self.has_assigned.append(self.curr.val + self.offset)
                 self.inv_assignment.append(args)
                 self.curr.val += 1
                 return curr[args[-1]]

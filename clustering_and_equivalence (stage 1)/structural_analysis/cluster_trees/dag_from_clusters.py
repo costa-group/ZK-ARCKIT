@@ -115,7 +115,9 @@ def dag_from_partition(circ: Circuit, partition: List[List[int]]) -> "directed_a
 
     coni_to_part = [None for _ in range(circ.nConstraints)]
     for i, part in partition.items():
-        for coni in part: coni_to_part[coni] = i
+        for coni in part: 
+            if coni_to_part[coni] is not None: print(f'WARNING: coni {coni} is in {i} and {coni_to_part[coni]}')
+            coni_to_part[coni] = i
 
     sig_to_coni = _signal_data_from_cons_list(circ.constraints)
 

@@ -31,14 +31,9 @@ def time_limit(seconds):
 
 def exception_catcher(
     in_pair,
-    info_preprocessing,
-    cons_grouping,
-    cons_preprocessing,
-    encoder,
     test_data: Dict[str, any] = {},
     debug: bool = False,
     time_limit_seconds: int = 0, # 0 means no limit
-    encoder_kwargs: dict = {},
     **kwargs
     ):   
 
@@ -47,18 +42,13 @@ def exception_catcher(
         with time_limit(time_limit_seconds):
             circuit_equivalence(
                 in_pair,
-                info_preprocessing,
-                cons_grouping,
-                cons_preprocessing,
-                encoder,
                 test_data,
-                debug,
-                encoder_kwargs,
+                debug=debug,
                 **kwargs
             )
     except Exception as e:
         # print(e)
-        test_data["result"] = "Error"
+        test_data["result"] = False
         test_data["result_explanation"] = repr(e)
         test_data["timing"]["error_time"] = time.time() - start
 

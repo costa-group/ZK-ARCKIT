@@ -33,6 +33,13 @@ The following flags alter the behaviour of the file
         : alternative
             --equivalence
     
+    -m
+        includes each mapping between equivalent clusters
+        : default
+            does not
+        :alternative
+            --include-mappings
+
     --return_img
         defines if the return type is an image or json file
         : default
@@ -101,7 +108,8 @@ def r1cs_cluster(
         automerge_passthrough: bool = False,
         automerge_only_nonlinear: bool = False,
         timing: bool = True,
-        undo_remapping: bool = True
+        undo_remapping: bool = True,
+        include_mappings: bool = False
     ):
     """
     Manager function for handling the clustering methods, for a complete specification see `cluster.py'
@@ -191,10 +199,10 @@ def r1cs_cluster(
         match equivalence_method:
 
             case "fingerprint":
-                equivalency = subcircuit_fingerprinting_equivalency(nodes) # easy_fingerprint_then_equivalence(nodes)
+                equivalency, mappings = subcircuit_fingerprinting_equivalency(nodes) # easy_fingerprint_then_equivalence(nodes)
 
             case "structural":
-                equivalency = subcircuit_fingerprint_with_structural_augmentation_equivalency(nodes) # structural_augmentation_equivalence(nodes)
+                equivalency, mappings = subcircuit_fingerprint_with_structural_augmentation_equivalency(nodes) # structural_augmentation_equivalence(nodes)
 
             case _ :
                 raise SyntaxError(f"{equivalence_method} is not a valid equivalence method")
@@ -209,6 +217,8 @@ def r1cs_cluster(
             "equivalency": equivalency
         }
 
+        if include_mappings: return_json["equiv_mappings"] = mappings
+
         f = open(get_outfile(index, clustering_method, "json"), "w")
         json.dump(return_json, f, indent=4)
         f.close()
@@ -219,7 +229,7 @@ if __name__ == '__main__':
 
     req_args = [None, None, None, None]
     timeout = 0
-    automerge_passthrough, automerge_only_nonlinear, return_img , timing, undo_remapping = False, False, False, True, True
+    automerge_passthrough, automerge_only_nonlinear, return_img , timing, undo_remapping, include_mappings = False, False, False, True, True, False
 
     def set_file(index: int, filename: str):
         if filename[0] == '-': raise SyntaxError(f"Invalid {'input' if not index else 'outout'} filename {filename}")
@@ -272,11 +282,13 @@ if __name__ == '__main__':
                 timeout = int(sys.argv[i+1])
                 i += 2
             case "-i": return_img, i = True, i + 1
-            case "--dont-undo-mapping": undo_remapping = False
+            case "-m": include_mappings, i = True, i+1
+            case "--include-mappings": include_mappings, i = True, i+1
+            case "--dont-undo-mapping": undo_remapping, i = True, i+1
             case "--return_img": return_img, i = True, i + 1
             case "--automerge-passthrough": automerge_passthrough, i = True, i + 1
             case "--automerge-only-nonlinear": automerge_only_nonlinear, i = True, i + 1
-            case "--no-timing-information": timing = False
+            case "--no-timing-information": timing, i = False, i+1
             case _: warnings.warn(f"Invalid argument '{arg}' ignored", SyntaxWarning)
 
 
@@ -286,6 +298,6 @@ if __name__ == '__main__':
     if req_args[3] is None: req_args[3] = "structural"
 
     with time_limit(timeout):
-        r1cs_cluster(*req_args, automerge_passthrough=automerge_passthrough, automerge_only_nonlinear=automerge_only_nonlinear, return_img=return_img, timing=timing, undo_remapping = undo_remapping)
+        r1cs_cluster(*req_args, automerge_passthrough=automerge_passthrough, automerge_only_nonlinear=automerge_only_nonlinear, return_img=return_img, timing=timing, undo_remapping = undo_remapping, include_mappings=include_mappings)
 
     # python3 cluster.py r1cs_files/binsub_test.r1cs -o clustering_tests -e structural

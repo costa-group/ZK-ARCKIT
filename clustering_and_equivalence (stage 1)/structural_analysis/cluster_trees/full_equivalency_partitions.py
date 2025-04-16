@@ -8,6 +8,7 @@
     # TODO: alter testing_harness without all the baggage from not using v2s
 from typing import List, Dict, Tuple
 import itertools
+from collections import deque
 
 from structural_analysis.cluster_trees.dag_from_clusters import DAGNode
 from r1cs_scripts.circuit_representation import Circuit
@@ -32,10 +33,18 @@ def subcircuit_fingerprint_with_structural_augmentation_equivalency(nodes: Dict[
     subcircuit_groups, fingerprints_to_normi, fingerprints_to_signals = fingerprint_subcircuits(nodes)
     structural_labels = class_iterated_label_passing(nodes, subcircuit_groups)
 
-    return list(itertools.chain(*map(lambda nodes_subset : naive_equivalency_analysis(nodes_subset, time_limit, fingerprints_to_normi = fingerprints_to_normi, fingerprints_to_signals = fingerprints_to_signals), 
-                                 map(lambda keylist: {key: nodes[key] for key in keylist}, 
-                                            structural_labels.values())
-        )))
+    equivalent = []
+    mappings = []
+
+    deque(maxlen = 0,
+          iterable = itertools.starmap(lambda equiv, mapp : [equivalent.extend(equiv), mappings.extend(mapp)],
+                     map(lambda nodes_subset : naive_equivalency_analysis(nodes_subset, time_limit, fingerprints_to_normi = fingerprints_to_normi, fingerprints_to_signals = fingerprints_to_signals),
+                     map(lambda keylist: {key: nodes[key] for key in keylist},
+                     structural_labels.values()              
+         )))
+    )
+
+    return equivalent, mappings
 
 def fingerprint_subcircuits(nodes: Dict[int, DAGNode]) -> Dict[int, List[int]]:
 

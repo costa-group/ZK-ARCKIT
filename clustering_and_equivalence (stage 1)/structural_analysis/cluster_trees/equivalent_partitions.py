@@ -8,7 +8,7 @@ from r1cs_scripts.circuit_representation import Circuit
 from r1cs_scripts.constraint import Constraint
 from utilities import getvars
 from bij_encodings.assignment import Assignment
-from testing_harness import quick_compare
+from testing_harness import exception_catcher
 
 def naive_equivalency_analysis(nodes: Dict[int, DAGNode], time_limit: int = 0,  fingerprints_to_normi = None, fingerprints_to_signals = None) -> List[List[int]]:
     """
@@ -17,6 +17,7 @@ def naive_equivalency_analysis(nodes: Dict[int, DAGNode], time_limit: int = 0,  
     """
 
     classes: List[List[int]] = []
+    mappings: List[List[List[int]]] = []
 
     for node_id, node in nodes.items():
 
@@ -24,7 +25,7 @@ def naive_equivalency_analysis(nodes: Dict[int, DAGNode], time_limit: int = 0,  
         sub_circ = node.get_subcircuit()
 
         equivalent = False
-        for class_ in classes:
+        for class_ind, class_ in enumerate(classes):
 
             # subcircuit only calculated once then stored in the class so this isn't wasting time
             repr_circ = nodes[class_[0]].get_subcircuit()
@@ -32,16 +33,21 @@ def naive_equivalency_analysis(nodes: Dict[int, DAGNode], time_limit: int = 0,  
             initial_norm_fingerprints = None if fingerprints_to_normi is None else { node.id : fingerprints_to_normi[node.id] for node in [node, nodes[class_[0]]]}
             initial_signal_fingerprints = None if fingerprints_to_signals is None else { node.id : fingerprints_to_signals[node.id] for node in [node, nodes[class_[0]]]}
 
-            equivalent = quick_compare((node.id, sub_circ), (nodes[class_[0]].id, repr_circ), time_limit, fingerprints_to_normi = initial_norm_fingerprints, fingerprints_to_signals = initial_signal_fingerprints)
+
+
+            test_data = exception_catcher([(nodes[class_[0]].id, repr_circ), (node.id, sub_circ)], time_limit_seconds=time_limit, fingerprints_to_normi = initial_norm_fingerprints, fingerprints_to_signals = initial_signal_fingerprints)
+            equivalent = test_data["result"]
 
             if equivalent: 
                 class_.append(node_id)
+                mappings[class_ind].append(list(map(lambda pair : pair[1], sorted(test_data["mapping"]["coni"]))))
                 break
 
         if not equivalent:
             classes.append([node_id])
+            mappings.append([])
     
-    return classes
+    return classes, mappings
 
 def easy_fingerprint_then_equivalence(nodes: Dict[int, DAGNode], time_limit: int = 0) -> List[List[int]]:
     """
