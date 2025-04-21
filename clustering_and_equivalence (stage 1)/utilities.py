@@ -193,10 +193,9 @@ def DFS_reachability(S: int | List[int], T: int | List[int], adjacencies: List[L
 def dijkstras_shortest_weight(s:int, T: int | List[int], adjacencies: List[Dict[int, int]]):
     """
     assumes non-negative weights
-    """
-    
-    
+    """    
     if type(T) == int: T = [T]
+    if s in T: return 0
 
     distances = {s : 0}
     reached = {}
