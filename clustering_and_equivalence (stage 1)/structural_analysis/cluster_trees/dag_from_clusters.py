@@ -297,7 +297,7 @@ class DAGNode():
 
         return self.subcircuit
     
-    def to_dict(self, inverse_mapping = Tuple[dict] | None) -> Dict[str, int | List[int]]:
+    def to_dict(self, inverse_mapping : Tuple[dict] | None = None) -> Dict[str, int | List[int]]:
         """
         Returns a dictionary that contains the information required for outputting to JSON
         """

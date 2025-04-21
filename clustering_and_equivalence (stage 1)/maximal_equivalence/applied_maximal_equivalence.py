@@ -4,8 +4,9 @@ We have maximal equivalence but:
 
 To apply this we process each node - check compatability with next node in set -- if pair is maximal already then:
 """
-from typing import List, Dict, Tuple
+from typing import List, Dict
 import itertools
+import time
 
 from r1cs_scripts.circuit_representation import Circuit
 from structural_analysis.cluster_trees.dag_from_clusters import DAGNode
@@ -35,7 +36,6 @@ def pairwise_maximally_equivalent_classes(nodes: Dict[int, DAGNode], tol: float 
     names = ["Left", "Right"]
 
     for id, node in nodes.items():
-        print(id, len(node.constraints), "         ", end='\r')
 
         matched = False
         
@@ -79,7 +79,8 @@ def maximally_equivalent_classes(
             tol: float = 0.8, 
             solver_timeout: int | None = None,
             exit_subclasses : bool = False,
-            exit_max_classes : bool = False
+            exit_max_classes : bool = False,
+            return_json : bool = True
         ) -> List[List[DAGNode]]:
     """
     Step 1: Split nodes into classes
@@ -87,6 +88,7 @@ def maximally_equivalent_classes(
     Step 3 - TODO: Redo the partitioning -> DAGNodes calculations.
     """
     # TODO: with no equivalent
+    timing = {}
 
     # filter by nonlinear shortest path
     if equivalency is None:
@@ -95,9 +97,11 @@ def maximally_equivalent_classes(
         equivalent = { lst[0] : lst for lst in equivalency }
         equivalent_index = {lst[0] : i for i, lst in enumerate(equivalency)}
 
+    start = time.time()
+    last_time = start
+
     equivalent_with_nonlinear = list(filter(lambda id : any(map(_is_nonlinear, map(nodes[id].circ.constraints.__getitem__, nodes[id].constraints))), equivalent.keys()))
     classes = get_subclasses_by_nonlinear_shortest_path(nodes, equivalent_with_nonlinear)
-
     # classes = get_subclasses_by_nonlinear_shortest_path(nodes, equivalent.keys())
     
     # filter by nonlinear fingerprinting
@@ -108,6 +112,8 @@ def maximally_equivalent_classes(
     if exit_subclasses: return count_ints(map(len, classes))
 
     res = list(itertools.chain(*map(lambda ns : pairwise_maximally_equivalent_classes(ns, tol=tol, solver_timeout = solver_timeout), classes)))
+    timing["maxequiv_timing"] = time.time() - last_time
+    last_time = time.time()
     
     if exit_max_classes: 
         return len(res), count_ints( map(lambda class_ : sum(map(lambda id : len(equivalent[id]), map(lambda node : node.id, class_))), res))
@@ -138,6 +144,9 @@ def maximally_equivalent_classes(
                             , zip(equivalent[node.id][1:], equivalent_coni_map[equivalent_index[node.id]]) 
                             ))) # equiv removed coni - left unclustered
     
+    timing["partitioning"] = time.time() - last_time
+    last_time = time.time()
+
     circ = next(iter(nodes.values())).circ            
     partition, arcs = dag_from_partition(circ, partition)
     nodes = dag_to_nodes(circ, partition, arcs)
@@ -148,7 +157,19 @@ def maximally_equivalent_classes(
 
     equivalency, mapping = subcircuit_fingerprint_with_structural_augmentation_equivalency(nodes)
 
-    return nodes, equivalency
+    timing["conversion_to_dag"] = time.time() - last_time
+    last_time = time.time()
+
+    if not return_json: return nodes, equivalency
+    
+    results = {
+        "timing" : timing,
+        "nodes" : list(map(lambda n : n.to_dict(), nodes.values())),
+        "equivalency": equivalency,
+        "equiv_mappings": mapping
+    }
+
+    return results
 
     ### need to find maps for non-equivalent circuits .. TODO: is this worth it? it seems like the timing doesn't support it
 
