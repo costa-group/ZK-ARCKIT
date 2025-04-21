@@ -16,6 +16,7 @@ from maximal_equivalence.subclassing.by_size import get_subclasses_by_size
 from maximal_equivalence.subclassing.by_nonlinear_shortest_path import get_subclasses_by_nonlinear_shortest_path
 from structural_analysis.cluster_trees.dag_from_clusters import dag_from_partition, dag_to_nodes
 from structural_analysis.cluster_trees.full_equivalency_partitions import subcircuit_fingerprint_with_structural_augmentation_equivalency
+from structural_analysis.cluster_trees.dag_postprocessing import merge_passthrough, merge_only_nonlinear
 
 def pairwise_maximally_equivalent_classes(nodes: Dict[int, DAGNode], tol: float = 0.8, solver_timeout: int | None = None) -> List[List[DAGNode]]:
     """
@@ -128,17 +129,23 @@ def maximally_equivalent_classes(
             partition.append(node.constraints) # self coni
             partition.extend(itertools.starmap(lambda onode_id, mapping : 
                                 list(map(nodes[onode_id].constraints.__getitem__, map(mapping.__getitem__, map(nodes[node.id].constraints.index, node.constraints))))
-                                , zip(equivalent[node.id], equivalent_coni_map[equivalent_index[node.id]])
+                                , zip(equivalent[node.id][1:], equivalent_coni_map[equivalent_index[node.id]])
                                 )) # coni from equivalent
 
             partition.extend(map(lambda int_ : [int_], removed_coni)) # removed coni - left unclustered
             partition.extend(itertools.chain(*itertools.starmap(lambda onode_id, mapping : 
                             map(lambda int_ : [int_], map(nodes[onode_id].constraints.__getitem__, map(mapping.__getitem__, map(nodes[node.id].constraints.index, removed_coni))))   
-                            , zip(equivalent[node.id], equivalent_coni_map[equivalent_index[node.id]]) 
+                            , zip(equivalent[node.id][1:], equivalent_coni_map[equivalent_index[node.id]]) 
                             ))) # equiv removed coni - left unclustered
+    
     circ = next(iter(nodes.values())).circ            
     partition, arcs = dag_from_partition(circ, partition)
     nodes = dag_to_nodes(circ, partition, arcs)
+
+    ## TODO: deside relevance
+    nodes = merge_passthrough(circ, nodes)
+    nodes = merge_only_nonlinear(circ, nodes)
+
     equivalency, mapping = subcircuit_fingerprint_with_structural_augmentation_equivalency(nodes)
 
     return nodes, equivalency
