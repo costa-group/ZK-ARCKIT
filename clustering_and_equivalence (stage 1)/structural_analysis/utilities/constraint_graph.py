@@ -36,8 +36,7 @@ def shared_signal_graph(cons: List[Constraint], names: List[int] | None = None) 
             continue
 
         for i, j in combinations(signal_to_coni[signal], r = 2):
-            if i >= j: continue
-
+            i, j = min(i,j), max(i,j)
             weights[(i, j)] = weights.setdefault((i, j), 0) + 1
 
     for i, j in weights.keys():
