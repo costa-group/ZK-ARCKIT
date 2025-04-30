@@ -8,7 +8,7 @@ import collections
 
 from r1cs_scripts.circuit_representation import Circuit
 from structural_analysis.cluster_trees.dag_from_clusters import DAGNode
-from utilities import DFS_reachability, getvars, _signal_data_from_cons_list, BFS_shortest_path
+from utilities import DFS_reachability, getvars, _signal_data_from_cons_list, BFS_shortest_path, _is_nonlinear
 
 def merge_under_property(circ: Circuit, nodes: Dict[int, DAGNode], 
     property : Callable[[DAGNode], bool], 
@@ -172,6 +172,63 @@ def merge_only_nonlinear(circ: Circuit, nodes: Dict[int, DAGNode]) -> Dict[int, 
 
     # adjacent checks redundant for nonlinear_attract, not for louvain
     return merge_under_property(circ, nodes, is_only_nonlinear, child_isnt_nonlinear, parent_isnt_nonliner)
+
+def merge_single_linear(circ: Circuit, nodes: Dict[int, DAGNode]) -> Dict[int, DAGNode]:
+    """
+    An instance of :py:func:`merge_under_property` merges nodes that have signals in the input and output.
+
+    filter property : node is a single linear
+    adj_property : number of shared signals
+
+    Parameters
+    ----------
+        circ: Circuit 
+            The circuit being worked on -- NOTE: could remove and take circ from nodes but don't for consistency
+        nodes: Dict(int, DAGNode)
+            The collection of nodes that cluster the circuit
+    
+    Returns
+    ----------
+    Dict[int, DAGNode] 
+        Nodes list after merging.
+        Note that this function mutates the input nodes dictionary
+    """
+    is_single_linear : Callable[[DAGNode], bool]= lambda node : len(node.constraints) == 1 and not _is_nonlinear(circ.constraints[next(iter(node.constraints))])
+
+    # note that this prioritises children over parents -- this is a heuristic given by Albert
+    child_attraction : Callable[[DAGNode, DAGNode], int] = lambda node, child : len(node.input_signals) + len(node.output_signals.intersection(child.input_signals))
+    parent_attraction : Callable[[DAGNode, DAGNode], int] = lambda parent, node : len(node.input_signals.intersection(parent.output_signals))
+
+    return merge_under_property(circ, nodes, is_single_linear, child_attraction, parent_attraction)
+
+def merge_unsafe_linear(circ: Circuit, nodes: Dict[int, DAGNode]) -> Dict[int, DAGNode]:
+    """
+    An instance of :py:func:`merge_under_property` merges nodes that have signals in the input and output.
+
+    filter property : has only nonlinear constraints in the node
+    adj_property : does not have only nonlinear constraints in the node
+
+    Parameters
+    ----------
+        circ: Circuit 
+            The circuit being worked on -- NOTE: could remove and take circ from nodes but don't for consistency
+        nodes: Dict(int, DAGNode)
+            The collection of nodes that cluster the circuit
+    
+    Returns
+    ----------
+    Dict[int, DAGNode] 
+        Nodes list after merging.
+        Note that this function mutates the input nodes dictionary
+    """
+    is_single_unsafe_linear : Callable[[DAGNode], bool
+        ] = lambda node : len(node.constraints) == 1 and not _is_nonlinear(circ.constraints[next(iter(node.constraints))]) and len(node.successors) > 1
+
+    # note that this prioritises children over parents -- this is a heuristic given by Albert
+    child_attraction : Callable[[DAGNode, DAGNode], int] = lambda node, child : len(node.input_signals) + len(node.output_signals.intersection(child.input_signals))
+    parent_attraction : Callable[[DAGNode, DAGNode], int] = lambda parent, node : len(node.input_signals.intersection(parent.output_signals))
+
+    return merge_under_property(circ, nodes, is_single_unsafe_linear, child_attraction, parent_attraction)
 
 def merge_nodes(lkey: int, rkey: int, nodes: Dict[int, DAGNode], 
         sig_to_coni: Dict[int, List[int]], coni_to_node: List[int], adjacencies: Dict[int, List[int]]) -> None:
