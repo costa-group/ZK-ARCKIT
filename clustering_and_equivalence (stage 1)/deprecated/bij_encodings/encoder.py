@@ -5,7 +5,7 @@ from typing import Tuple, Dict, List, Set
 from pysat.solvers import Solver
 
 from r1cs_scripts.circuit_representation import Circuit
-from bij_encodings.assignment import Assignment
+from utilities.assignment import Assignment
 
 class Encoder():
     """

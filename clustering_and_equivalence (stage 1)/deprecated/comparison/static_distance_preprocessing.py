@@ -4,44 +4,8 @@ from functools import reduce
 
 from r1cs_scripts.circuit_representation import Circuit
 from r1cs_scripts.constraint import Constraint
-from bij_encodings.assignment import Assignment
-from utilities import _signal_data_from_cons_list, getvars
-
-def _distances_to_signal_set(cons: List[Circuit], source_set: Set[int], signal_to_conis = None):
-    """
-    Given a list of constraints and a source set of signals, returns a dictionary with the distance of each signal to the source_set
-    """
-    # just BFS
-
-    if signal_to_conis is None: signal_to_conis = _signal_data_from_cons_list(cons)
-    
-    distances = {sig: 0 for sig in source_set}
-    checked = {sig: True for sig in source_set}
-
-    queue = deque(source_set)
-
-    while len(queue) > 0:
-        
-        sig = queue.popleft()
-
-        adjacent = filter(
-            lambda sig : not checked.setdefault(sig, False),
-            reduce(
-                lambda acc, x : acc.union(x),
-                map(lambda coni: getvars(cons[coni]), signal_to_conis[sig]),
-                set([])
-            )
-        )
-        
-        for adj in adjacent:
-            checked[adj] = True
-            distances[adj] = distances[sig] + 1
-            queue.append(adj)
-    
-    # if len(reduce(lambda acc, x : acc.union(getvars(x)), cons, set([])).difference(checked.keys())) > 0:
-    #     raise AssertionError(f"Constrants do not form a single connected component")
-
-    return distances
+from utilities.assignment import Assignment
+from utilities.utilities import _signal_data_from_cons_list, getvars, _distance_to_signal_set
 
 def distances_to_static_preprocessing(
         in_pair: List[Tuple[str, Circuit]], 

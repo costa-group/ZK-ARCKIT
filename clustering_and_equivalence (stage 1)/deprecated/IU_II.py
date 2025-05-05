@@ -3,8 +3,8 @@ from itertools import product
 from functools import reduce
 
 from r1cs_scripts.circuit_representation import Circuit
-from bij_encodings.single_cons_options import signal_options
-from bij_encodings.assignment import Assignment
+from utilities.single_cons_options import signal_options
+from utilities.assignment import Assignment
 from normalisation import r1cs_norm
 
 def intra_union_inter_intersection(

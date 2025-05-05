@@ -12,10 +12,10 @@ from collections import deque
 
 from structural_analysis.cluster_trees.dag_from_clusters import DAGNode
 from r1cs_scripts.circuit_representation import Circuit
-from bij_encodings.assignment import Assignment
+from utilities.assignment import Assignment
 from normalisation import r1cs_norm
 from comparison_v2.fingerprinting_v2 import back_and_forth_fingerprinting
-from utilities import _signal_data_from_cons_list, count_ints
+from utilities.utilities import _signal_data_from_cons_list, count_ints
 
 from structural_analysis.cluster_trees.equivalent_partitions import naive_equivalency_analysis, class_iterated_label_passing
 

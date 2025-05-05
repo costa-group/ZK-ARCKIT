@@ -2,11 +2,11 @@ from typing import Dict, List, Tuple, Callable, Set
 from pysat.formula import CNF
 
 from r1cs_scripts.circuit_representation import Circuit
-from comparison.constraint_preprocessing import known_split
-from bij_encodings.assignment import Assignment
-from bij_encodings.encoder import Encoder
+from deprecated.comparison.constraint_preprocessing import known_split
+from utilities.assignment import Assignment
+from deprecated.bij_encodings.encoder import Encoder
 from normalisation import r1cs_norm
-from utilities import getvars, count_ints
+from utilities.utilities import getvars, count_ints
 
 class OnlineInfoPassEncoder(Encoder):
     """Encoder that before encoding any constraint class attempts to rehash based on knowledge to reduce size"""

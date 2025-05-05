@@ -6,8 +6,7 @@ from typing import List, Dict, Set, Tuple, Iterable
 import itertools
 import json
 
-from utilities import UnionFind, _signal_data_from_cons_list, getvars, dist_to_source_set
-from comparison.static_distance_preprocessing import _distances_to_signal_set
+from utilities.utilities import UnionFind, _signal_data_from_cons_list, getvars, dist_to_source_set, _distances_to_signal_set
 from r1cs_scripts.circuit_representation import Circuit
 from r1cs_scripts.constraint import Constraint
 

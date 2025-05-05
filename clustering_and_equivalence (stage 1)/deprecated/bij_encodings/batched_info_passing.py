@@ -2,13 +2,13 @@ from typing import Dict, List, Tuple, Callable, Set, Iterable
 from pysat.formula import CNF
 import itertools
 
-from bij_encodings.assignment import Assignment
-from bij_encodings.encoder import Encoder
-from bij_encodings.online_info_passing import count_ints
+from utilities.assignment import Assignment
+from deprecated.bij_encodings.encoder import Encoder
+from deprecated.bij_encodings.online_info_passing import count_ints
 
 from r1cs_scripts.circuit_representation import Circuit
 
-from comparison.constraint_preprocessing import known_split
+from deprecated.comparison.constraint_preprocessing import known_split
 
 from normalisation import r1cs_norm
 

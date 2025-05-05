@@ -7,15 +7,11 @@ from collections import deque
 
 from normalisation import r1cs_norm
 
-from utilities import _signal_data_from_cons_list, getvars, count_ints
+from utilities.utilities import _signal_data_from_cons_list, count_ints
 
 from r1cs_scripts.circuit_representation import Circuit
 
 from structural_analysis.utilities.connected_preprocessing import connected_preprocessing
-
-from bij_encodings.encoder import Encoder
-from bij_encodings.assignment import Assignment
-from bij_encodings.reduced_encoding.red_pseudoboolean_encoding import ReducedPseudobooleanEncoder
 
 from comparison_v2.fingerprinting_v2 import back_and_forth_fingerprinting, early_exit
 from comparison_v2.constraint_encoding_v2 import encode_classes_v2

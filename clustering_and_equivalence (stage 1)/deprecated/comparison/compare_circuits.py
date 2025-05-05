@@ -16,11 +16,11 @@ from r1cs_scripts.circuit_representation import Circuit
 
 from structural_analysis.utilities.connected_preprocessing import connected_preprocessing
 
-from bij_encodings.encoder import Encoder
-from bij_encodings.assignment import Assignment
-from bij_encodings.reduced_encoding.red_pseudoboolean_encoding import ReducedPseudobooleanEncoder
+from deprecated.bij_encodings.encoder import Encoder
+from utilities.assignment import Assignment
+from deprecated.bij_encodings.reduced_encoding.red_pseudoboolean_encoding import ReducedPseudobooleanEncoder
 
-from utilities import getvars
+from utilities.utilities import getvars
 
 def count_ints(lints : Iterable[int]) -> Dict[int, int]:
     res = {}

@@ -1,6 +1,6 @@
 import itertools
 
-from utilities import _signal_data_from_cons_list, getvars
+from utilities.utilities import _signal_data_from_cons_list, getvars
 from r1cs_scripts.circuit_representation import Circuit
 from deprecated.cluster_trees.r1cs_O0_rooting import TreeNode
 

@@ -2,9 +2,9 @@ from typing import Dict, List
 from collections import deque
 import itertools
 
-from bij_encodings.assignment import Assignment
+from utilities.assignment import Assignment
 from structural_analysis.cluster_trees.dag_from_clusters import DAGNode
-from utilities import dijkstras_shortest_weight, getvars, _is_nonlinear
+from utilities.utilities import dijkstras_shortest_weight, getvars, _is_nonlinear
 
 def get_subclasses_by_nonlinear_shortest_path(nodes: Dict[int, DAGNode], equivalency: List[int] | None = None) -> List[Dict[int, DAGNode]]:
     ## weighted shortest path where weight is number of nonlinears in target vertex.

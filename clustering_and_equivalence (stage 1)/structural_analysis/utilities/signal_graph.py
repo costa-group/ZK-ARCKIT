@@ -7,7 +7,7 @@ from typing import List
 from itertools import chain, combinations
 
 from r1cs_scripts.constraint import Constraint
-from utilities import getvars
+from utilities.utilities import getvars
 
 def negone_to_signal( cons: List[Constraint]) -> nx.DiGraph:
 

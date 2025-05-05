@@ -3,13 +3,13 @@ import networkx as nx
 from typing import List, Tuple, Dict, Set, Callable
 from collections import defaultdict
 
-from bij_encodings.assignment import Assignment
-from bij_encodings.preprocessing.iterated_adj_reclassing import iterated_label_propagation
+from utilities.assignment import Assignment
+from utilities.iterated_adj_reclassing import iterated_label_propagation
 from r1cs_scripts.circuit_representation import Circuit
 from r1cs_scripts.constraint import Constraint
-from comparison.constraint_preprocessing import hash_constraint
+from deprecated.comparison.constraint_preprocessing import hash_constraint
 from structural_analysis.clustering_methods.naive.signal_equivalence_clustering import naive_removal_clustering
-from comparison.static_distance_preprocessing import _distances_to_signal_set
+from deprecated.comparison.static_distance_preprocessing import _distances_to_signal_set
 
 def circuit_clusters(
         in_pair: List[Tuple[str, Circuit]], 

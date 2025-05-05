@@ -2,12 +2,12 @@ from typing import List, Dict, Set, Tuple, Callable
 from collections import deque
 import itertools
 
-from bij_encodings.assignment import Assignment
+from utilities.assignment import Assignment
 
 from r1cs_scripts.circuit_representation import Circuit
 from r1cs_scripts.constraint import Constraint
 
-from utilities import getvars, count_ints
+from utilities.utilities import getvars, count_ints
 
 def back_and_forth_preprocessing(names, label_to_indices, index_to_label, init_round):
     nonsingular_keys = {name : [] for name in names}

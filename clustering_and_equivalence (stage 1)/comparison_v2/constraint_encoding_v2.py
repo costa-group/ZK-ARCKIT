@@ -14,10 +14,10 @@ import itertools
 
 from r1cs_scripts.constraint import Constraint
 
-from bij_encodings.assignment import Assignment
-from bij_encodings.single_cons_options import _compare_norms_with_ordered_parts, _compare_norms_with_unordered_parts
+from utilities.assignment import Assignment
+from utilities.single_cons_options import _compare_norms_with_ordered_parts, _compare_norms_with_unordered_parts
 
-from utilities import getvars
+from utilities.utilities import getvars
 
 def encode_classes_v2(
         names,

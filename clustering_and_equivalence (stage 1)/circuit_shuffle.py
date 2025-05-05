@@ -2,9 +2,9 @@
 import numpy as np
 from typing import List
 
-from r1cs_scripts.circuit_representation import Circuit
 import r1cs_scripts.read_r1cs
-from comparison.compare_circuits import circuit_equivalence
+
+from r1cs_scripts.circuit_representation import Circuit
 from r1cs_scripts.modular_operations import multiplyP
 
 def shuffle_signals(circ: Circuit, seed = None) -> List[int]:

@@ -3,9 +3,9 @@ from typing import Dict, List, Tuple, Set, Callable
 from pysat.formula import CNF
 from pysat.card import CardEnc, EncType
 
-from bij_encodings.encoder import Encoder
-from bij_encodings.assignment import Assignment
-from bij_encodings.reduced_encoding.red_class_encoder import reduced_encoding_class
+from deprecated.bij_encodings.encoder import Encoder
+from utilities.assignment import Assignment
+from deprecated.bij_encodings.reduced_encoding.red_class_encoder import reduced_encoding_class
 from r1cs_scripts.circuit_representation import Circuit
 
 # TODO: fix unordered AB not being handled

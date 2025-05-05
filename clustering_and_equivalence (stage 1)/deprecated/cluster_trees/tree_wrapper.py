@@ -4,10 +4,10 @@ import itertools
 from functools import reduce
 
 from r1cs_scripts.circuit_representation import Circuit
-from utilities import _signal_data_from_cons_list, getvars, UnionFind
+from utilities.utilities import _signal_data_from_cons_list, getvars, UnionFind
 from structural_analysis.clustering_methods.naive.signal_equivalence_clustering import naive_removal_clustering
 from structural_analysis.clustering_methods.linear_coefficient import cluster_by_linear_coefficient
-from comparison.static_distance_preprocessing import _distances_to_signal_set
+from deprecated.comparison.static_distance_preprocessing import _distances_to_signal_set
 
 """
 DEPRECATED
@@ -168,7 +168,7 @@ def O0_tree_clustering(
     print({key: nodes[key]["constraints"] for key in nodes.keys()})
     
     print(len(parents_uf.get_representatives()))
-    from utilities import count_ints
+    from utilities.utilities import count_ints
     print(count_ints(map(len, [node["subcomponents"] for node in nodes.values()])))
 
     if outfile is not None:

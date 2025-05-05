@@ -1,7 +1,7 @@
 from typing import Callable, Tuple, List, Dict
 import itertools
 
-from utilities import getvars, is_not_none, UnionFind
+from utilities.utilities import getvars, is_not_none, UnionFind
 from r1cs_scripts.circuit_representation import Circuit
 from structural_analysis.clustering_methods.naive.signal_equivalence_clustering import naive_removal_clustering
 

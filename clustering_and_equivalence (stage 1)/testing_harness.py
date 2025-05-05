@@ -8,11 +8,11 @@ from typing import Dict
 
 from r1cs_scripts.circuit_representation import Circuit
 
-from comparison_testing import get_circuits
+from circuit_shuffle import get_circuits
 
 # from comparison.compare_circuits import circuit_equivalence
-from comparison.constraint_preprocessing import constraint_classes
-from bij_encodings.preprocessing.iterated_adj_reclassing import iterated_adjacency_reclassing
+from deprecated.comparison.constraint_preprocessing import constraint_classes
+from utilities.iterated_adj_reclassing import iterated_adjacency_reclassing
 
 from comparison_v2.compare_circuits_v2 import circuit_equivalence
 
@@ -102,9 +102,9 @@ from r1cs_scripts.read_r1cs import parse_r1cs
 
 from structural_analysis.clustering_methods.naive.degree_clustering import twice_average_degree
 from structural_analysis.clustering_methods.naive.signal_equivalence_clustering import naive_removal_clustering
-from bij_encodings.online_info_passing import OnlineInfoPassEncoder
-from bij_encodings.reduced_encoding.red_class_encoder import reduced_encoding_class
-from bij_encodings.reduced_encoding.red_pseudoboolean_encoding import pseudoboolean_signal_encoder
+from deprecated.bij_encodings.online_info_passing import OnlineInfoPassEncoder
+from deprecated.bij_encodings.reduced_encoding.red_class_encoder import reduced_encoding_class
+from deprecated.bij_encodings.reduced_encoding.red_pseudoboolean_encoding import pseudoboolean_signal_encoder
 
 def quick_compare(
     lpair: Tuple[str, Circuit],

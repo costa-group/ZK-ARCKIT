@@ -9,8 +9,8 @@ from itertools import chain, starmap, product
 from typing import Dict, List, Tuple, Set
 
 from r1cs_scripts.constraint import Constraint
-from bij_encodings.assignment import Assignment
-from utilities import getvars
+from utilities.assignment import Assignment
+from utilities.utilities import getvars
 
 def _compare_norms_with_unordered_parts(dicts: List[List[Dict[int, int]]], allkeys: List[List[int]]) -> Tuple[List[List[Dict[int, List[int]]]], List[Dict[int, List[int]]]]:
     """

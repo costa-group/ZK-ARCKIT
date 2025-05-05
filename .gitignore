@@ -7,14 +7,8 @@
 !clustering_and_equivalence\ \(stage\ 1\)/r1cs_scripts
 !clustering_and_equivalence\ \(stage\ 1\)/r1cs_scripts/*.py
 
-!clustering_and_equivalence\ \(stage\ 1\)/bij_encodings
-!clustering_and_equivalence\ \(stage\ 1\)/bij_encodings/*.py
-
-!clustering_and_equivalence\ \(stage\ 1\)/bij_encodings/preprocessing
-!clustering_and_equivalence\ \(stage\ 1\)/bij_encodings/preprocessing/*.py
-
-!clustering_and_equivalence\ \(stage\ 1\)/bij_encodings/reduced_encoding
-!clustering_and_equivalence\ \(stage\ 1\)/bij_encodings/reduced_encoding/*.py
+!clustering_and_equivalence\ \(stage\ 1\)/utilities
+!clustering_and_equivalence\ \(stage\ 1\)/utilities/*.py
 
 !clustering_and_equivalence\ \(stage\ 1\)/structural_analysis
 !clustering_and_equivalence\ \(stage\ 1\)/structural_analysis/*.py
@@ -38,6 +32,16 @@
 
 !clustering_and_equivalence\ \(stage\ 1\)/deprecated
 !clustering_and_equivalence\ \(stage\ 1\)/deprecated/*
+
+!clustering_and_equivalence\ \(stage\ 1\)/deprecated/comparison
+!clustering_and_equivalence\ \(stage\ 1\)/deprecated/comparison/*.py
+
+
+!clustering_and_equivalence\ \(stage\ 1\)/deprecated/bij_encodings
+!clustering_and_equivalence\ \(stage\ 1\)/deprecated/bij_encodings/*.py
+
+!clustering_and_equivalence\ \(stage\ 1\)/deprecated/bij_encodings/reduced_encoding
+!clustering_and_equivalence\ \(stage\ 1\)/deprecated/bij_encodings/reduced_encoding/*.py
 
 !clustering_and_equivalence\ \(stage\ 1\)/deprecated/minizinc
 !clustering_and_equivalence\ \(stage\ 1\)/deprecated/minizinc/*.mzn

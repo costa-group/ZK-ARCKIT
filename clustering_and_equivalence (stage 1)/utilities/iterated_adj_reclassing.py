@@ -6,8 +6,8 @@ from typing import List, Tuple, Dict, Set
 from pysat.formula import CNF
 import itertools
 
-from utilities import _signal_data_from_cons_list, getvars
-from bij_encodings.assignment import Assignment
+from utilities.utilities import _signal_data_from_cons_list, getvars
+from utilities.assignment import Assignment
 from r1cs_scripts.circuit_representation import Circuit
 
 def iterated_label_propagation(

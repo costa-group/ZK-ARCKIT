@@ -6,7 +6,7 @@ import tracemalloc
 
 from r1cs_scripts.circuit_representation import Circuit
 from r1cs_scripts.constraint import Constraint
-from utilities import _signal_data_from_cons_list, getvars, UnionFind
+from utilities.utilities import _signal_data_from_cons_list, getvars, UnionFind
 
 def cluster(
     complete_subraphs: Iterable[List[int]],

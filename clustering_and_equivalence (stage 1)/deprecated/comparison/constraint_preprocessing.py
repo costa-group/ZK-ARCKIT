@@ -6,7 +6,7 @@ import collections
 from r1cs_scripts.circuit_representation import Circuit
 from r1cs_scripts.constraint import Constraint
 from normalisation import r1cs_norm
-from bij_encodings.assignment import Assignment
+from utilities.assignment import Assignment
 
 
 constSignal = 0

@@ -11,7 +11,7 @@ import time
 from r1cs_scripts.circuit_representation import Circuit
 from structural_analysis.cluster_trees.dag_from_clusters import DAGNode
 from maximal_equivalence.maximal_equivalence import maximum_equivalence
-from utilities import count_ints, _is_nonlinear
+from utilities.utilities import count_ints, _is_nonlinear
 from maximal_equivalence.subclassing.by_nonlinears import get_subclasses_by_nonlinear_relation
 from maximal_equivalence.subclassing.by_size import get_subclasses_by_size
 from maximal_equivalence.subclassing.by_nonlinear_shortest_path import get_subclasses_by_nonlinear_shortest_path

@@ -7,7 +7,7 @@ from typing import List, Tuple, Dict, Set
 
 from r1cs_scripts.circuit_representation import Circuit
 
-from bij_encodings.assignment import Assignment
+from utilities.assignment import Assignment
 
 def internal_consistency(
     in_pair: List[Tuple[str, Circuit]],

@@ -10,10 +10,10 @@ import pydot as pd
 import itertools
 import collections
 
-from utilities import getvars
+from utilities.utilities import getvars
 from r1cs_scripts.circuit_representation import Circuit
 from structural_analysis.cluster_trees.dag_from_clusters import DAGNode
-from utilities import _signal_data_from_cons_list, getvars
+from utilities.utilities import _signal_data_from_cons_list, getvars
 
 def circuit_graph_to_img(
         circ: Circuit, G: nx.Graph, induced_subgraph: List[int] | None = None,

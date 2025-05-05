@@ -10,10 +10,10 @@ from pysat.card import CardEnc, EncType
 from r1cs_scripts.circuit_representation import Circuit
 from r1cs_scripts.constraint import Constraint
 from normalisation import r1cs_norm
-from comparison.constraint_preprocessing import hash_constraint, known_split
-from bij_encodings.assignment import Assignment
-from bij_encodings.single_cons_options import signal_options
-from bij_encodings.reduced_encoding.red_class_encoder import reduced_encoding_class
+from deprecated.comparison.constraint_preprocessing import hash_constraint, known_split
+from utilities.assignment import Assignment
+from utilities.single_cons_options import signal_options
+from deprecated.bij_encodings.reduced_encoding.red_class_encoder import reduced_encoding_class
 
 def singular_class_preprocessing(
         in_pair: List[Tuple[str, Circuit]],
