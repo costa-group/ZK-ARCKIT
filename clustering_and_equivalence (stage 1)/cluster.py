@@ -140,7 +140,7 @@ def r1cs_cluster(
         except FileExistsError:
             pass
         
-    get_outfile =  lambda index, suffix, ftype : f"{output_directory}/{filename if len(circs) == 1 else (filename + '/' + index)}{('_' + suffix) if suffix is not None else ''}.{ftype}"
+    get_outfile =  lambda index, suffix, ftype : f"{output_directory}/{filename if len(circs) == 1 else (filename + '/' + str(index))}{('_' + suffix) if suffix is not None else ''}.{ftype}"
 
     for index, circ in enumerate(circs):
 
