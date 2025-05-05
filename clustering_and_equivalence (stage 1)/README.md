@@ -14,6 +14,7 @@ This section of the repository handles the clustering and equivalence of R1CS Ci
 ├───r1cs_scripts
 └───utilities
 ```
+The `deprecated` directory contains various modules, files, and methods that have been dropped/made redundant.
 
 ## Equivalence
 
@@ -44,8 +45,28 @@ Hence a satisfying assignment is a bijection between the signals of the circuits
 
 ## Maximal Equivalence
 
-`maximal_equivalence/maximal_equivalence.py` defines the top-level processes for maximal equivalence. There are two primary modifications to standard equivalence; First, when we reach a step in the fingerprinting process where we find an inconsistency in the fingerprint classes instead of exiting we rollback the change. The final fingerprints then have maximal encoded equivalence information without propagating differences. Next, instead of encoding into SAT we encode into MaxSAT with all implication and at-most-one signal constraint being hard and the remaining constraints beign soft.
+`maximal_equivalence/maximal_equivalence.py` defines the top-level processes for maximal equivalence. There are two primary modifications to standard equivalence; First, when we reach a step in the fingerprinting process where we find an inconsistency in the fingerprint classes instead of exiting we rollback the change. The final fingerprints then have maximal encoded equivalence information without propagating differences. Next, instead of encoding into SAT we encode into MaxSAT with all implication and at-most-one signal constraint being hard and the remaining constraints being soft.
 
-This is applied in `maximal_equivalence/applied_maximal_equivalence.py` where we refine the clusters found in the following section to have more equivalent clusters.
+This is applied in `maximal_equivalence/applied_maximal_equivalence.py` where we refine the clusters found in the following section to have more equivalent clusters. The `subclassing` subdirectory contains methods of splitting up the clusters to not be making $n^2$ maxequiv comparisons.
 
 ## Clustering
+
+The `structural_analysis` directory contains various modules with different purposes that broadly are utilised for Clustering. We describe each in the following section. The main clustering file is `cluster.py` in the top level directory it contains detailed instructions as to how it can be called and its output.
+
+### Clustering R1CS Files
+
+The `clustering_methods` directory contains various methods for clustering an R1CS files. Broadly there are two types, context-driven and graph-theoretic which, repsectively, are methods that take advantage of the the fact we are clustering R1CS files, the best of these is nonlinear attract and those that simply cluster the graph where constraints are vertices and shared signals define adjacencym the best of which is the Louvian algorithm. Each file in the directory contains one or more other clustering methods.
+
+### DAG Construction & Equivalence
+
+The `cluster_trees` directory contains both tools for converting a partitioning as given by the previous and builds a Directed Acyclic Graph (DAG) that can be used by tools in other stages. The other two files define methods for calculating which sub-templates as defined by the DAG are equivalent up to various pieces of information, we typically use internal and structural calculated again with label passing.
+
+### Image Generation & Utility
+
+Finally `structural_analysis/utilities` contains methods for converting a circuit into an image, these include encoding partitions and distinguishing input/output/nonlinear constraints. Each utilises `pydot` to generate the images.
+Some additional files are useful function used throughout the previously mentioned sections.
+
+## Bits & Bobs
+
+- `circuit_shuffle.py` is a method for generating affirmative tests for equivalence. It takes a circuit and shuffles the signals, constraints, scales constraints and swaps some A/B parts. Running `circuit_equivalence` on the two circuits of these will result in `True`
+- `testing_harness.py` contains various wrappers for `circuit_equivalence` that are useful when testing.
