@@ -39,8 +39,13 @@ In this way we iteratively improve the initial fingerprints to encode structural
     - If it is mapped to a constraint in the right circuit:
         - Each signal in the 'left' constraint is mapped to at least one viable signal in the 'right' constraint and vice versa
 - For each signal in the left circuit in the class, we ensure it is mapped to exactly one signal on the right, and vice versa.
+
 Hence a satisfying assignment is a bijection between the signals of the circuits, and a mapping of left to right for the normalised constraints. It can be shown that this is equivalent to a bijection between the constraints if the circuits internally contains no equivalent constraint (which is assumed).
 
 ## Maximal Equivalence
+
+`maximal_equivalence/maximal_equivalence.py` defines the top-level processes for maximal equivalence. There are two primary modifications to standard equivalence; First, when we reach a step in the fingerprinting process where we find an inconsistency in the fingerprint classes instead of exiting we rollback the change. The final fingerprints then have maximal encoded equivalence information without propagating differences. Next, instead of encoding into SAT we encode into MaxSAT with all implication and at-most-one signal constraint being hard and the remaining constraints beign soft.
+
+This is applied in `maximal_equivalence/applied_maximal_equivalence.py` where we refine the clusters found in the following section to have more equivalent clusters.
 
 ## Clustering
