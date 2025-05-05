@@ -59,13 +59,8 @@ def run_affirmative_test(
         filename: str,
         out_filename: str,
         seed: int,
-        info_preprocessing,
-        cons_grouping,
-        cons_preprocessing,
-        encoder,
         debug: bool = False,
         time_limit: int = 0,
-        encoder_kwargs: dict = {},
         **kwargs
     ):
 
@@ -79,14 +74,9 @@ def run_affirmative_test(
 
     exception_catcher(
         in_pair,
-        info_preprocessing,
-        cons_grouping,
-        cons_preprocessing,
-        encoder,
         test_data,
         debug,
         time_limit,
-        encoder_kwargs,
         **kwargs
     )
 
@@ -117,14 +107,6 @@ def quick_compare(
         with time_limit(time_limit_seconds):
             data = circuit_equivalence(
                 [lpair, rpair],
-                None,
-                constraint_classes,
-                iterated_adjacency_reclassing,
-                OnlineInfoPassEncoder,
-                encoder_kwargs= {
-                    "class_encoding" : reduced_encoding_class,
-                    "signal_encoding" : pseudoboolean_signal_encoder
-                },
                 debug=debug,
                 **kwargs
             )
@@ -150,14 +132,6 @@ def run_current_best_test(
 
     test_data = exception_catcher(
         in_pair,
-        None,
-        constraint_classes,
-        iterated_adjacency_reclassing,
-        OnlineInfoPassEncoder,
-        encoder_kwargs= {
-            "class_encoding" : reduced_encoding_class,
-            "signal_encoding" : pseudoboolean_signal_encoder
-        },
         debug=debug,
         time_limit_seconds=time_limit
     )
