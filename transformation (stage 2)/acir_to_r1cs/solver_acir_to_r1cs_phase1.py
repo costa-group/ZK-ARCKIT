@@ -65,7 +65,7 @@ def solve_case_all_clusters_size_one(clusters_monomials):
                 solution_difs = {}
                 return solution_A, solution_B, solution_difs, cluster
 
-def complete_phase1_transformation(constraint_coefficients, signals):
+def complete_phase1_transformation(constraint_coefficients, signals, verbose):
     
     # Case empty constraint coefficients, return A = {}, B = {}, difs = {}
     if len(constraint_coefficients) == 0:
@@ -85,7 +85,8 @@ def complete_phase1_transformation(constraint_coefficients, signals):
     # Case all of the clusters have size 1 --> we can return any of them
     if are_all_size_one:
         # We solve the first cluster (with only one monomial)
-        print("##Case all clusters have size 1 -> considering first one")
+        if verbose:
+            print("##Case all clusters have size 1 -> considering first one")
         solution_A, solution_B, solution_difs, solution_cluster = solve_case_all_clusters_size_one(new_clusters_monomials)
     else:
         for cluster in new_clusters_monomials:
@@ -95,13 +96,14 @@ def complete_phase1_transformation(constraint_coefficients, signals):
             # No need to consider the ones of size 1 -> we know that these cases are not better than solving a cluster of bigger size  
             # Case all 1 is previously studied, we know that al least one of them has size >1            
             if len(monomials) > 1:
-                print("##Considering cluster: " + str(monomials))
+                if verbose:
+                    print("##Considering cluster: " + str(monomials))
                 aux_A, aux_B, aux_difs = generate_problem_r1cs_transformation(monomials, list(signals))
                 
                 # Actual number  of difs generated: total number of monomials - monomials of the cluster (the ones that we have not solved) + the difs
                 number_remaining_difs = total_number_monomials - len(monomials) + len(aux_difs)
-        
-                print("##Best solution: difs->" + str(aux_difs) + " total ->" + str(number_remaining_difs))
+                if verbose:
+                    print("##Best solution: difs->" + str(aux_difs) + " total ->" + str(number_remaining_difs))
                       
                 if number_remaining_difs < best_solution:
                     best_solution = number_remaining_difs

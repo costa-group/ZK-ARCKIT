@@ -58,9 +58,8 @@ struct ConstraintInfo{
 #[derive(Deserialize, Debug, Serialize)]
 struct CircuitInfo{
     constraints: Vec<ConstraintInfo>,
-    inputs: Vec<usize>,
-    outputs: Vec<usize>,
-    number_of_signals: usize,
+
+    forbidden_signals: Vec<usize>,
     //field: String
 }
 
@@ -163,6 +162,7 @@ fn move_constraint_info_to_storage(info: CircuitInfo) ->ProcessedCircuit{
     let mut storage = AIRConstraintStorage::new();
     let mut linear = LinkedList::new();
     let mut forbidden = HashSet::new();
+    forbidden.insert(0);
     let mut signals = HashSet::new();
     
     for constraint_info in info.constraints{
@@ -176,24 +176,24 @@ fn move_constraint_info_to_storage(info: CircuitInfo) ->ProcessedCircuit{
         }
     }
 
-    for out in info.outputs{
-        forbidden.insert(out);
+    for s in info.forbidden_signals{
+        forbidden.insert(s +1);
     }
+    
     let field = "21888242871839275222246405745257275088548364400416034343698204186575808495617";
     let to_bi_field = field.parse::<BigInt>().unwrap();
-    if signals.len() + 1 != info.number_of_signals{
-        println!("Different number of signals: Real -> {}, Given -> {}", signals.len(), info.number_of_signals);
-    }
+    let max_signal = signals.iter().max().unwrap();
+
     ProcessedCircuit{
         storage, 
         linear, 
         forbidden,
         field: to_bi_field,
-        no_labels: signals.len() + 1
+        no_labels: *max_signal +1
     }
 }
 
-fn move_storage_to_constraint_info(constraints: AIRConstraintStorage, no_signals: usize, outputs: Vec<usize>)
+fn move_storage_to_constraint_info(constraints: AIRConstraintStorage, no_signals: usize)
 -> CircuitInfo{
 
     let mut info_constraints = Vec::new();
@@ -206,9 +206,7 @@ fn move_storage_to_constraint_info(constraints: AIRConstraintStorage, no_signals
     
     CircuitInfo { 
         constraints: info_constraints, 
-        inputs: Vec::new(),
-        outputs,
-         number_of_signals: no_signals
+        forbidden_signals: Vec::new(),
     }
 }
 
@@ -227,7 +225,7 @@ fn start() -> Result<(), ()> {
     use std::sync::Arc;
     let args: Vec<String> = env::args().collect();
     let circuit = read_air_constraint_info_from_file(&args[1]).unwrap();
-    let out_copy = circuit.outputs.clone();
+
     let proc_circuit = move_constraint_info_to_storage(circuit);
     
     let simp_mode = if args.len() == 4{
@@ -254,7 +252,7 @@ fn start() -> Result<(), ()> {
     );
 
 
-    let circuit_info = move_storage_to_constraint_info(new_constraints, signals.len(), out_copy);
+    let circuit_info = move_storage_to_constraint_info(new_constraints, signals.len());
     let _ = write_output_into_file(&args[2], &circuit_info);
 
     Result::Ok(())

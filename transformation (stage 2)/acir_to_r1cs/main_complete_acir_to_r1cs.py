@@ -233,8 +233,7 @@ data = json.load(f)
 
 #print(data)
 
-
-
+verbose = False
 
 
 
@@ -266,6 +265,9 @@ complete_signals_in_difs = set()
 
 choosen_AB = []
 
+number_solved = 0
+max_difs = 0
+
 
 for constraint in non_linear_part_constraints:
     signals = set()
@@ -273,21 +275,33 @@ for constraint in non_linear_part_constraints:
         signals.add(coef_i)
         signals.add(coef_j)
         
-    print("For constraint ", constraint)
-    expr_A, expr_B, difs = solver_acir_to_r1cs_phase1.complete_phase1_transformation(constraint, list(signals))
-    print("### Choosen A: ", expr_A)
-    print("### Choosen B: ", expr_B)
+    if verbose:
+        print("For constraint ", constraint)
+    expr_A, expr_B, difs = solver_acir_to_r1cs_phase1.complete_phase1_transformation(constraint, list(signals), verbose)
+    if verbose:
+        print("### Choosen A: ", expr_A)
+        print("### Choosen B: ", expr_B)
     choosen_AB.append((expr_A, expr_B))
     if len(difs) != 0:
-        print("### REMAINING NON LINEAR (to solve later): ", difs) 
+        if len(difs) > max_difs:
+            max_difs = len(difs)
+        
+        if verbose:
+            print("### REMAINING NON LINEAR (to solve later): ", difs) 
         remaining_difs.append((difs, index))
         
         for (s1, s2) in difs.keys():
             complete_signals_in_difs.add(s1)
             complete_signals_in_difs.add(s2)
     else: 
-        print("### CONSTRAINT SOLVED (no difs)")
+        if verbose:
+            print("### CONSTRAINT SOLVED (no difs)")
+        number_solved += 1
     index += 1
+
+print("Number of completely solved constraints: " + str(number_solved))
+print("Maximum number of missing monomials added by a constraint: " + str(max_difs))
+
 
 print("#################### FINISHED PHASE 1 ####################")
     
@@ -299,6 +313,7 @@ for (c, list_mons) in clusters.items():
     if len(list_mons) > maxSize:
         maxSize = len(list_mons)
 print("Maximum size of the clusters of constraints that need to be solved: " + str(maxSize))
+print("Number of clusters: "+ str(len(clusters)))
 
 #    print(len(list_mons))
 #    print(list_mons)
@@ -329,11 +344,12 @@ for (n_clus, constraints) in clusters.items():
     ### TODO: instead of using args.n compute a pesimistic bound for the number of signals
     signals = list(signals)
     signals.sort()
-    naux, coefs, signals_aux = solver_acir_to_r1cs_phase2.generate_problem_r1cs_transformation(cons_sys, signals, int(args.n))
+    naux, coefs, signals_aux = solver_acir_to_r1cs_phase2.complete_phase2_transformation(cons_sys, signals, int(args.n), verbose)
     if naux == -1:
         print("UNSAT: The number of auxiliar variables is not enough, try with more")
     else:
-        print("SAT: Found solution for the cluster using " +str(naux) + " variables")
+        if verbose:
+            print("SAT: Found solution for the cluster using " +str(naux) + " variables")
     
     # Update the info of the complete circuit    
     auxiliar_signals.extend(signals_aux)
@@ -367,7 +383,7 @@ file = open(args.fileout, "w")
 file.write(json_object)
 
 
-print(constraints)
+#print(constraints)
 print("Total number of auxiliar signals added: ", total_number_of_aux)
 print("#################### FINISHED REBUILDING ####################")
 
