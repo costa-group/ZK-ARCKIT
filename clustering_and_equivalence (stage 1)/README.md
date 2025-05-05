@@ -29,11 +29,17 @@ The main file is `comparison_v2`, it contains the method `circuit_equivalence` w
 
 Equivalent normalised constraint must have the same coefficient multisets in each part - this defines an initial fingerprint. With this we can then build classes for signals based on having a non-zero characteristic (i.e. coefficient tuple) with a norm of class $i$. With this we can then go back to the norms and update the fingerprints so the multiset of coefficients taking into account signal classes must be the same.
 
-In this way we iteratively improve the initial fingerprints to encode structural information and vastly reduce the number of comparisons that are viable and thus need to be encoded into SAT.
+In this way we iteratively improve the initial fingerprints to encode structural information and vastly reduce the number of comparisons that are viable and thus need to be encoded into SAT. Current methods give, for tested circuits, an almost perfect encoding of the norms into classes (i.e. almost every class has just 1 element).
 
 ### SAT Encoding
 
-`comparison_v2/constraint_encoding_v2.py`
+`comparison_v2/constraint_encoding_v2.py` contains the methods for encoding to SAT. We encode the following constraints:
+- For each constraint in the 'left' circuit in a class:
+    - It is mapped to at least one constraint in the 'right' circuit for that class
+    - If it is mapped to a constraint in the right circuit:
+        - Each signal in the 'left' constraint is mapped to at least one viable signal in the 'right' constraint and vice versa
+- For each signal in the left circuit in the class, we ensure it is mapped to exactly one signal on the right, and vice versa.
+Hence a satisfying assignment is a bijection between the signals of the circuits, and a mapping of left to right for the normalised constraints. It can be shown that this is equivalent to a bijection between the constraints if the circuits internally contains no equivalent constraint (which is assumed).
 
 ## Maximal Equivalence
 
