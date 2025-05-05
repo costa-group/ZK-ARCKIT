@@ -3,6 +3,8 @@
 # parent directory
 !clustering_and_equivalence\ \(stage\ 1\)/
 
+!clustering_and_equivalence\ \(stage\ 1\)/README.md
+
 !clustering_and_equivalence\ \(stage\ 1\)/*.py
 !clustering_and_equivalence\ \(stage\ 1\)/r1cs_scripts
 !clustering_and_equivalence\ \(stage\ 1\)/r1cs_scripts/*.py
