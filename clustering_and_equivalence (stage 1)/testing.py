@@ -9,32 +9,19 @@ import json
 from functools import reduce
 from itertools import product
 
-from comparison.compare_circuits import circuit_equivalence
-from comparison_testing import get_circuits, shuffle_constraints
-from comparison.constraint_preprocessing import hash_constraint, constraint_classes, known_split
-from deprecated.cluster_preprocessing import circuit_clusters, constraint_cluster_classes, groups_from_clusters
+from circuit_shuffle import get_circuits, shuffle_constraints
 from r1cs_scripts.modular_operations import multiplyP
 from r1cs_scripts.constraint import Constraint
 from r1cs_scripts.circuit_representation import Circuit
 from r1cs_scripts.read_r1cs import parse_r1cs
-from deprecated.preprocessing.singular_preprocessing import singular_class_preprocessing
-from bij_encodings.preprocessing.iterated_adj_reclassing import iterated_adjacency_reclassing
-from deprecated.preprocessing.joint_fingerprinting import signal_constraint_fingerprinting
-from bij_encodings.assignment import Assignment
-from bij_encodings.reduced_encoding.red_class_encoder import reduced_encoding_class
-from bij_encodings.reduced_encoding.red_natural_encoding import ReducedNaturalEncoder
-from bij_encodings.reduced_encoding.red_pseudoboolean_encoding import ReducedPseudobooleanEncoder, pseudoboolean_signal_encoder
-from bij_encodings.online_info_passing import OnlineInfoPassEncoder
-from bij_encodings.batched_info_passing import BatchedInfoPassEncoder
+from utilities.iterated_adj_reclassing import iterated_adjacency_reclassing
+from utilities.assignment import Assignment
 from structural_analysis.clustering_methods.naive.degree_clustering import twice_average_degree, ratio_of_signals
 from structural_analysis.clustering_methods.naive.signal_equivalence_clustering import naive_removal_clustering, is_signal_equivalence_constraint
-from deprecated.modularity.topological_flow_clustering import circuit_topological_clusters
-from comparison.static_distance_preprocessing import distances_to_static_preprocessing
 from testing_harness import run_affirmative_test, run_current_best_test
 from structural_analysis.utilities.connected_preprocessing import connected_preprocessing
 from normalisation import r1cs_norm
-from utilities import count_ints, _signal_data_from_cons_list, getvars
-from comparison.static_distance_preprocessing import _distances_to_signal_set
+from utilities.utilities import count_ints, _signal_data_from_cons_list, getvars
 from maximal_equivalence.shortest_minimum_span import shortest_minimum_span
 from maximal_equivalence.applied_maximal_equivalence import maximally_equivalent_classes
 from structural_analysis.cluster_trees.dag_from_clusters import DAGNode
@@ -56,8 +43,8 @@ def get_absmax_lit(clauses):
 
     
 if __name__ == '__main__':
-
-    filenames = ["Poseidon", "Reveal", "Biomebase", "Move", "sha256", "test_ecdsa", "test_ecdsa_verify"]
+    
+    filenames = ["Poseidon", "Reveal", "Biomebase", "Move", "sha256_test512", "test_ecdsa", "test_ecdsa_verify"]
     compilers = ["O0", "O1"]
 
     clustering = "louvain"
@@ -71,7 +58,7 @@ if __name__ == '__main__':
             circ = Circuit()
             parse_r1cs(f"r1cs_files/{name}{comp}.r1cs", circ)
 
-            jsonfile = f"clustering_tests/{test_dir}/{name}{comp}_{clustering}.json"
+            jsonfile = f"clustering_tests/{test_dir}/{name}{comp}_{clustering}_maxequiv.json"
 
             fp = open(jsonfile, 'r')
             clusters = json.load(fp)
@@ -79,16 +66,22 @@ if __name__ == '__main__':
         except FileNotFoundError:
             continue
 
-        print(len(clusters["nodes"]))
-        nodes = clusters["nodes"]
+        from utilities import _is_nonlinear
 
-        def node_to_dagnode(node):
-            return DAGNode(circ, node["node_id"], node["constraints"], set(node["input_signals"]), set(node["output_signals"]))
+        for node in clusters["nodes"]:
+            if len(node["constraints"]) == 1 and not _is_nonlinear(circ.constraints[node["constraints"][0]]) and len(node["successors"]) > 1:
+                print(node["constraints"], node["successors"])
 
-        dagnodes = { node["node_id"] : node_to_dagnode(node) for node in nodes }
+        # print(len(clusters["nodes"]))
+        # nodes = clusters["nodes"]
+
+        # def node_to_dagnode(node):
+        #     return DAGNode(circ, node["node_id"], node["constraints"], set(node["input_signals"]), set(node["output_signals"]))
+
+        # dagnodes = { node["node_id"] : node_to_dagnode(node) for node in nodes }
         
-        results = maximally_equivalent_classes(dagnodes, clusters["equivalency"], clusters["equiv_mappings"], tol=0.8, solver_timeout=5)
+        # results = maximally_equivalent_classes(dagnodes, clusters["equivalency"], clusters["equiv_mappings"], tol=0.8, solver_timeout=5)
         
-        fp = open(f"clustering_tests/{test_dir}/{name}{comp}_{clustering}_maxequiv.json", 'w')
-        json.dump(results, fp, indent=4)
-        fp.close()
+        # fp = open(f"clustering_tests/{test_dir}/{name}{comp}_{clustering}_maxequiv.json", 'w')
+        # json.dump(results, fp, indent=4)
+        # fp.close()

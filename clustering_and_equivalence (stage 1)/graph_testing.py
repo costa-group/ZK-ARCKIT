@@ -8,12 +8,11 @@ if __name__ == '__main__':
     import itertools
     from typing import List, Dict
 
-    from bij_encodings.assignment import SharedInt
-    from utilities import count_ints, getvars, UnionFind, _signal_data_from_cons_list, dist_to_source_set
-    from comparison_testing import get_circuits
+    from utilities.assignment import SharedInt
+    from utilities.utilities import count_ints, getvars, UnionFind, _signal_data_from_cons_list, dist_to_source_set
+    from circuit_shuffle import get_circuits
     from r1cs_scripts.circuit_representation import Circuit
     from r1cs_scripts.read_r1cs import parse_r1cs
-    from deprecated.cluster_preprocessing import groups_from_clusters, circuit_clusters
     from structural_analysis.utilities.connected_preprocessing import connected_preprocessing, componentwise_preprocessing
     from structural_analysis.utilities.signal_graph import shared_constraint_graph
     from structural_analysis.utilities.graph_to_img import partition_graph_to_img, dag_graph_to_img, circuit_graph_to_img
@@ -27,11 +26,8 @@ if __name__ == '__main__':
     # from structural_analysis.graph_clustering.topological_flow_clustering import circuit_topological_clusters, constraint_topological_order, dag_clustering_from_order, dag_cluster_speed_priority, dag_cluster_and_merge, dag_strict_order_clustering
     # from structural_analysis.graph_clustering.modularity_optimisation import undirected_adjacency, stable_directed_louvain, stable_undirected_louvain
     # from structural_analysis.graph_clustering.spectral_clustering import spectral_undirected_clustering
-    from deprecated.cluster_trees.tree_wrapper import O0_tree_clustering
     from deprecated.cluster_trees.r1cs_tree import r1cs_distance_tree
     from structural_analysis.clustering_methods.linear_coefficient import cluster_by_linear_coefficient
-    from deprecated.cluster_trees.r1cs_O0_rooting import r1cs_O0_rooting
-    from deprecated.cluster_trees.node_signals import node_signals
     from structural_analysis.clustering_methods.nonlinear_attract import nonlinear_attract_clustering
     from structural_analysis.cluster_trees.dag_from_clusters import dag_from_partition, partition_from_partial_clustering, dag_to_nodes, DAGNode
     from structural_analysis.cluster_trees.equivalent_partitions import naive_equivalency_analysis, easy_fingerprint_then_equivalence
