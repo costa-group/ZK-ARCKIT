@@ -274,7 +274,7 @@ while min_vars != 0 and possible_degree <= degree:
         min_value = added_basefield_cols
         used_variables = new_used_variables
         var_dims = dims
-        optimal_degree = possible_degree - 1
+        optimal_degree = possible_degree
     if len(new_used_variables) < min_vars:
         min_vars = len(new_used_variables)
     possible_degree = possible_degree + 1
