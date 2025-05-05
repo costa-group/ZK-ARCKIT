@@ -5,6 +5,7 @@ Set of utility function used throughout the entire codebase
 from r1cs_scripts.constraint import Constraint
 from typing import Iterable, Dict, List, Set, Tuple
 from itertools import chain
+from functools import reduce
 from collections import deque
 import heapq
 
