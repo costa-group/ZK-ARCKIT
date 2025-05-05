@@ -1,3 +1,7 @@
+"""
+    Methods for performing the fingerprinting for equivalent circuits
+"""
+
 from typing import List, Dict, Set, Tuple, Callable
 from collections import deque
 import itertools
@@ -10,6 +14,28 @@ from r1cs_scripts.constraint import Constraint
 from utilities.utilities import getvars, count_ints
 
 def back_and_forth_preprocessing(names, label_to_indices, index_to_label, init_round):
+    """
+    Preprocessing for the back_and_forth labelling, to isolate singular classes.
+
+    Classes with just one member do not need to be updated further, here we isolate keys of singular classes
+    then remap these to come before all nonsingular keys.
+
+    Parameters
+    ----------
+    names : List[str]
+        Circuit names.
+    label_to_indices : Dict[str, Dict[str, List[int]]]
+        Reverse mapping from fingerprints to object indices. Assumed to be consistent with index_to_label.
+    index_to_label : Dict[str, List[int]]
+        Maps each index to a fingerprint label. Assumed to be consistent with label_to_indices.
+    init_round: 0 | 1
+        Wether this index set is done first or second, used in new name encoding.
+
+    Returns
+    -------
+    Tuple[int, Dict[str, Set[int]]]
+        Number of singular classes and set of indices that will updated.
+    """
     nonsingular_keys = {name : [] for name in names}
 
     singular_remapping = Assignment(assignees=1)
@@ -49,6 +75,45 @@ def back_and_forth_fingerprinting(
             return_index_to_fingerprint: bool = False,
             test_data: dict | None = None 
         ):
+    """
+    Executes the back-and-forth fingerprinting algorithm for matching equivalent circuit structures.
+
+    Alternates between fingerprinting normalized constraints and signals until no further updates are needed.
+    The algorithm refines equivalence classes iteratively to identify structural similarity.
+
+    Parameters
+    ----------
+    names : List[str]
+        Circuit names.
+    in_pair : List[Tuple[str, Circuit]]
+        List of named circuits to be compared.
+    normalised_constraints : Dict[str, List[Constraint]]
+        Normalized constraints per circuit.
+    signal_to_normi : Dict[str, List[List[int]]]
+        Maps each signal to the indices of the constraints it participates in.
+    fingerprints_to_normi : Dict[str, Dict[int, List[int]]]
+        Reverse mapping from fingerprints to constraint indices.
+    fingerprints_to_signals : Dict[str, Dict[int, List[int]]]
+        Reverse mapping from fingerprints to signal indices.
+    initial_mode : bool, optional
+        Whether to begin fingerprinting with normalized constraints if True, or signals if Falses.
+    signal_sets : Optional[Dict[str, List[int]]], optional
+        Optional signal set for each circuit.
+    per_iteration_postprocessing : Callable[[List[str], Dict[str, List[Tuple[int, int]]], Dict[str, Dict[Tuple[int, int], List[int]]], Dict, Dict], None], optional
+        Callback executed after each round for additional behaviour.
+    return_index_to_fingerprint : bool, optional
+        Whether to return mapping from indices to fingerprint keys.
+    test_data : Optional[Dict], optional
+        Container for storing test/benchmarking data.
+
+    Returns
+    -------
+    Union[
+        Tuple[Dict[str, Dict[int, List[int]]], Dict[str, Dict[int, List[int]]]],
+        Tuple[Dict[str, Dict[int, List[int]]], Dict[str, Dict[int, List[int]]], Dict[str, List[Tuple[int, int]]], Dict[str, Dict[int, Tuple[int, int]]]]
+    ]
+        If `return_index_to_fingerprint` is True, returns mappings and fingerprint states; otherwise just final fingerprint mappings.
+    """
     
     # TODO: think about if we can keep a last_assignment to then check if the assignment has changed and use the pipe that way... this should hopefully reduce the number of checks...
 
@@ -168,6 +233,28 @@ def back_and_forth_fingerprinting(
 
 def fingerprint(is_norm: bool, item: Constraint | int, index: int, assignment: Assignment, index_to_fingerprint: List[int], 
                 fingerprints_to_indices: Dict[int, List[int]], fingerprint_data, round_num: int):
+    """
+    Assigns a fingerprint to a constraint norm or signal and updates the mappings.
+
+    Parameters
+    ----------
+    is_norm : bool
+        True if the item is a constraint norm; False if it is a signal.
+    item : Constraint | int
+        The constraint or signal to fingerprint.
+    index : int
+        Index of the item being fingerprinted.
+    assignment : Assignment
+        Assignment object managing the fingerprint IDs.
+    index_to_fingerprint : List[Tuple[int, int]]
+        Maps index to a (round, fingerprint ID) tuple.
+    fingerprints_to_indices : Dict[Tuple[int, int], Set[int]]
+        Reverse mapping from fingerprint to index set.
+    fingerprint_data : List
+        Supporting data for computing the fingerprint.
+    round_num : int
+        Current fingerprinting round.
+    """
 
     if is_norm:
         fingerprint = fingerprint_norms(item, *fingerprint_data)
@@ -181,6 +268,23 @@ def fingerprint(is_norm: bool, item: Constraint | int, index: int, assignment: A
 
 
 def fingerprint_norms(norm : Constraint, signal_fingerprints: List[int]) -> int:
+    """
+    Generates a fingerprint for a normalized constraint.
+
+    Fingerprint norm is based on latest fingerprints of signals in norm sorted by characteristic of signal in norm.
+
+    Parameters
+    ----------
+    norm : Constraint
+        The constraint to fingerprint.
+    signal_fingerprints : List[int]
+        Fingerprint values of signals involved in the constraint.
+
+    Returns
+    -------
+    Tuple
+        Hashable fingerprint representation of the constraint.
+    """
     # norm fingerprint is characteristic of each part
     #   i.e. for each part the values taken by the signals -- given to the fingerprints
 
@@ -202,7 +306,28 @@ def fingerprint_norms(norm : Constraint, signal_fingerprints: List[int]) -> int:
     return fingerprint
 
 def fingerprint_signals(signal : int, constraint_fingerprints: List[int], signal_to_normi: List[List[int]], norms: List[Constraint]) -> int:
-    
+    """
+    Computes a fingerprint for a signal based on associated constraints and their fingerprints.
+
+    Signal hashable is list of fingerprints of constraint norms that signal is in sorted by its characterstic in that norm.
+
+    Parameters
+    ----------
+    signal : int
+        Signal identifier.
+    constraint_fingerprints : List[int]
+        List of fingerprints for constraints.
+    signal_to_normi : List[List[int]]
+        Mapping from signals to constraints they appear in.
+    norms : List[Constraint]
+        List of all normalized constraints.
+
+    Returns
+    -------
+    Tuple
+        Hashable fingerprint for the signal.
+    """
+
     # signal fingerprint is characterstic in each norm indexed by norm fingerprint
 
     fingerprint = []
@@ -230,6 +355,44 @@ def fingerprint_signals(signal : int, constraint_fingerprints: List[int], signal
 def switch(assignment: Assignment, fingerprints: Dict[str, List[int]], fingerprints_to_index: Dict[str, Dict[int, List[int]]], num_singular_fingerprints: int, 
            prev_fingerprints: Dict[str, List[int]], prev_fingerprints_to_index:  Dict[str, Dict[int, List[int]]], prev_fingerprints_to_index_count:  Dict[str, Dict[int, int]], to_update: Dict[str, Set[int]],
            get_to_update: Callable[[int, str], List[int]], other_fingerprints, other_num_singular, round_num: int):
+    """
+    Switches from one fingerprinting phase to another and prepares the next set of updates.
+
+    Determines new singular classes based on latest fingerprint and rehashes so that these are indexed first. Determines which labels colours have actually changed (i.e. have different index subsets)
+    to determine which indices actually need to be updated in the next round. Updates various tracking dicts do to with data in the previous round.
+
+    Parameters
+    ----------
+    assignment : Assignment
+        Current assignment of fingerprint IDs.
+    fingerprints : Dict[str, List[Tuple[int, int]]]
+        Mapping from item index to fingerprint tuple.
+    fingerprints_to_index : Dict[str, Dict[Tuple[int, int], List[int]]]
+        Reverse mapping of fingerprints to indices.
+    num_singular_fingerprints : Dict[int, int]
+        Count of singular fingerprints per round.
+    prev_fingerprints : Dict[str, List[Tuple[int, int]]]
+        Fingerprints from the previous round.
+    prev_fingerprints_to_index : Dict[str, Dict[Tuple[int, int], List[int]]]
+        Reverse mapping from fingerprint to indices for the previous round.
+    prev_fingerprints_to_index_count : Dict[str, Dict[Tuple[int, int], int]]
+        Count of items per previous fingerprint.
+    to_update : Dict[str, Set[int]]
+        Items to update in current round.
+    get_to_update : Callable[[int, str], List[int]]
+        Function to get related items that depend on a changed index.
+    other_fingerprints : Dict[str, Dict[int, Tuple[int, int]]]
+        Fingerprints from the other domain (signal or norm).
+    other_num_singular : Dict[int, int]
+        Number of singular fingerprints in the other domain.
+    round_num : int
+        Current round number.
+
+    Returns
+    -------
+    Tuple
+        Updated state of fingerprinting, mappings, and items to be updated in next round.
+    """
 
     names = list(fingerprints_to_index.keys())
     next_to_update = {name: set([]) for name in names}
@@ -279,9 +442,6 @@ def switch(assignment: Assignment, fingerprints: Dict[str, List[int]], fingerpri
     ## TODO: do this better, so not comparing each class multiple times
     ## TODO: when the prev_fingerprint was from a very old round -- this struggles
 
-    num_skipped = {name: 0 for name in names}
-    num_og_skipped = {name: 0 for name in names}
-
     for name in names:
 
         # only add actually new classes
@@ -296,8 +456,6 @@ def switch(assignment: Assignment, fingerprints: Dict[str, List[int]], fingerpri
             if round_num <= 1 or an_old_key[0] < 0:
                 for index in new_fingerprints_to_index[name][key]: add_to_update(index, name)  
             else:
-                
-                
                 prev_class = prev_fingerprints_to_index[name][an_old_key]
 
                 if len(prev_class) != len(new_class) or prev_class != new_class:
@@ -313,8 +471,6 @@ def switch(assignment: Assignment, fingerprints: Dict[str, List[int]], fingerpri
                             del prev_fingerprints_to_index_count[name][index_old_key]
                     
                 else:
-                    num_og_skipped[name] += len(new_class)  
-                    
                     # maintain prev to index
                     del  prev_fingerprints_to_index[name][an_old_key]
                     del  prev_fingerprints_to_index_count[name][an_old_key]
@@ -323,6 +479,20 @@ def switch(assignment: Assignment, fingerprints: Dict[str, List[int]], fingerpri
     return new_assignment, fingerprints, {name: {} for name in names}, {name: {index: other_fingerprints[name][index] for index in next_to_update[name]} for name in names}, prev_fingerprints_to_index, prev_fingerprints_to_index_count, num_singular_fingerprints, next_to_update
 
 def early_exit(fingerprint_to_size: Dict[str, Dict[int, int]]):
+    """
+    Sanity check for fingerprinting for equivalence fingerprinting.
+
+    Parameters
+    ----------
+    fingerprint_to_size : Dict[str, Dict[int, int]]
+        For each circuit name, mapping of fingerprint key to num indices with that key.
+
+    Raises
+    ------
+    AssertionError
+        If fingerprint sets or class sizes differ between any two circuits.
+    """
+
     names = list(fingerprint_to_size.keys())
 
     if len(set(fingerprint_to_size[names[0]].keys()).symmetric_difference(fingerprint_to_size[names[1]].keys())) > 0:

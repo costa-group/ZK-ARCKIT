@@ -1,4 +1,8 @@
-from typing import Tuple, List, Callable, Dict, Set, Iterable
+"""
+Main function for circuit equivalence
+"""
+
+from typing import Tuple, List, Dict
 from pysat.formula import CNF
 from pysat.solvers import Solver
 import time
@@ -25,17 +29,34 @@ def circuit_equivalence(
         fingerprints_to_normi: Dict[str, Dict[int, List[int]]] | None = None,
         fingerprints_to_signals: Dict[str, Dict[int, List[int]]] | None = None,
         ) -> Dict[str, any]:
-    
-    names = [in_pair[0][0], in_pair[1][0]]
+    """
+    Implementation of circuit_equivalence by fingerprinting with propagation and SAT encoding
 
-    def _check_early_exit(classes):
-        for key in set(classes[names[0]].keys()).union(classes[names[1]].keys()):
-            for name, _ in in_pair:
-                if key not in classes[name].keys():
-                    raise AssertionError(f"EE: Group with fingerprint {key} not in circuit {name}")
-            
-            if len(classes[names[0]][key]) != len(classes[names[1]][key]):
-                raise AssertionError(f"EE: Group with fingerprint {key} has size {len(classes['S1'][key])} in 'S1', and {len(classes['S2'][key])} in 'S2'")
+    Given two circuits where each connected component has input and output signals, we give each constraint norm and signal a colour, then iteratively
+    propagate these colours through each other until the colours stabilise before passing the final classes, defined by the colours, to a SAT solver to
+    output the final mapping if equivalent or reason otherwise.
+
+    Parameters
+    -----------
+        in_pair: List[Tuple[str, Circuit]]
+            Pair of (name, Circuit) tuples. Assumed to be of length 2.
+        test_data: Dict[str, any], optional
+            Pointer to the json-like Dict object that will be returned. Default is empty dict.
+        debug: bool, optional
+            Boolean flag determined if debug outputs are printed. Default is False.
+        fingerprints_to_normi: Dict[str, Dict[int, List[int]]] | None, optional
+            Initial precomputed partition of constraint norms for each circuit. Assumes same indexing as in_pair and correct partitioning. Default is None.
+        fingerprints_to_signals: Dict[str, Dict[int, List[int]]] | None, optional
+            Initial precomputed partition of signals for each circuit. Assumes same indexing as in_pair and correct partitioning. Default is None.
+    
+    Return
+    ---------
+    Dict[str, any]
+        test_data populated with fields, "results", "result_explanation", "timing", and if equivalent "mappings" 
+    """
+
+
+    names = [in_pair[0][0], in_pair[1][0]]
 
     for key, init in [("result", None), ("timing", {}), ("result_explanation", None), ("formula_size", None), ("group_sizes", {})]:
         test_data[key] = init
