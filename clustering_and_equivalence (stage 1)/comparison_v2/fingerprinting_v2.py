@@ -40,9 +40,10 @@ def back_and_forth_preprocessing(names, label_to_indices, index_to_label, init_r
 
     singular_remapping = Assignment(assignees=1)
 
-    for name in names:
+    for i in range(2):
+        name, oname = names[i], names[1-i]
         for key in label_to_indices[name].keys():
-            if len(label_to_indices[name][key]) == 1:
+            if len(label_to_indices[name][key]) == 1 and len(label_to_indices[oname].get(key, [])) == 1:
                 index_to_label[name][label_to_indices[name][key][0]] = (init_round, singular_remapping.get_assignment(key))
             else:
                 nonsingular_keys[name].append(key)
@@ -405,9 +406,10 @@ def switch(assignment: Assignment, fingerprints: Dict[str, List[int]], fingerpri
     nonsingular_fingerprints = {name: [] for name in names}
     singular_renaming = Assignment(assignees=1, offset=num_singular_fingerprints[round_num-2])
     
-    for name in names:
+    for i in range(2):
+        name, oname = names[i], names[1-i]
         for key in fingerprints_to_index[name].keys():
-            if len(fingerprints_to_index[name][key]) == 1:
+            if len(fingerprints_to_index[name][key]) == 1 and len(fingerprints_to_index[oname].get(key, [])) == 1:
                 index = next(iter(fingerprints_to_index[name][key]))
                 fingerprints[name][index] = (round_num, singular_renaming.get_assignment(key))
                 add_to_update(index, name)
