@@ -66,7 +66,12 @@ def maximum_equivalence(
             iterable = itertools.starmap(_normalised_constraint_building_step, itertools.chain(*itertools.starmap(lambda name, circ : itertools.product([name], enumerate(circ.constraints)), in_pair)))
         )
 
-        signal_to_normi = {name: _signal_data_from_cons_list(normalised_constraints[name]) for name in names}
+        ## parameters deal with signals in no constraint (i.e. used input signal case)
+        signal_to_normi = {name: _signal_data_from_cons_list(normalised_constraints[name], signal_to_cons=[[] for _ in range(circ.nWires)], is_dict=False) for name, circ in in_pair}
+
+        norm_signal_data_calculation_time = time.time()
+        test_data["timing"]["norm_signal_data_calculation"] = norm_signal_data_calculation_time - last_time
+        last_time = norm_signal_data_calculation_time
 
         # if len(normalised_constraints[names[0]]) != len(normalised_constraints[names[1]]): 
         #     raise AssertionError(f"EE: Different number of normalised constraints, {names[0]} had {len(normalised_constraints[names[0]])} where {names[1]} had {len(normalised_constraints[names[1]])}")

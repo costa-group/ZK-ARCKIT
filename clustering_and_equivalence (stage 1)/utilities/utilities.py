@@ -26,17 +26,18 @@ def count_ints(lints : Iterable[int]) -> List[Tuple[int, int]]:
         res[i] = res.setdefault(i, 0) + 1
     return sorted(res.items())
 
-def _signal_data_from_cons_list(cons: List[Constraint], names: List[int] = None) -> Dict[int, List[int]]:
+def _signal_data_from_cons_list(cons: List[Constraint], names: List[int] = None, signal_to_cons: Dict[int, List[int]] | List[List[int]] = {}, is_dict: bool = True) -> Dict[int, List[int]]:
     """
     Given an list of constraint, it returns a dictionary mapping signal -> list of constraints signal appears in
 
     If names is None then the indexes are the order of cons, otherwise the indexes are zipped with cons.
     """
-    signal_to_cons = {}
-
     for i, con in zip(names if names is not None else range(len(cons)), cons):
         for signal in getvars(con):
-            signal_to_cons.setdefault(signal, []).append(i)
+            if is_dict:
+                signal_to_cons.setdefault(signal, []).append(i)
+            else:
+                signal_to_cons[signal].append(i)
 
     return signal_to_cons
 
