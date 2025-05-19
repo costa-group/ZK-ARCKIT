@@ -152,42 +152,9 @@ def maximum_equivalence(
 
         coni_pairs = list(set(map(lambda pair : tuple(normi_to_coni[names[i]][pair[i]] for i in range(2)), norm_pairs)))
 
-        return coni_pairs, signal_pairs
+        test_data["results"] = (coni_pairs, signal_pairs)
 
-        early_exit(fingerprints_to_normi)
-        early_exit(fingerprints_to_signals)
-
-        back_and_forth_fingerprinting_time = time.time()
-        test_data["timing"]["back_and_forth_fingerprinting"] = back_and_forth_fingerprinting_time - last_time
-        last_time = back_and_forth_fingerprinting_time
-
-        ints = count_ints(map(len, fingerprints_to_normi[names[0]].values()))
-        test_data["group_sizes"]["post_back_and_forth"] = {
-                "sqr_weight": sum([x[0]**2 * x[1] for x in ints]),
-                "sizes": [x[0] for x in ints],
-                "counts": [x[1] for x in ints]
-            }
-        # now do label passing for constraints
-
-        formula, assumptions = encode_classes_v2(names, normalised_constraints, fingerprints_to_normi, signal_to_fingerprints, fingerprints_to_signals)
-
-        test_data["formula_size"] = len(formula.clauses)
-        solver = Solver(name='cadical195', bootstrap_with=formula)
-
-        encoding_time = time.time()
-
-        test_data["timing"]["encoding_time"] = encoding_time - last_time
-
-        result = solver.solve(assumptions)
-        solving_time = time.time()
-
-        test_data["result"] = result
-        test_data["result_explanation"] = "" if result else "Unsatisfiable Formula"
-
-        test_data["timing"]["solving_time"] = solving_time - encoding_time
-        test_data["timing"]["total_time"] = solving_time - start 
-
-        if debug: print("Finished encoding                                     ", end='\r')
+        return test_data
 
     except AssertionError as e:
         print(e)

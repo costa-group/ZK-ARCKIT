@@ -46,7 +46,8 @@ def pairwise_maximally_equivalent_classes(nodes: Dict[int, DAGNode], tol: float 
             msize, lsize = sorted(map(lambda c : c.nConstraints, [sub_circ, comp_circ]))
             if msize * tol > lsize: continue
 
-            coni_pairs, _ = maximum_equivalence(list(zip(names, [comp_circ, sub_circ])), solver_timeout=solver_timeout)
+            test_data = maximum_equivalence(list(zip(names, [comp_circ, sub_circ])), solver_timeout=solver_timeout)
+            coni_pairs, _ = test_data["results"]
 
             if len(coni_pairs) >= (1 if len(classes[key]) > 1 else tol) * comp_circ.nConstraints:
                 matched = True
