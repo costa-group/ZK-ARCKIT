@@ -64,10 +64,10 @@ The following flags alter the behaviour of the file
         : default
             timing info is included in JSON
 
-    --automerge-passthrough
-        recursively auto-merges clusters that have a signal both as an input and an output
+    --dont-automerge-passthrough
+        doesn't recursively auto-merge clusters that have a signal both as an input and an output
         : default
-            does not merge
+            does merge
 
     --automerge-only-nonlinear
         auto-merges clusters that have no linear constraints to an adjacent cluster
@@ -98,6 +98,7 @@ from structural_analysis.cluster_trees.full_equivalency_partitions import subcir
 from structural_analysis.utilities.graph_to_img import dag_graph_to_img
 from structural_analysis.cluster_trees.dag_postprocessing import merge_passthrough, merge_only_nonlinear
 from structural_analysis.clustering_methods.iterated_louvain import iterated_louvain
+from maximal_equivalence.applied_maximal_equivalence import maximally_equivalent_classes
 
 def r1cs_cluster(
         input_filename: str,
@@ -109,7 +110,10 @@ def r1cs_cluster(
         automerge_only_nonlinear: bool = False,
         timing: bool = True,
         undo_remapping: bool = True,
-        include_mappings: bool = False
+        include_mappings: bool = False,
+        maxequiv: bool=False,
+        maxequiv_timeout: int | None = None,
+        maxequiv_tol: float | None = None
     ):
     """
     Manager function for handling the clustering methods, for a complete specification see `cluster.py'
@@ -208,6 +212,14 @@ def r1cs_cluster(
                 raise SyntaxError(f"{equivalence_method} is not a valid equivalence method")
 
         timing['equivalency'] = time.time() - last_time
+        last_time = time.time()
+
+        if maxequiv:
+            nodes, equivalency, mappings = maximally_equivalent_classes(nodes, equivalency, mappings, tol = maxequiv_tol, solver_timeout=maxequiv_timeout, return_json=False)
+
+            timing["maxequiv"] = time.time() - last_time
+            last_time = time.time()
+
         timing['total'] = time.time() - start
 
         return_json = {
@@ -229,7 +241,8 @@ if __name__ == '__main__':
 
     req_args = [None, None, None, None]
     timeout = 0
-    automerge_passthrough, automerge_only_nonlinear, return_img , timing, undo_remapping, include_mappings = False, False, False, True, True, False
+    automerge_passthrough, automerge_only_nonlinear, return_img , timing, undo_remapping, include_mappings = True, False, False, True, True, False
+    maxequiv, maxequiv_timeout, maxequiv_tol = False, 5, 0.8
 
     def set_file(index: int, filename: str):
         if filename[0] == '-': raise SyntaxError(f"Invalid {'input' if not index else 'outout'} filename {filename}")
@@ -286,9 +299,17 @@ if __name__ == '__main__':
             case "--include-mappings": include_mappings, i = True, i+1
             case "--dont-undo-mapping": undo_remapping, i = True, i+1
             case "--return_img": return_img, i = True, i + 1
-            case "--automerge-passthrough": automerge_passthrough, i = True, i + 1
+            case "--dont-automerge-passthrough": automerge_passthrough, i = False, i + 1
             case "--automerge-only-nonlinear": automerge_only_nonlinear, i = True, i + 1
             case "--no-timing-information": timing, i = False, i+1
+            case "--maximal-equivalence": maxequiv, i = True, i+1
+            case "-M": maxequiv, i = True, i+1
+            case "--maxequiv-timeout": 
+                if sys.argv[i+1][0] == '-': raise SyntaxError(f"Invalid timeout value {sys.argv[i+1]}")
+                maxequiv_timeout, i = int(sys.argv[i+1]), i+2
+            case "--maxequiv-tolerance": 
+                if sys.argv[i+1][0] == '-': raise SyntaxError(f"Invalid timeout value {sys.argv[i+1]}")
+                maxequiv_tol, i = float(sys.argv[i+1]), i+2
             case _: warnings.warn(f"Invalid argument '{arg}' ignored", SyntaxWarning)
 
 
@@ -298,6 +319,7 @@ if __name__ == '__main__':
     if req_args[3] is None: req_args[3] = "structural"
 
     with time_limit(timeout):
-        r1cs_cluster(*req_args, automerge_passthrough=automerge_passthrough, automerge_only_nonlinear=automerge_only_nonlinear, return_img=return_img, timing=timing, undo_remapping = undo_remapping, include_mappings=include_mappings)
+        r1cs_cluster(*req_args, automerge_passthrough=automerge_passthrough, automerge_only_nonlinear=automerge_only_nonlinear, return_img=return_img, timing=timing, undo_remapping = undo_remapping, include_mappings=include_mappings, 
+            maxequiv=maxequiv, maxequiv_tol=maxequiv_tol, maxequiv_timeout=maxequiv_timeout)
 
     # python3 cluster.py r1cs_files/binsub_test.r1cs -o clustering_tests -e structural
