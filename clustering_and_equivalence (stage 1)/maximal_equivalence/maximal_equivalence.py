@@ -130,7 +130,8 @@ def maximum_equivalence(
         try:
             model = list(solver.get_model())
         except AttributeError:
-            return [], []
+            test_data["results"] = ([], [])
+            return test_data
 
         solving_time = time.time()
         test_data["timing"]["solving_time"] = solving_time - encoding_time
