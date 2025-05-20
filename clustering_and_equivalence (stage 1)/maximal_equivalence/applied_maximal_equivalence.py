@@ -161,7 +161,7 @@ def maximally_equivalent_classes(
     timing["conversion_to_dag"] = time.time() - last_time
     last_time = time.time()
 
-    if not return_json: return nodes, equivalency
+    if not return_json: return nodes, equivalency, mapping
     
     results = {
         "timing" : timing,
