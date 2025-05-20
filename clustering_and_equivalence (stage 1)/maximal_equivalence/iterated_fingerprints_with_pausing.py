@@ -82,5 +82,5 @@ def iterated_fingerprints_w_reverting(
     ):
     return back_and_forth_fingerprinting(
         names, in_pair, normalised_constraints, signal_to_normi, fingerprints_to_normi, fingerprints_to_signals, initial_mode = initial_mode, 
-        per_iteration_postprocessing = sanity_check_and_revert, return_index_to_fingerprint = return_index_to_fingerprint, test_data = test_data
+        per_iteration_postprocessing = sanity_check_and_revert, return_index_to_fingerprint = return_index_to_fingerprint, test_data = test_data, strict_unique=True
     )
