@@ -144,7 +144,7 @@ def r1cs_cluster(
         except FileExistsError:
             pass
         
-    get_outfile =  lambda index, suffix, ftype : f"{output_directory}/{filename if len(circs) == 1 else (filename + '/' + str(index))}{('_' + suffix) if suffix is not None else ''}.{ftype}"
+    get_outfile =  lambda index, suffixes, ftype : f"{output_directory}/{filename if len(circs) == 1 else (filename + '/' + str(index))}{('_' if len(suffixes) > 0 else '') + '_'.join(suffixes)}.{ftype}"
 
     for index, circ in enumerate(circs):
 
@@ -231,7 +231,11 @@ def r1cs_cluster(
 
         if include_mappings: return_json["equiv_mappings"] = mappings
 
-        f = open(get_outfile(index, clustering_method, "json"), "w")
+
+        suffixes = [clustering_method]
+        if maxequiv: suffixes.append('maxequiv')
+
+        f = open(get_outfile(index, suffixes, "json"), "w")
         json.dump(return_json, f, indent=4)
         f.close()
 
