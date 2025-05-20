@@ -21,7 +21,7 @@ The following flags alter the behaviour of the file
         defines the type of clustering method performed
             options are: nonlinear_attract, louvain
         : default
-            nonlinear_attract
+            louvain
         : alternative
             --clustering
     
@@ -113,7 +113,8 @@ def r1cs_cluster(
         include_mappings: bool = False,
         maxequiv: bool=False,
         maxequiv_timeout: int | None = None,
-        maxequiv_tol: float | None = None
+        maxequiv_tol: float | None = None,
+        maxequiv_merge: int = 0
     ):
     """
     Manager function for handling the clustering methods, for a complete specification see `cluster.py'
@@ -215,7 +216,7 @@ def r1cs_cluster(
         last_time = time.time()
 
         if maxequiv:
-            nodes, equivalency, mappings = maximally_equivalent_classes(nodes, equivalency, mappings, tol = maxequiv_tol, solver_timeout=maxequiv_timeout, return_json=False)
+            nodes, equivalency, mappings = maximally_equivalent_classes(nodes, equivalency, mappings, tol = maxequiv_tol, solver_timeout=maxequiv_timeout, return_json=False, postprocessing_merge = maxequiv_merge)
 
             timing["maxequiv"] = time.time() - last_time
             last_time = time.time()
@@ -234,6 +235,10 @@ def r1cs_cluster(
 
         suffixes = [clustering_method]
         if maxequiv: suffixes.append('maxequiv')
+        match maxequiv_merge:
+            case 1: suffixes.append('unsafe_linear')
+            case 2: suffixes.append('single_linear')
+            case _: pass
 
         f = open(get_outfile(index, suffixes, "json"), "w")
         json.dump(return_json, f, indent=4)
@@ -246,7 +251,7 @@ if __name__ == '__main__':
     req_args = [None, None, None, None]
     timeout = 0
     automerge_passthrough, automerge_only_nonlinear, return_img , timing, undo_remapping, include_mappings = True, False, False, True, True, False
-    maxequiv, maxequiv_timeout, maxequiv_tol = False, 5, 0.8
+    maxequiv, maxequiv_timeout, maxequiv_tol, maxequiv_merge = False, 5, 0.8, 0
 
     def set_file(index: int, filename: str):
         if filename[0] == '-': raise SyntaxError(f"Invalid {'input' if not index else 'outout'} filename {filename}")
@@ -314,16 +319,19 @@ if __name__ == '__main__':
             case "--maxequiv-tolerance": 
                 if sys.argv[i+1][0] == '-': raise SyntaxError(f"Invalid timeout value {sys.argv[i+1]}")
                 maxequiv_tol, i = float(sys.argv[i+1]), i+2
+            case "--maxequiv-merge": 
+                if sys.argv[i+1][0] == '-': raise SyntaxError(f"Invalid timeout value {sys.argv[i+1]}")
+                maxequiv_merge, i = int(sys.argv[i+1]), i+2
             case _: warnings.warn(f"Invalid argument '{arg}' ignored", SyntaxWarning)
 
 
     if req_args[0] is None: raise SyntaxError("No input file given")
     if req_args[1] is None: req_args[1] = req_args[0][:req_args[0].index(".")]
-    if req_args[2] is None: req_args[2] = "nonlinear_attract"
+    if req_args[2] is None: req_args[2] = "louvain"
     if req_args[3] is None: req_args[3] = "structural"
 
     with time_limit(timeout):
         r1cs_cluster(*req_args, automerge_passthrough=automerge_passthrough, automerge_only_nonlinear=automerge_only_nonlinear, return_img=return_img, timing=timing, undo_remapping = undo_remapping, include_mappings=include_mappings, 
-            maxequiv=maxequiv, maxequiv_tol=maxequiv_tol, maxequiv_timeout=maxequiv_timeout)
+            maxequiv=maxequiv, maxequiv_tol=maxequiv_tol, maxequiv_timeout=maxequiv_timeout, maxequiv_merge=maxequiv_merge)
 
     # python3 cluster.py r1cs_files/binsub_test.r1cs -o clustering_tests -e structural
