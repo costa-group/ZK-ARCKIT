@@ -66,6 +66,31 @@ def encode_classes_v2(
         filter(lambda key : len(fingerprint_to_normi[names[0]][key]) > 1, fingerprint_to_normi[names[0]].keys()), 
         key = lambda k : len(fingerprint_to_normi[names[0]][k]
         ))
+    
+    ## NOTE: why is this necessary?
+    #   norm pairs may be uniquely identifiable and incident to some reverted signal
+    #       given the pair has been set, that signal must be constrained by the pair 
+    #       but will not be by the fingerprinting w/ reverting. These clauses are
+    #       then hard by necessity
+    if weighted_cnf:
+
+        in_both_keys = set(fingerprint_to_normi[names[0]].keys()).intersection(fingerprint_to_normi[names[1]].keys())
+
+        for key in filter(lambda key : all(len(fingerprint_to_normi[name][key]) == 1 for name in names), in_both_keys):
+            
+            norm = normalised_constraints[names[0]][fingerprint_to_normi[names[0]][key][0]]
+            is_ordered = not ( len(norm.A) > 0 and len(norm.B) > 0 and sorted(norm.A.values()) == sorted(norm.B.values()) )
+
+            viable_pairs = encode_single_norm_pair(
+                names,
+                [normalised_constraints[name][fingerprint_to_normi[name][key][0]] for name in names],
+                is_ordered,
+                signal_pair_encoder,
+                signal_to_fingerprint,
+                fingerprint_to_signals
+            )
+
+            formula.extend(viable_pairs)
 
     # Add clauses for classes of size > 1
     for key in classes_to_encode:
