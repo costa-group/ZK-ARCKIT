@@ -199,6 +199,7 @@ def dijkstras_shortest_weight(s:int, T: int | List[int], adjacencies: List[Dict[
     assumes non-negative weights
     """    
     if type(T) == int: T = [T]
+    if len(T) == 0: return float("inf")
     if s in T: return 0
 
     distances = {s : 0}

@@ -124,6 +124,10 @@ def r1cs_cluster(
     parse_r1cs(input_filename, main_circ)
 
     circs, sig_mapping, con_mapping = componentwise_preprocessing(main_circ)
+    
+    if main_circ.nPubOut == 0: warnings.warn("Your circuit has no outputs, this may cause undefined behaviour")
+    if main_circ.nPrvIn + main_circ.nPubIn == 0: raise AssertionError("Your circuit has no inputs")
+
     # TODO: pass mapping data to output json
     # TODO: add timing information for utility/debugging
 

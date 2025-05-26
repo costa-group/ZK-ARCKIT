@@ -136,7 +136,7 @@ def dag_from_partition(circ: Circuit, partition: List[List[int]]) -> "directed_a
         dist_to_outputs = dist_to_source_set(output_parts, adjacencies)
 
         ## make the preorder
-        part_to_preorder = { i: (dist_to_inputs[i], dist_to_outputs[i]) for i in partition.keys()}
+        part_to_preorder = { i: (dist_to_inputs.get(i, float("inf")), dist_to_outputs.get(i, float("inf"))) for i in partition.keys()}
         
         to_merge = UnionFind()
 
