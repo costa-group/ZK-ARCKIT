@@ -82,6 +82,7 @@ import warnings
 import os
 import json
 import time
+import itertools
 
 from r1cs_scripts.circuit_representation import Circuit
 from r1cs_scripts.read_r1cs import parse_r1cs
@@ -114,7 +115,8 @@ def r1cs_cluster(
         maxequiv: bool=False,
         maxequiv_timeout: int | None = None,
         maxequiv_tol: float | None = None,
-        maxequiv_merge: int = 0
+        maxequiv_merge: int = 0,
+        sanity_check: bool = False
     ):
     """
     Manager function for handling the clustering methods, for a complete specification see `cluster.py'
@@ -148,6 +150,10 @@ def r1cs_cluster(
             os.mkdir(f"{output_directory}/{filename}")
         except FileExistsError:
             pass
+
+    if sanity_check:
+        sanity_check_maintanence = {} if len(circs) == 0 else [{} for _ in range(len(circs))]
+        add_sanity_check = lambda index, key, value : sanity_check_maintanence.__setitem__(key, value) if len(circs) == 0 else sanity_check_maintanence[index].__setitem__(key, value)
         
     get_outfile =  lambda index, suffixes, ftype : f"{output_directory}/{filename if len(circs) == 1 else (filename + '/' + str(index))}{('_' if len(suffixes) > 0 else '') + '_'.join(suffixes)}.{ftype}"
 
@@ -183,6 +189,11 @@ def r1cs_cluster(
             case _ :
                 raise SyntaxError(f"{clustering_method} is not a valid clustering_method")
 
+        if sanity_check:
+            # calculate which coni are not included in the partition
+            removed_coni = list(map(coni_inverse[index].__getitem__, set(range(circ.nConstraints)).difference(itertools.chain(*partition))))
+            add_sanity_check(index, "post_clustering_removed", removed_coni)
+
         timing['clustering'] = time.time() - last_time
         last_time = time.time()      
 
@@ -192,6 +203,11 @@ def r1cs_cluster(
         timing['dag_construction'] = time.time() - last_time
         last_time = time.time()
 
+        if sanity_check:
+            # calculate which coni are not included in the partition
+            removed_coni = list(map(coni_inverse[index].__getitem__, set(range(circ.nConstraints)).difference(itertools.chain(*map(lambda node : node.constraints, nodes.values())))))
+            add_sanity_check(index, "post_dag_conversion", removed_coni)
+
         if automerge_passthrough: 
             nodes = merge_passthrough(circ, nodes)
             timing['passthrough_merge'] = time.time() - last_time
@@ -200,6 +216,11 @@ def r1cs_cluster(
             nodes = merge_only_nonlinear(circ, nodes)
             timing['nonlinear_merge'] = time.time() - last_time
             last_time = time.time()
+
+        if sanity_check:
+            # calculate which coni are not included in the partition
+            removed_coni = list(map(coni_inverse[index].__getitem__, set(range(circ.nConstraints)).difference(itertools.chain(*map(lambda node : node.constraints, nodes.values())))))
+            add_sanity_check(index, "post_merge_postprocessing", removed_coni)
 
         if return_img:
             if g is None: g = shared_signal_graph(circ.constraints)
@@ -225,6 +246,11 @@ def r1cs_cluster(
             timing["maxequiv"] = time.time() - last_time
             last_time = time.time()
 
+            if sanity_check:
+                # calculate which coni are not included in the partition
+                removed_coni = list(map(coni_inverse[index].__getitem__, set(range(circ.nConstraints)).difference(itertools.chain(*map(lambda node : node.constraints, nodes.values())))))
+                add_sanity_check(index, "post_maxequiv", removed_coni)
+
         timing['total'] = time.time() - start
 
         return_json = {
@@ -235,6 +261,7 @@ def r1cs_cluster(
         }
 
         if include_mappings: return_json["equiv_mappings"] = mappings
+        if sanity_check: return_json["sanity_check"] = sanity_check_maintanence
 
 
         suffixes = [clustering_method]
@@ -255,7 +282,7 @@ if __name__ == '__main__':
     req_args = [None, None, None, None]
     timeout = 0
     automerge_passthrough, automerge_only_nonlinear, return_img , timing, undo_remapping, include_mappings = True, False, False, True, True, False
-    maxequiv, maxequiv_timeout, maxequiv_tol, maxequiv_merge = False, 5, 0.8, 0
+    maxequiv, maxequiv_timeout, maxequiv_tol, maxequiv_merge, sanity_check = False, 5, 0.8, 0, False
 
     def set_file(index: int, filename: str):
         if filename[0] == '-': raise SyntaxError(f"Invalid {'input' if not index else 'outout'} filename {filename}")
@@ -316,6 +343,7 @@ if __name__ == '__main__':
             case "--automerge-only-nonlinear": automerge_only_nonlinear, i = True, i + 1
             case "--no-timing-information": timing, i = False, i+1
             case "--maximal-equivalence": maxequiv, i = True, i+1
+            case "--sanity-check": sanity_check, i = True, i+1
             case "-M": maxequiv, i = True, i+1
             case "--maxequiv-timeout": 
                 if sys.argv[i+1][0] == '-': raise SyntaxError(f"Invalid timeout value {sys.argv[i+1]}")
@@ -336,6 +364,6 @@ if __name__ == '__main__':
 
     with time_limit(timeout):
         r1cs_cluster(*req_args, automerge_passthrough=automerge_passthrough, automerge_only_nonlinear=automerge_only_nonlinear, return_img=return_img, timing=timing, undo_remapping = undo_remapping, include_mappings=include_mappings, 
-            maxequiv=maxequiv, maxequiv_tol=maxequiv_tol, maxequiv_timeout=maxequiv_timeout, maxequiv_merge=maxequiv_merge)
+            maxequiv=maxequiv, maxequiv_tol=maxequiv_tol, maxequiv_timeout=maxequiv_timeout, maxequiv_merge=maxequiv_merge, sanity_check=sanity_check)
 
     # python3 cluster.py r1cs_files/binsub_test.r1cs -o clustering_tests -e structural
