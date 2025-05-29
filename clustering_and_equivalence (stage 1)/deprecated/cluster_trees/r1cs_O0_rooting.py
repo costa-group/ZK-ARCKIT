@@ -2,7 +2,7 @@
 from typing import Tuple, List, Dict
 import itertools
 
-from utilities import getvars, BFS_shortest_path
+from utilities.utilities import getvars, BFS_shortest_path
 from r1cs_scripts.circuit_representation import Circuit
 
 class TreeNode():

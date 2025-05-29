@@ -9,16 +9,9 @@ from collections import deque
 
 from normalisation import r1cs_norm
 
-from utilities import _signal_data_from_cons_list, getvars, count_ints
+from utilities.utilities import _signal_data_from_cons_list, getvars, count_ints
 
 from r1cs_scripts.circuit_representation import Circuit
-
-from structural_analysis.utilities.connected_preprocessing import connected_preprocessing
-
-from bij_encodings.encoder import Encoder
-from bij_encodings.assignment import Assignment
-from bij_encodings.reduced_encoding.red_pseudoboolean_encoding import ReducedPseudobooleanEncoder
-
 from comparison_v2.constraint_encoding_v2 import encode_classes_v2
 
 from maximal_equivalence.iterated_fingerprints_with_pausing import iterated_fingerprints_w_reverting, coefficient_only_fingerprinting
@@ -73,7 +66,12 @@ def maximum_equivalence(
             iterable = itertools.starmap(_normalised_constraint_building_step, itertools.chain(*itertools.starmap(lambda name, circ : itertools.product([name], enumerate(circ.constraints)), in_pair)))
         )
 
-        signal_to_normi = {name: _signal_data_from_cons_list(normalised_constraints[name]) for name in names}
+        ## parameters deal with signals in no constraint (i.e. used input signal case)
+        signal_to_normi = {name: _signal_data_from_cons_list(normalised_constraints[name], signal_to_cons=[[] for _ in range(circ.nWires)], is_dict=False) for name, circ in in_pair}
+
+        norm_signal_data_calculation_time = time.time()
+        test_data["timing"]["norm_signal_data_calculation"] = norm_signal_data_calculation_time - last_time
+        last_time = norm_signal_data_calculation_time
 
         # if len(normalised_constraints[names[0]]) != len(normalised_constraints[names[1]]): 
         #     raise AssertionError(f"EE: Different number of normalised constraints, {names[0]} had {len(normalised_constraints[names[0]])} where {names[1]} had {len(normalised_constraints[names[1]])}")
@@ -132,7 +130,8 @@ def maximum_equivalence(
         try:
             model = list(solver.get_model())
         except AttributeError:
-            return [], []
+            test_data["results"] = ([], [])
+            return test_data
 
         solving_time = time.time()
         test_data["timing"]["solving_time"] = solving_time - encoding_time
@@ -154,42 +153,9 @@ def maximum_equivalence(
 
         coni_pairs = list(set(map(lambda pair : tuple(normi_to_coni[names[i]][pair[i]] for i in range(2)), norm_pairs)))
 
-        return coni_pairs, signal_pairs
+        test_data["results"] = (coni_pairs, signal_pairs)
 
-        early_exit(fingerprints_to_normi)
-        early_exit(fingerprints_to_signals)
-
-        back_and_forth_fingerprinting_time = time.time()
-        test_data["timing"]["back_and_forth_fingerprinting"] = back_and_forth_fingerprinting_time - last_time
-        last_time = back_and_forth_fingerprinting_time
-
-        ints = count_ints(map(len, fingerprints_to_normi[names[0]].values()))
-        test_data["group_sizes"]["post_back_and_forth"] = {
-                "sqr_weight": sum([x[0]**2 * x[1] for x in ints]),
-                "sizes": [x[0] for x in ints],
-                "counts": [x[1] for x in ints]
-            }
-        # now do label passing for constraints
-
-        formula, assumptions = encode_classes_v2(names, normalised_constraints, fingerprints_to_normi, signal_to_fingerprints, fingerprints_to_signals)
-
-        test_data["formula_size"] = len(formula.clauses)
-        solver = Solver(name='cadical195', bootstrap_with=formula)
-
-        encoding_time = time.time()
-
-        test_data["timing"]["encoding_time"] = encoding_time - last_time
-
-        result = solver.solve(assumptions)
-        solving_time = time.time()
-
-        test_data["result"] = result
-        test_data["result_explanation"] = "" if result else "Unsatisfiable Formula"
-
-        test_data["timing"]["solving_time"] = solving_time - encoding_time
-        test_data["timing"]["total_time"] = solving_time - start 
-
-        if debug: print("Finished encoding                                     ", end='\r')
+        return test_data
 
     except AssertionError as e:
         print(e)

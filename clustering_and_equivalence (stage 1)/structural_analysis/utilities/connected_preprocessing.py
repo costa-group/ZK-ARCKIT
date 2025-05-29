@@ -4,14 +4,13 @@ Fixes compiler bug where some circuits aren't a single connected component
 
 """
 from typing import List, Tuple
-from utilities import getvars
+from utilities.utilities import getvars
 import itertools
 
 from r1cs_scripts.circuit_representation import Circuit
 from r1cs_scripts.constraint import Constraint
 
-from comparison.static_distance_preprocessing import _distances_to_signal_set
-from utilities import _signal_data_from_cons_list
+from utilities.utilities import _signal_data_from_cons_list, _distances_to_signal_set
 
 def connected_preprocessing(circ: Circuit, return_mapping: bool = False) -> Circuit | Tuple[Circuit, List[int | None]]:
     """

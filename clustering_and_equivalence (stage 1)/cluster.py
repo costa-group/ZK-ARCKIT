@@ -21,7 +21,7 @@ The following flags alter the behaviour of the file
         defines the type of clustering method performed
             options are: nonlinear_attract, louvain
         : default
-            nonlinear_attract
+            louvain
         : alternative
             --clustering
     
@@ -64,10 +64,10 @@ The following flags alter the behaviour of the file
         : default
             timing info is included in JSON
 
-    --automerge-passthrough
-        recursively auto-merges clusters that have a signal both as an input and an output
+    --dont-automerge-passthrough
+        doesn't recursively auto-merge clusters that have a signal both as an input and an output
         : default
-            does not merge
+            does merge
 
     --automerge-only-nonlinear
         auto-merges clusters that have no linear constraints to an adjacent cluster
@@ -82,6 +82,7 @@ import warnings
 import os
 import json
 import time
+import itertools
 
 from r1cs_scripts.circuit_representation import Circuit
 from r1cs_scripts.read_r1cs import parse_r1cs
@@ -98,6 +99,7 @@ from structural_analysis.cluster_trees.full_equivalency_partitions import subcir
 from structural_analysis.utilities.graph_to_img import dag_graph_to_img
 from structural_analysis.cluster_trees.dag_postprocessing import merge_passthrough, merge_only_nonlinear
 from structural_analysis.clustering_methods.iterated_louvain import iterated_louvain
+from maximal_equivalence.applied_maximal_equivalence import maximally_equivalent_classes
 
 def r1cs_cluster(
         input_filename: str,
@@ -109,7 +111,12 @@ def r1cs_cluster(
         automerge_only_nonlinear: bool = False,
         timing: bool = True,
         undo_remapping: bool = True,
-        include_mappings: bool = False
+        include_mappings: bool = False,
+        maxequiv: bool=False,
+        maxequiv_timeout: int | None = None,
+        maxequiv_tol: float | None = None,
+        maxequiv_merge: int = 0,
+        sanity_check: bool = False
     ):
     """
     Manager function for handling the clustering methods, for a complete specification see `cluster.py'
@@ -119,6 +126,10 @@ def r1cs_cluster(
     parse_r1cs(input_filename, main_circ)
 
     circs, sig_mapping, con_mapping = componentwise_preprocessing(main_circ)
+    
+    if main_circ.nPubOut == 0: warnings.warn("Your circuit has no outputs, this may cause undefined behaviour")
+    if main_circ.nPrvIn + main_circ.nPubIn == 0: raise AssertionError("Your circuit has no inputs")
+
     # TODO: pass mapping data to output json
     # TODO: add timing information for utility/debugging
 
@@ -139,8 +150,12 @@ def r1cs_cluster(
             os.mkdir(f"{output_directory}/{filename}")
         except FileExistsError:
             pass
-    
-    get_outfile =  lambda index, suffix, ftype : f"{output_directory}/{filename if len(circs) == 1 else (filename + '/' + str(index))}{('_' + suffix) if suffix is not None else ''}.{ftype}"
+
+    if sanity_check:
+        sanity_check_maintanence = {} if len(circs) == 0 else [{} for _ in range(len(circs))]
+        add_sanity_check = lambda index, key, value : sanity_check_maintanence.__setitem__(key, value) if len(circs) == 0 else sanity_check_maintanence[index].__setitem__(key, value)
+        
+    get_outfile =  lambda index, suffixes, ftype : f"{output_directory}/{filename if len(circs) == 1 else (filename + '/' + str(index))}{('_' if len(suffixes) > 0 else '') + '_'.join(suffixes)}.{ftype}"
 
     for index, circ in enumerate(circs):
 
@@ -174,6 +189,11 @@ def r1cs_cluster(
             case _ :
                 raise SyntaxError(f"{clustering_method} is not a valid clustering_method")
 
+        if sanity_check:
+            # calculate which coni are not included in the partition
+            removed_coni = list(map(coni_inverse[index].__getitem__, set(range(circ.nConstraints)).difference(itertools.chain(*partition))))
+            add_sanity_check(index, "post_clustering_removed", removed_coni)
+
         timing['clustering'] = time.time() - last_time
         last_time = time.time()      
 
@@ -183,6 +203,11 @@ def r1cs_cluster(
         timing['dag_construction'] = time.time() - last_time
         last_time = time.time()
 
+        if sanity_check:
+            # calculate which coni are not included in the partition
+            removed_coni = list(map(coni_inverse[index].__getitem__, set(range(circ.nConstraints)).difference(itertools.chain(*map(lambda node : node.constraints, nodes.values())))))
+            add_sanity_check(index, "post_dag_conversion", removed_coni)
+
         if automerge_passthrough: 
             nodes = merge_passthrough(circ, nodes)
             timing['passthrough_merge'] = time.time() - last_time
@@ -191,6 +216,11 @@ def r1cs_cluster(
             nodes = merge_only_nonlinear(circ, nodes)
             timing['nonlinear_merge'] = time.time() - last_time
             last_time = time.time()
+
+        if sanity_check:
+            # calculate which coni are not included in the partition
+            removed_coni = list(map(coni_inverse[index].__getitem__, set(range(circ.nConstraints)).difference(itertools.chain(*map(lambda node : node.constraints, nodes.values())))))
+            add_sanity_check(index, "post_merge_postprocessing", removed_coni)
 
         if return_img:
             if g is None: g = shared_signal_graph(circ.constraints)
@@ -208,6 +238,19 @@ def r1cs_cluster(
                 raise SyntaxError(f"{equivalence_method} is not a valid equivalence method")
 
         timing['equivalency'] = time.time() - last_time
+        last_time = time.time()
+
+        if maxequiv:
+            nodes, equivalency, mappings = maximally_equivalent_classes(nodes, equivalency, mappings, tol = maxequiv_tol, solver_timeout=maxequiv_timeout, return_json=False, postprocessing_merge = maxequiv_merge)
+
+            timing["maxequiv"] = time.time() - last_time
+            last_time = time.time()
+
+            if sanity_check:
+                # calculate which coni are not included in the partition
+                removed_coni = list(map(coni_inverse[index].__getitem__, set(range(circ.nConstraints)).difference(itertools.chain(*map(lambda node : node.constraints, nodes.values())))))
+                add_sanity_check(index, "post_maxequiv", removed_coni)
+
         timing['total'] = time.time() - start
 
         return_json = {
@@ -218,8 +261,17 @@ def r1cs_cluster(
         }
 
         if include_mappings: return_json["equiv_mappings"] = mappings
+        if sanity_check: return_json["sanity_check"] = sanity_check_maintanence
 
-        f = open(get_outfile(index, clustering_method, "json"), "w")
+
+        suffixes = [clustering_method]
+        if maxequiv: suffixes.append('maxequiv')
+        match maxequiv_merge:
+            case 1: suffixes.append('unsafe_linear')
+            case 2: suffixes.append('single_linear')
+            case _: pass
+
+        f = open(get_outfile(index, suffixes, "json"), "w")
         json.dump(return_json, f, indent=4)
         f.close()
 
@@ -229,7 +281,8 @@ if __name__ == '__main__':
 
     req_args = [None, None, None, None]
     timeout = 0
-    automerge_passthrough, automerge_only_nonlinear, return_img , timing, undo_remapping, include_mappings = False, False, False, True, True, False
+    automerge_passthrough, automerge_only_nonlinear, return_img , timing, undo_remapping, include_mappings = True, False, False, True, True, False
+    maxequiv, maxequiv_timeout, maxequiv_tol, maxequiv_merge, sanity_check = False, 5, 0.8, 0, False
 
     def set_file(index: int, filename: str):
         if filename[0] == '-': raise SyntaxError(f"Invalid {'input' if not index else 'outout'} filename {filename}")
@@ -286,18 +339,31 @@ if __name__ == '__main__':
             case "--include-mappings": include_mappings, i = True, i+1
             case "--dont-undo-mapping": undo_remapping, i = True, i+1
             case "--return_img": return_img, i = True, i + 1
-            case "--automerge-passthrough": automerge_passthrough, i = True, i + 1
+            case "--dont-automerge-passthrough": automerge_passthrough, i = False, i + 1
             case "--automerge-only-nonlinear": automerge_only_nonlinear, i = True, i + 1
             case "--no-timing-information": timing, i = False, i+1
+            case "--maximal-equivalence": maxequiv, i = True, i+1
+            case "--sanity-check": sanity_check, i = True, i+1
+            case "-M": maxequiv, i = True, i+1
+            case "--maxequiv-timeout": 
+                if sys.argv[i+1][0] == '-': raise SyntaxError(f"Invalid timeout value {sys.argv[i+1]}")
+                maxequiv_timeout, i = int(sys.argv[i+1]), i+2
+            case "--maxequiv-tolerance": 
+                if sys.argv[i+1][0] == '-': raise SyntaxError(f"Invalid timeout value {sys.argv[i+1]}")
+                maxequiv_tol, i = float(sys.argv[i+1]), i+2
+            case "--maxequiv-merge": 
+                if sys.argv[i+1][0] == '-': raise SyntaxError(f"Invalid timeout value {sys.argv[i+1]}")
+                maxequiv_merge, i = int(sys.argv[i+1]), i+2
             case _: warnings.warn(f"Invalid argument '{arg}' ignored", SyntaxWarning)
 
 
     if req_args[0] is None: raise SyntaxError("No input file given")
     if req_args[1] is None: req_args[1] = req_args[0][:req_args[0].index(".")]
-    if req_args[2] is None: req_args[2] = "nonlinear_attract"
+    if req_args[2] is None: req_args[2] = "louvain"
     if req_args[3] is None: req_args[3] = "structural"
 
     with time_limit(timeout):
-        r1cs_cluster(*req_args, automerge_passthrough=automerge_passthrough, automerge_only_nonlinear=automerge_only_nonlinear, return_img=return_img, timing=timing, undo_remapping = undo_remapping, include_mappings=include_mappings)
+        r1cs_cluster(*req_args, automerge_passthrough=automerge_passthrough, automerge_only_nonlinear=automerge_only_nonlinear, return_img=return_img, timing=timing, undo_remapping = undo_remapping, include_mappings=include_mappings, 
+            maxequiv=maxequiv, maxequiv_tol=maxequiv_tol, maxequiv_timeout=maxequiv_timeout, maxequiv_merge=maxequiv_merge, sanity_check=sanity_check)
 
     # python3 cluster.py r1cs_files/binsub_test.r1cs -o clustering_tests -e structural

@@ -2,12 +2,12 @@ from typing import List, Dict
 import itertools
 from collections import deque
 
-from bij_encodings.assignment import Assignment
+from utilities.assignment import Assignment
 from structural_analysis.cluster_trees.dag_from_clusters import DAGNode
 from maximal_equivalence.iterated_fingerprints_with_pausing import coefficient_only_fingerprinting
 from comparison_v2.fingerprinting_v2 import back_and_forth_fingerprinting
 from normalisation import r1cs_norm
-from utilities import _is_nonlinear, _signal_data_from_cons_list
+from utilities.utilities import _is_nonlinear, _signal_data_from_cons_list
 
 def get_subclasses_by_nonlinears(nodes: Dict[int, DAGNode]) -> List[Dict[int, DAGNode]]:
     # TODO: make it so that it accounts for intralinear passes

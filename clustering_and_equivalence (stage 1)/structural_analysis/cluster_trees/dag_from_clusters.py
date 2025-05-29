@@ -6,8 +6,7 @@ from typing import List, Dict, Set, Tuple, Iterable
 import itertools
 import json
 
-from utilities import UnionFind, _signal_data_from_cons_list, getvars, dist_to_source_set
-from comparison.static_distance_preprocessing import _distances_to_signal_set
+from utilities.utilities import UnionFind, _signal_data_from_cons_list, getvars, dist_to_source_set, _distances_to_signal_set
 from r1cs_scripts.circuit_representation import Circuit
 from r1cs_scripts.constraint import Constraint
 
@@ -137,7 +136,7 @@ def dag_from_partition(circ: Circuit, partition: List[List[int]]) -> "directed_a
         dist_to_outputs = dist_to_source_set(output_parts, adjacencies)
 
         ## make the preorder
-        part_to_preorder = { i: (dist_to_inputs[i], dist_to_outputs[i]) for i in partition.keys()}
+        part_to_preorder = { i: (dist_to_inputs.get(i, float("inf")), dist_to_outputs.get(i, float("inf"))) for i in partition.keys()}
         
         to_merge = UnionFind()
 

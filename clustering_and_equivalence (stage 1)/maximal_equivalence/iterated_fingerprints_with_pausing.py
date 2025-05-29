@@ -16,10 +16,10 @@ import itertools
 from r1cs_scripts.circuit_representation import Circuit
 from r1cs_scripts.constraint import Constraint
 
-from bij_encodings.assignment import Assignment
+from utilities.assignment import Assignment
 from comparison_v2.fingerprinting_v2 import back_and_forth_fingerprinting
 
-from utilities import getvars, count_ints
+from utilities.utilities import getvars, count_ints
 
 def coefficient_only_fingerprinting(names: List[str], normalised_constraints: Dict[str, List[Constraint]]) -> Dict[str, Dict[int, List[int]]]:
     
@@ -82,5 +82,5 @@ def iterated_fingerprints_w_reverting(
     ):
     return back_and_forth_fingerprinting(
         names, in_pair, normalised_constraints, signal_to_normi, fingerprints_to_normi, fingerprints_to_signals, initial_mode = initial_mode, 
-        per_iteration_postprocessing = sanity_check_and_revert, return_index_to_fingerprint = return_index_to_fingerprint, test_data = test_data
+        per_iteration_postprocessing = sanity_check_and_revert, return_index_to_fingerprint = return_index_to_fingerprint, test_data = test_data, strict_unique=True
     )

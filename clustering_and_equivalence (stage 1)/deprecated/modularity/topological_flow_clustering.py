@@ -76,9 +76,9 @@ import itertools
 from r1cs_scripts.circuit_representation import Circuit
 from r1cs_scripts.constraint import Constraint
 
-from comparison.static_distance_preprocessing import _distances_to_signal_set
+from deprecated.comparison.static_distance_preprocessing import _distances_to_signal_set
 
-from utilities import _signal_data_from_cons_list, UnionFind
+from utilities.utilities import _signal_data_from_cons_list, UnionFind
 from deprecated.modularity.modularity_optimisation import stable_directed_louvain, directed_add_resistance, directed_calculate_mod_change, directed_get_adjacent_to, directed_inner_update_adjacency, directed_outer_update_adjacency
 
 def getvars(con: Constraint) -> set:

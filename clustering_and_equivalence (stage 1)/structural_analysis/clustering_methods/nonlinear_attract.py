@@ -1,7 +1,7 @@
 from typing import Iterable, List, Tuple, Dict, Set
 import itertools
 
-from utilities import UnionFind, _signal_data_from_cons_list, getvars
+from utilities.utilities import UnionFind, _signal_data_from_cons_list, getvars
 from r1cs_scripts.circuit_representation import Circuit
 from r1cs_scripts.constraint import Constraint
 

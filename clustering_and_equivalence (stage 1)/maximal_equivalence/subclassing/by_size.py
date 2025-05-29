@@ -2,7 +2,7 @@ from typing import List, Dict
 import itertools
 
 from structural_analysis.cluster_trees.dag_from_clusters import DAGNode
-from utilities import UnionFind
+from utilities.utilities import UnionFind
 
 def get_subclasses_by_size(nodes: Dict[int, DAGNode], tol: float = 0.8) -> List[Dict[int, DAGNode]]:
     ComparableKeys = UnionFind()

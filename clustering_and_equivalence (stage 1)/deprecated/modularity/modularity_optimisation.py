@@ -10,9 +10,9 @@ Resolution limits I think will also play a key part meaning modularity may not b
 from typing import List, Tuple, Dict, Callable
 from itertools import product, chain, combinations
 
-from utilities import count_ints
+from utilities.utilities import count_ints
 from r1cs_scripts.circuit_representation import Circuit
-from utilities import _signal_data_from_cons_list, UnionFind
+from utilities.utilities import _signal_data_from_cons_list, UnionFind
 
 def undirected_adjacency(circ: Circuit, unweighted: bool = False) -> List[List[int]]:
     signal_to_coni = _signal_data_from_cons_list(circ.constraints)

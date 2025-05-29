@@ -3,11 +3,11 @@ import itertools
 import collections
 
 from structural_analysis.cluster_trees.dag_from_clusters import DAGNode
-from bij_encodings.preprocessing.iterated_adj_reclassing import iterated_label_propagation
+from utilities.iterated_adj_reclassing import iterated_label_propagation
 from r1cs_scripts.circuit_representation import Circuit
 from r1cs_scripts.constraint import Constraint
-from utilities import getvars
-from bij_encodings.assignment import Assignment
+from utilities.utilities import getvars
+from utilities.assignment import Assignment
 from testing_harness import exception_catcher
 
 def naive_equivalency_analysis(nodes: Dict[int, DAGNode], time_limit: int = 0,  fingerprints_to_normi = None, fingerprints_to_signals = None) -> List[List[int]]:

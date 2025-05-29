@@ -1847,7 +1847,7 @@ impl<C: Default + Clone + Display + Hash + Eq + PartialOrd + Ord> AIRConstraint<
     pub fn can_take_plonk_signal(&self) -> bool{
         let keys = self.linear().keys();
         let cq = ArithmeticExpression::constant_coefficient();
-        keys.len() <= 2 || (keys.len() == 2 && self.linear().contains_key(&cq))
+        keys.len() <= 2 || (keys.len() == 3 && self.linear().contains_key(&cq))
     }
 
 

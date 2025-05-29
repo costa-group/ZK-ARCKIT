@@ -11,13 +11,13 @@ import time
 from r1cs_scripts.circuit_representation import Circuit
 from structural_analysis.cluster_trees.dag_from_clusters import DAGNode
 from maximal_equivalence.maximal_equivalence import maximum_equivalence
-from utilities import count_ints, _is_nonlinear
+from utilities.utilities import count_ints, _is_nonlinear
 from maximal_equivalence.subclassing.by_nonlinears import get_subclasses_by_nonlinear_relation
 from maximal_equivalence.subclassing.by_size import get_subclasses_by_size
 from maximal_equivalence.subclassing.by_nonlinear_shortest_path import get_subclasses_by_nonlinear_shortest_path
 from structural_analysis.cluster_trees.dag_from_clusters import dag_from_partition, dag_to_nodes
 from structural_analysis.cluster_trees.full_equivalency_partitions import subcircuit_fingerprint_with_structural_augmentation_equivalency
-from structural_analysis.cluster_trees.dag_postprocessing import merge_passthrough, merge_only_nonlinear
+from structural_analysis.cluster_trees.dag_postprocessing import merge_passthrough, merge_only_nonlinear, merge_single_linear, merge_unsafe_linear
 
 def pairwise_maximally_equivalent_classes(nodes: Dict[int, DAGNode], tol: float = 0.8, solver_timeout: int | None = None) -> List[List[DAGNode]]:
     """
@@ -46,7 +46,8 @@ def pairwise_maximally_equivalent_classes(nodes: Dict[int, DAGNode], tol: float 
             msize, lsize = sorted(map(lambda c : c.nConstraints, [sub_circ, comp_circ]))
             if msize * tol > lsize: continue
 
-            coni_pairs, _ = maximum_equivalence(list(zip(names, [comp_circ, sub_circ])), solver_timeout=solver_timeout)
+            test_data = maximum_equivalence(list(zip(names, [comp_circ, sub_circ])), solver_timeout=solver_timeout)
+            coni_pairs, _ = test_data["results"]
 
             if len(coni_pairs) >= (1 if len(classes[key]) > 1 else tol) * comp_circ.nConstraints:
                 matched = True
@@ -80,7 +81,8 @@ def maximally_equivalent_classes(
             solver_timeout: int | None = None,
             exit_subclasses : bool = False,
             exit_max_classes : bool = False,
-            return_json : bool = True
+            return_json : bool = True,
+            postprocessing_merge: int = 0
         ) -> List[List[DAGNode]]:
     """
     Step 1: Split nodes into classes
@@ -155,12 +157,20 @@ def maximally_equivalent_classes(
     nodes = merge_passthrough(circ, nodes)
     nodes = merge_only_nonlinear(circ, nodes)
 
+    match postprocessing_merge:
+        case 0: pass
+        case 1:
+            nodes = merge_single_linear(circ, nodes)
+        case 2:
+            nodes = merge_unsafe_linear(circ, nodes)
+        case _: raise ValueError(f"Postprocessing merge value {postprocessing_merge} invalid. Should be in range(3)")
+
     equivalency, mapping = subcircuit_fingerprint_with_structural_augmentation_equivalency(nodes)
 
     timing["conversion_to_dag"] = time.time() - last_time
     last_time = time.time()
 
-    if not return_json: return nodes, equivalency
+    if not return_json: return nodes, equivalency, mapping
     
     results = {
         "timing" : timing,

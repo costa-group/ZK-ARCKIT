@@ -15,11 +15,11 @@ from functools import reduce
 
 from normalisation import r1cs_norm
 from r1cs_scripts.circuit_representation import Circuit
-from bij_encodings.single_cons_options import signal_options
-from bij_encodings.assignment import Assignment
+from utilities.single_cons_options import signal_options
+from utilities.assignment import Assignment
 from bij_encodings.cons_propagator.singlebij_constraint import ConsBijConstraint
 from bij_encodings.cons_propagator.constraint_engine import ConstraintEngine
-from bij_encodings.encoder import Encoder
+from deprecated.bij_encodings.encoder import Encoder
 
 class PropagatorEncoder(Encoder):
 

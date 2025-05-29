@@ -4,7 +4,7 @@ import networkx as nx
 from itertools import combinations
 
 from r1cs_scripts.constraint import Constraint
-from utilities import _signal_data_from_cons_list, getvars
+from utilities.utilities import _signal_data_from_cons_list, getvars
 
 def shared_signal_graph(cons: List[Constraint], names: List[int] | None = None) -> nx.Graph:
     """

@@ -13,7 +13,7 @@ from typing import Dict
 
 from r1cs_scripts.circuit_representation import Circuit
 from r1cs_scripts.constraint import Constraint
-from bij_encodings.assignment import Assignment
+from utilities.assignment import Assignment
 from normalisation import r1cs_norm
 
 def _classes_string(classes) -> str:
@@ -107,7 +107,7 @@ def to_dzn(filename: str, circ: Circuit, circ2: Circuit):
     f.close()
 
 
-from comparison_testing import get_circuits
+from circuit_shuffle import get_circuits
 
 if __name__ == '__main__':
     _, r1cs, outfile = sys.argv

@@ -3,7 +3,7 @@ from itertools import product, chain
 from functools import reduce
 from collections import defaultdict
 
-from bij_encodings.assignment import Assignment
+from utilities.assignment import Assignment
 from r1cs_scripts.circuit_representation import Circuit
 
 

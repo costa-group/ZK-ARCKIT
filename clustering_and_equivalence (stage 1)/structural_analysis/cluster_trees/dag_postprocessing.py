@@ -8,7 +8,7 @@ import collections
 
 from r1cs_scripts.circuit_representation import Circuit
 from structural_analysis.cluster_trees.dag_from_clusters import DAGNode
-from utilities import DFS_reachability, getvars, _signal_data_from_cons_list, BFS_shortest_path, _is_nonlinear
+from utilities.utilities import DFS_reachability, getvars, _signal_data_from_cons_list, BFS_shortest_path, _is_nonlinear
 
 def merge_under_property(circ: Circuit, nodes: Dict[int, DAGNode], 
     property : Callable[[DAGNode], bool], 

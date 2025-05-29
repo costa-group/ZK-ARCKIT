@@ -4,9 +4,9 @@ from pysat.formula import CNF
 
 from r1cs_scripts.circuit_representation import Circuit
 from r1cs_scripts.constraint import Constraint
-from bij_encodings.assignment import Assignment
+from utilities.assignment import Assignment
 
-from utilities import _signal_data_from_cons_list, getvars
+from utilities.utilities import _signal_data_from_cons_list, getvars
 
 """
 Seems to provide literally the same info as iterated_adj_reclassing, makes sense since signals are the edges in the graph
