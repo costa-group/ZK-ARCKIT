@@ -173,7 +173,7 @@ def merge_only_nonlinear(circ: Circuit, nodes: Dict[int, DAGNode]) -> Dict[int, 
     # adjacent checks redundant for nonlinear_attract, not for louvain
     return merge_under_property(circ, nodes, is_only_nonlinear, child_isnt_nonlinear, parent_isnt_nonliner)
 
-def merge_single_linear(circ: Circuit, nodes: Dict[int, DAGNode]) -> Dict[int, DAGNode]:
+def merge_single_linear(circ: Circuit, nodes: Dict[int, DAGNode], favour_down: bool = True) -> Dict[int, DAGNode]:
     """
     An instance of :py:func:`merge_under_property` merges nodes that have signals in the input and output.
 
@@ -196,12 +196,12 @@ def merge_single_linear(circ: Circuit, nodes: Dict[int, DAGNode]) -> Dict[int, D
     is_single_linear : Callable[[DAGNode], bool]= lambda node : len(node.constraints) == 1 and not _is_nonlinear(circ.constraints[next(iter(node.constraints))])
 
     # note that this prioritises children over parents -- this is a heuristic given by Albert
-    child_attraction : Callable[[DAGNode, DAGNode], int] = lambda node, child : len(node.input_signals) + len(node.output_signals.intersection(child.input_signals))
-    parent_attraction : Callable[[DAGNode, DAGNode], int] = lambda parent, node : len(node.input_signals.intersection(parent.output_signals))
+    child_attraction : Callable[[DAGNode, DAGNode], int] = lambda node, child : (len(node.input_signals) if favour_down else 0) + len(node.output_signals.intersection(child.input_signals))
+    parent_attraction : Callable[[DAGNode, DAGNode], int] = lambda parent, node : (0 if favour_down else len(node.output_signals)) + len(node.input_signals.intersection(parent.output_signals))
 
     return merge_under_property(circ, nodes, is_single_linear, child_attraction, parent_attraction)
 
-def merge_unsafe_linear(circ: Circuit, nodes: Dict[int, DAGNode]) -> Dict[int, DAGNode]:
+def merge_unsafe_linear(circ: Circuit, nodes: Dict[int, DAGNode], favour_down: bool = True) -> Dict[int, DAGNode]:
     """
     An instance of :py:func:`merge_under_property` merges nodes that have signals in the input and output.
 
@@ -225,8 +225,8 @@ def merge_unsafe_linear(circ: Circuit, nodes: Dict[int, DAGNode]) -> Dict[int, D
         ] = lambda node : len(node.constraints) == 1 and not _is_nonlinear(circ.constraints[next(iter(node.constraints))]) and len(node.successors) > 1
 
     # note that this prioritises children over parents -- this is a heuristic given by Albert
-    child_attraction : Callable[[DAGNode, DAGNode], int] = lambda node, child : len(node.input_signals) + len(node.output_signals.intersection(child.input_signals))
-    parent_attraction : Callable[[DAGNode, DAGNode], int] = lambda parent, node : len(node.input_signals.intersection(parent.output_signals))
+    child_attraction : Callable[[DAGNode, DAGNode], int] = lambda node, child : (len(node.input_signals) if favour_down else 0) + len(node.output_signals.intersection(child.input_signals))
+    parent_attraction : Callable[[DAGNode, DAGNode], int] = lambda parent, node : (0 if favour_down else len(node.output_signals)) + len(node.input_signals.intersection(parent.output_signals))
 
     return merge_under_property(circ, nodes, is_single_unsafe_linear, child_attraction, parent_attraction)
 
