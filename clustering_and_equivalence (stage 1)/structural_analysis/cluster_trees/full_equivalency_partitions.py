@@ -23,10 +23,18 @@ def subcircuit_fingerprinting_equivalency(nodes: Dict[int, DAGNode], time_limit:
     
     subcircuit_groups, fingerprints_to_normi, fingerprints_to_signals = fingerprint_subcircuits(nodes)
 
-    return list(itertools.chain(*map(lambda nodes_subset : naive_equivalency_analysis(nodes_subset, time_limit, fingerprints_to_normi = fingerprints_to_normi, fingerprints_to_signals = fingerprints_to_signals), 
-                                 map(lambda keylist: {key: nodes[key] for key in keylist}, 
-                                            subcircuit_groups.values())
-        )))
+    equivalent = []
+    mappings = []
+
+    deque(maxlen = 0,
+          iterable = itertools.starmap(lambda equiv, mapp : [equivalent.extend(equiv), mappings.extend(mapp)],
+                     map(lambda nodes_subset : naive_equivalency_analysis(nodes_subset, time_limit, fingerprints_to_normi = fingerprints_to_normi, fingerprints_to_signals = fingerprints_to_signals),
+                     map(lambda keylist: {key: nodes[key] for key in keylist},
+                     subcircuit_groups.values()              
+         )))
+    )
+
+    return equivalent, mappings
 
 def subcircuit_fingerprint_with_structural_augmentation_equivalency(nodes: Dict[int, DAGNode], time_limit: int = 0):
     
