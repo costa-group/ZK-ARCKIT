@@ -179,8 +179,8 @@ def DFS_reachability(S: int | List[int], T: int | List[int], adjacencies: List[L
 
     to_check = {s: True for s in S}
     stack = list(S)
-    reached_T = any(map(lambda t : t in S, T))
-
+    reached_T_q = lambda : any(map(lambda t: to_check.get(t, False), T))
+    reached_T = reached_T_q()
 
     while not reached_T and len(stack) > 0:
         curr = stack.pop()
@@ -190,7 +190,7 @@ def DFS_reachability(S: int | List[int], T: int | List[int], adjacencies: List[L
             to_check[curr] = False
             to_add = filter(lambda adj : to_check.setdefault(adj, True), adjacencies[curr])
             stack.extend(to_add)
-            reached_T = any(map(lambda t : t in to_add, T))
+            reached_T = reached_T_q()
     
     return reached_T
 
