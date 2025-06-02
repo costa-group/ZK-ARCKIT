@@ -104,18 +104,18 @@ def componentwise_preprocessing(circ: Circuit) -> Tuple[List[Circuit], List[Tupl
     """
 
     signal_to_conis = _signal_data_from_cons_list(circ.constraints)
-    inputs = set(filter(lambda sig : sig in signal_to_conis.keys(), range(circ.nPubOut+1, circ.nPubOut + circ.nPrvIn + circ.nPubIn + 1)))
+    signals = set(range(1,circ.nWires))
 
     signals_by_component = []
 
     # TODO: sets? anything better?
-    while len(inputs) > 0:
-        next_input = next(iter(inputs))
+    while len(signals) > 0:
+        next_signal = next(iter(signals))
 
-        dist_from_inputs = _distances_to_signal_set(circ.constraints, [next_input], signal_to_conis)
-        signals_by_component.append(sorted(dist_from_inputs.keys())) # sorted to maintain output/input relationships
+        dist_from_signal = _distances_to_signal_set(circ.constraints, [next_signal], signal_to_conis)
+        signals_by_component.append(sorted(dist_from_signal.keys())) # sorted to maintain output/input relationships
 
-        inputs.difference_update(dist_from_inputs.keys())
+        signals.difference_update(dist_from_signal.keys())
 
     circuits = []
     conmapp = [None for _ in range(circ.nConstraints)]
