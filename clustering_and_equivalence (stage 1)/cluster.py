@@ -83,6 +83,7 @@ import os
 import json
 import time
 import itertools
+import random
 
 from r1cs_scripts.circuit_representation import Circuit
 from r1cs_scripts.read_r1cs import parse_r1cs
@@ -116,11 +117,15 @@ def r1cs_cluster(
         maxequiv_timeout: int | None = None,
         maxequiv_tol: float | None = None,
         maxequiv_merge: int = 0,
-        sanity_check: bool = False
+        sanity_check: bool = False,
+        seed = None,
     ):
     """
     Manager function for handling the clustering methods, for a complete specification see `cluster.py'
     """
+
+    if seed is None:
+        seed = random.randint(0,25565)
     
     main_circ = Circuit()
     parse_r1cs(input_filename, main_circ)
@@ -174,11 +179,11 @@ def r1cs_cluster(
 
             case "louvain":
                 g = shared_signal_graph(circ.constraints)
-                partition = list(map(list, louvain_communities(g, resolution=circ.nConstraints ** 0.5)))
+                partition = list(map(list, louvain_communities(g, resolution=circ.nConstraints ** 0.5, seed=seed)))
 
             case "iterated_louvain":
                 g = shared_signal_graph(circ.constraints)
-                partition, resolution = iterated_louvain(g, init_resolution=circ.nConstraints ** 0.5)
+                partition, resolution = iterated_louvain(g, init_resolution=circ.nConstraints ** 0.5, seed=seed)
                 partition = list(map(list, partition))
                 data["final_resolution"] = resolution
             
@@ -254,6 +259,7 @@ def r1cs_cluster(
         timing['total'] = time.time() - start
 
         return_json = {
+            "seed": seed,
             "timing": timing,
             "data": data,
             "nodes": list(map(lambda n : n.to_dict(inverse_mapping = (coni_inverse[index], sig_inverse[index]) if undo_remapping else None ), nodes.values())) ,
@@ -282,7 +288,7 @@ if __name__ == '__main__':
     req_args = [None, None, None, None]
     timeout = 0
     automerge_passthrough, automerge_only_nonlinear, return_img , timing, undo_remapping, include_mappings = True, False, False, True, True, False
-    maxequiv, maxequiv_timeout, maxequiv_tol, maxequiv_merge, sanity_check = False, 5, 0.8, 0, False
+    maxequiv, maxequiv_timeout, maxequiv_tol, maxequiv_merge, sanity_check, seed = False, 5, 0.8, 0, False, None
 
     def set_file(index: int, filename: str):
         if filename[0] == '-': raise SyntaxError(f"Invalid {'input' if not index else 'outout'} filename {filename}")
@@ -334,6 +340,14 @@ if __name__ == '__main__':
                 if sys.argv[i+1][0] == '-': raise SyntaxError(f"Invalid timeout value {sys.argv[i+1]}")
                 timeout = int(sys.argv[i+1])
                 i += 2
+            case "-s":
+                if sys.argv[i+1][0] == '-': raise SyntaxError(f"Invalid seed value {sys.argv[i+1]}")
+                seed = int(sys.argv[i+1])
+                i += 2
+            case "--seed":
+                if sys.argv[i+1][0] == '-': raise SyntaxError(f"Invalid seed value {sys.argv[i+1]}")
+                seed = int(sys.argv[i+1])
+                i += 2
             case "-i": return_img, i = True, i + 1
             case "-m": include_mappings, i = True, i+1
             case "--include-mappings": include_mappings, i = True, i+1
@@ -364,6 +378,6 @@ if __name__ == '__main__':
 
     with time_limit(timeout):
         r1cs_cluster(*req_args, automerge_passthrough=automerge_passthrough, automerge_only_nonlinear=automerge_only_nonlinear, return_img=return_img, timing=timing, undo_remapping = undo_remapping, include_mappings=include_mappings, 
-            maxequiv=maxequiv, maxequiv_tol=maxequiv_tol, maxequiv_timeout=maxequiv_timeout, maxequiv_merge=maxequiv_merge, sanity_check=sanity_check)
+            maxequiv=maxequiv, maxequiv_tol=maxequiv_tol, maxequiv_timeout=maxequiv_timeout, maxequiv_merge=maxequiv_merge, sanity_check=sanity_check, seed = seed)
 
     # python3 cluster.py r1cs_files/binsub_test.r1cs -o clustering_tests -e structural
