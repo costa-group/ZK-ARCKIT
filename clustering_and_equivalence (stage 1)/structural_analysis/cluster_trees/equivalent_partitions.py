@@ -97,28 +97,30 @@ def class_iterated_label_passing(nodes: Dict[int, DAGNode], initial_labels: Dict
     augments the initial labels with structural information based on locality within the circuit
     """
 
-    names = ["succ", "pred"]
-    vertex_to_label = iterated_label_propagation(
+    names = ["succ"] #, "pred"]
+    label_to_vertex = iterated_label_propagation(
         names = names,
         vertices = {name: nodes.keys() for name in names},
         vertex_to_adjacent = {
             "succ": {key  : nodes[key].successors for key in nodes.keys()},
-            "pred": {key  : nodes[key].predecessors for key in nodes.keys()}
+            # "pred": {key  : nodes[key].predecessors for key in nodes.keys()}
         },
         initial_labels = {
             name: {label : initial_labels[label] for label in initial_labels.keys()} for name in names
         },
         input_inverse = True,
-        return_inverse = False
+        return_inverse = True
     )
 
-    merge_labels = Assignment(assignees=2)
+    return label_to_vertex["succ"]
 
-    final_labels = {}
-    for key in nodes.keys():
-        final_labels.setdefault(merge_labels.get_assignment(vertex_to_label['succ'][key], vertex_to_label['pred'][key]), []).append(key)
+    # merge_labels = Assignment(assignees=2)
 
-    return final_labels
+    # final_labels = {}
+    # for key in nodes.keys():
+    #     final_labels.setdefault(merge_labels.get_assignment(vertex_to_label['succ'][key], vertex_to_label['pred'][key]), []).append(key)
+
+    # return final_labels
 
 def collective_equivalency_classes(circ: Circuit, nodes: List[DAGNode]) -> List[List[int]]:
     """
