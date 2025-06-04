@@ -128,6 +128,9 @@ def componentwise_preprocessing(circ: Circuit) -> Tuple[List[Circuit], List[Tupl
 
     for i, signals in enumerate(signals_by_component):
 
+        if all(map(lambda sig : sig > circ.nPubOut + circ.nPubIn + circ.nPrvIn , signals)):
+            continue
+        
         next_circuit = Circuit()
 
         for cnt, sig in enumerate(signals): sigmapp[sig] = (i, cnt + 1)
