@@ -52,6 +52,8 @@ def subcircuit_fingerprint_with_structural_augmentation_equivalency(nodes: Dict[
          )))
     )
 
+    equivalent, mappings = propagate_subcirctuit_labels(nodes, equivalent, mappings)
+
     return equivalent, mappings
 
 def fingerprint_subcircuits(nodes: Dict[int, DAGNode]) -> Dict[int, List[int]]:
@@ -80,4 +82,56 @@ def fingerprint_subcircuits(nodes: Dict[int, DAGNode]) -> Dict[int, List[int]]:
 
     return fingerprints_to_subcircuits, fingerprints_to_normi, fingerprints_to_signals
 
+def propagate_subcirctuit_labels(nodes: Dict[int, DAGNode], equivalent: List[List[int]], mappings = List[List[List[int]]]):
+    
+    ## pass to propagator
+    label_to_index = class_iterated_label_passing(nodes, { i : class_ for i, class_ in enumerate(equivalent)})
 
+    ## detect and fix mappings
+    index_to_label = {}
+    deque(
+        iterable = itertools.starmap(lambda label, index : index_to_label.__setitem__(index, label), 
+                   itertools.chain(*itertools.starmap(lambda label, indices: itertools.product([label], indices), label_to_index.items()))),
+        maxlen=0
+    )
+
+    ## Could optimise assuming stability - but seems dangerous
+    new_mappings = {}
+
+    for label, nodis in enumerate(equivalent):
+
+        reference_node = nodis[0]
+        newlabels = set(map(index_to_label.__getitem__, nodis))
+        
+        nodi_to_index = {}
+        deque(
+            iterable = itertools.starmap(lambda i, nodi : nodi_to_index.__setitem__(nodi, i), enumerate(nodis)),
+            maxlen=0
+        )
+
+
+        for newlabel in newlabels:
+            
+            nl_nodis = label_to_index[newlabel]
+
+            if reference_node in nl_nodis:
+                
+                ## make reference the first vertex to
+                new_ref_index = nl_nodis.index(reference_node)
+                nl_nodis[0], nl_nodis[new_ref_index] = nl_nodis[new_ref_index], nl_nodis[0]
+
+                new_mappings[newlabel] = [
+                    mappings[label][nodi_to_index[onodi]-1]
+                    for onodi in nl_nodis[1:]
+                ]
+
+            else:
+                ## decide first is new ref index
+                new_ref_map = mappings[label][nodi_to_index[nl_nodis[0]]-1]
+
+                new_mappings[newlabel] = [
+                    list(lambda p : p[1], sorted(zip(new_ref_map, mappings[label][nodi_to_index[onodi] - 1])))
+                    for onodi in nl_nodis[1:]
+                ]
+
+    return list(label_to_index.values()), [new_mappings[key] for key in label_to_index.keys()]
