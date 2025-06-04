@@ -27,7 +27,7 @@ The following flags alter the behaviour of the file
     
     -e equivalence_type
         defines the type of equivalence method utilised
-            options are: fingerprint, structural
+            options are: local, structural, total
         : default 
             structural
         : alternative
@@ -96,7 +96,7 @@ from structural_analysis.clustering_methods.nonlinear_attract import nonlinear_a
 from structural_analysis.clustering_methods.linear_coefficient import cluster_by_linear_coefficient
 from structural_analysis.cluster_trees.dag_from_clusters import dag_from_partition, partition_from_partial_clustering, dag_to_nodes, nodes_to_json
 from structural_analysis.cluster_trees.equivalent_partitions import easy_fingerprint_then_equivalence, structural_augmentation_equivalence
-from structural_analysis.cluster_trees.full_equivalency_partitions import subcircuit_fingerprinting_equivalency, subcircuit_fingerprint_with_structural_augmentation_equivalency
+from structural_analysis.cluster_trees.full_equivalency_partitions import subcircuit_fingerprinting_equivalency, subcircuit_fingerprint_with_structural_augmentation_equivalency, subcircuit_fingerprinting_equivalency_and_structural_augmentation_equivalency
 from structural_analysis.utilities.graph_to_img import dag_graph_to_img
 from structural_analysis.cluster_trees.dag_postprocessing import merge_passthrough, merge_only_nonlinear
 from structural_analysis.clustering_methods.iterated_louvain import iterated_louvain
@@ -233,11 +233,24 @@ def r1cs_cluster(
 
         match equivalence_method:
 
-            case "fingerprint":
-                equivalency, mappings = subcircuit_fingerprinting_equivalency(nodes) # easy_fingerprint_then_equivalence(nodes)
+            case "local":
+                equivalency, mappings = subcircuit_fingerprinting_equivalency(nodes)
+
 
             case "structural":
-                equivalency, mappings = subcircuit_fingerprint_with_structural_augmentation_equivalency(nodes) # structural_augmentation_equivalence(nodes)
+                equivalency, mappings = subcircuit_fingerprint_with_structural_augmentation_equivalency(nodes)
+            
+            case "total":
+                local_equiv, local_mapp, full_equiv, full_mapp = subcircuit_fingerprinting_equivalency_and_structural_augmentation_equivalency(nodes)
+
+                equivalency = {
+                    "local": local_equiv,
+                    "full": full_equiv
+                }
+                mappings = {
+                    "local": local_mapp,
+                    "full": full_mapp
+                }
 
             case _ :
                 raise SyntaxError(f"{equivalence_method} is not a valid equivalence method")

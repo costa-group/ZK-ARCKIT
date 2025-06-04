@@ -56,6 +56,13 @@ def subcircuit_fingerprint_with_structural_augmentation_equivalency(nodes: Dict[
 
     return equivalent, mappings
 
+def subcircuit_fingerprinting_equivalency_and_structural_augmentation_equivalency(nodes: Dict[int, DAGNode], time_limit: int = 0):
+
+    local_equivalent, local_mappings = subcircuit_fingerprinting_equivalency(nodes, time_limit)
+    full_equivalent, full_mappings = propagate_subcirctuit_labels(nodes, local_equivalent, local_mappings)
+    
+    return local_equivalent, local_mappings, full_equivalent, full_mappings
+
 def fingerprint_subcircuits(nodes: Dict[int, DAGNode]) -> Dict[int, List[int]]:
 
     in_pair: List[Tuple[str, Circuit]] = [(node.id, node.get_subcircuit()) for node in nodes.values()]
@@ -130,7 +137,7 @@ def propagate_subcirctuit_labels(nodes: Dict[int, DAGNode], equivalent: List[Lis
                 new_ref_map = mappings[label][nodi_to_index[nl_nodis[0]]-1]
 
                 new_mappings[newlabel] = [
-                    list(lambda p : p[1], sorted(zip(new_ref_map, mappings[label][nodi_to_index[onodi] - 1])))
+                    list(map(lambda p : p[1], sorted(zip(new_ref_map, mappings[label][nodi_to_index[onodi] - 1]))))
                     for onodi in nl_nodis[1:]
                 ]
 
