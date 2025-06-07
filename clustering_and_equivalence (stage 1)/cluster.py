@@ -234,22 +234,30 @@ def r1cs_cluster(
         match equivalence_method:
 
             case "local":
-                equivalency, mappings = subcircuit_fingerprinting_equivalency(nodes)
+                equivalency = {}
+                mappings = {}
+                local_equivalency, local_mapping = subcircuit_fingerprinting_equivalency(nodes)
+                equivalency["local"] = local_equivalency
+                mappings["local"] = local_mapping
 
 
             case "structural":
-                equivalency, mappings = subcircuit_fingerprint_with_structural_augmentation_equivalency(nodes)
+                equivalency = {}
+                structural_equivalency, structural_mapping = subcircuit_fingerprint_with_structural_augmentation_equivalency(nodes)
+                equivalency["structural"] = structural_equivalency
+                mappings = {}
+                mappings["structural"] = structural_mapping
             
             case "total":
                 local_equiv, local_mapp, full_equiv, full_mapp = subcircuit_fingerprinting_equivalency_and_structural_augmentation_equivalency(nodes)
 
                 equivalency = {
                     "local": local_equiv,
-                    "full": full_equiv
+                    "structural": full_equiv
                 }
                 mappings = {
                     "local": local_mapp,
-                    "full": full_mapp
+                    "structural": full_mapp
                 }
 
             case _ :
@@ -276,10 +284,15 @@ def r1cs_cluster(
             "timing": timing,
             "data": data,
             "nodes": list(map(lambda n : n.to_dict(inverse_mapping = (coni_inverse[index], sig_inverse[index]) if undo_remapping else None ), nodes.values())) ,
-            "equivalency": equivalency
+            
         }
+        for equiv in equivalency:
+            return_json[f"equivalency_{equiv}"] = equivalency[equiv]
 
-        if include_mappings: return_json["equiv_mappings"] = mappings
+        if include_mappings: 
+            for m in mappings:
+                return_json[f"equiv_mapping_{equiv}"] = mappings[m]
+
         if sanity_check: return_json["sanity_check"] = sanity_check_maintanence
 
 
