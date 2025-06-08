@@ -296,7 +296,7 @@ def r1cs_cluster(
         if sanity_check: return_json["sanity_check"] = sanity_check_maintanence
 
 
-        suffixes = [clustering_method]
+        suffixes = [clustering_method, equivalence_method]
         if maxequiv: suffixes.append('maxequiv')
         match maxequiv_merge:
             case 1: suffixes.append('unsafe_linear')
