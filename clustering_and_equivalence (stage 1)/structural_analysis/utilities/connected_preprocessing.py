@@ -38,13 +38,13 @@ def connected_preprocessing(circ: Circuit, return_mapping: bool = False) -> Circ
 
     dist_from_inputs = _distances_to_signal_set(circ.constraints, inputs, sig_to_coni)
     # now ignoring outputs not connected to any inputs
-    # dist_from_outputs = _distances_to_signal_set(circ.constraints, outputs, sig_to_coni)
+    dist_from_outputs = _distances_to_signal_set(circ.constraints, outputs, sig_to_coni)
 
     remapp = [None for _ in range(circ.nWires)]
     remapp[0] = 0
 
     curr = 1
-    for sig in sorted(dist_from_inputs.keys()): # .intersection(dist_from_outputs.keys())):
+    for sig in sorted(set(dist_from_inputs.keys()).union(dist_from_outputs.keys())):
         
         remapp[sig] = curr
         curr += 1
