@@ -19,7 +19,7 @@ SIGNAL_SECTION = 3
 def encode_int(x: int, size: int = INT_SIZE) -> bytes:
     return x.to_bytes(size, 'little', signed=True)
 
-def write_r1cs(circ: Circuit, outfile: str) -> None:
+def write_r1cs(circ: Circuit, outfile: str, sym: bool = False) -> None:
 
     # magic_value, version, n_section
     stream = [b"r1cs", encode_int(1), encode_int(2)]
@@ -30,6 +30,11 @@ def write_r1cs(circ: Circuit, outfile: str) -> None:
     file = open(outfile, "wb")
     deque(maxlen=0, iterable=map(file.write, stream))
     file.close()
+
+    if sym:
+        file = open(outfile[:outfile.index('.')] + ".sym", "w")
+        deque(maxlen=0, iterable=map(lambda n : file.write(f"{n},{n},0,main.name{n}\n"), range(1,circ.nWires)))
+        file.close()
 
 def write_header(circ: Circuit, stream: List[bytes]) -> None:
     section_type = encode_int(HEADER_SECTION)
