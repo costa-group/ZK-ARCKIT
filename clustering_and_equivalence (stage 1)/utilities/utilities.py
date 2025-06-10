@@ -243,7 +243,7 @@ def _distances_to_signal_set(cons: List[Constraint], source_set: Set[int], signa
             lambda sig : not checked.setdefault(sig, False),
             reduce(
                 lambda acc, x : acc.union(x),
-                map(lambda coni: getvars(cons[coni]), signal_to_conis[sig]),
+                map(lambda coni: getvars(cons[coni]), signal_to_conis.get(sig, [])),
                 set([])
             )
         )
