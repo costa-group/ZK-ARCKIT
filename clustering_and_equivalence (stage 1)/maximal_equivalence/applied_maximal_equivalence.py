@@ -16,7 +16,7 @@ from maximal_equivalence.subclassing.by_nonlinears import get_subclasses_by_nonl
 from maximal_equivalence.subclassing.by_size import get_subclasses_by_size
 from maximal_equivalence.subclassing.by_nonlinear_shortest_path import get_subclasses_by_nonlinear_shortest_path
 from structural_analysis.cluster_trees.dag_from_clusters import dag_from_partition, dag_to_nodes
-from structural_analysis.cluster_trees.full_equivalency_partitions import subcircuit_fingerprint_with_structural_augmentation_equivalency
+from structural_analysis.cluster_trees.full_equivalency_partitions import subcircuit_fingerprint_with_structural_augmentation_equivalency, subcircuit_fingerprinting_equivalency, subcircuit_fingerprinting_equivalency_and_structural_augmentation_equivalency
 from structural_analysis.cluster_trees.dag_postprocessing import merge_passthrough, merge_only_nonlinear, merge_single_linear, merge_unsafe_linear
 
 def pairwise_maximally_equivalent_classes(nodes: Dict[int, DAGNode], tol: float = 0.8, solver_timeout: int | None = None) -> List[List[DAGNode]]:
@@ -82,7 +82,8 @@ def maximally_equivalent_classes(
             exit_subclasses : bool = False,
             exit_max_classes : bool = False,
             return_json : bool = True,
-            postprocessing_merge: int = 0
+            postprocessing_merge: int = 0,
+            equivalence_method: str = 'structural'
         ) -> List[List[DAGNode]]:
     """
     Step 1: Split nodes into classes
@@ -129,7 +130,6 @@ def maximally_equivalent_classes(
         partition.extend(map(lambda id : nodes[id].constraints, equivalent[key]))
 
     # parts from nonlinear nodes now made equivalent
-    # TODO: some coni are appearing in two or more partitions
     for class_ in res:
         for node in class_:
             removed_coni = set(nodes[node.id].constraints).difference(node.constraints)
@@ -165,18 +165,48 @@ def maximally_equivalent_classes(
             nodes = merge_unsafe_linear(circ, nodes)
         case _: raise ValueError(f"Postprocessing merge value {postprocessing_merge} invalid. Should be in range(3)")
 
-    equivalency, mapping = subcircuit_fingerprint_with_structural_augmentation_equivalency(nodes)
+    match equivalence_method:
+
+            case "local":
+                equivalency = {}
+                mappings = {}
+                local_equivalency, local_mapping = subcircuit_fingerprinting_equivalency(nodes)
+                equivalency["local"] = local_equivalency
+                mappings["local"] = local_mapping
+
+
+            case "structural":
+                equivalency = {}
+                structural_equivalency, structural_mapping = subcircuit_fingerprint_with_structural_augmentation_equivalency(nodes)
+                equivalency["structural"] = structural_equivalency
+                mappings = {}
+                mappings["structural"] = structural_mapping
+            
+            case "total":
+                local_equiv, local_mapp, full_equiv, full_mapp = subcircuit_fingerprinting_equivalency_and_structural_augmentation_equivalency(nodes)
+
+                equivalency = {
+                    "local": local_equiv,
+                    "structural": full_equiv
+                }
+                mappings = {
+                    "local": local_mapp,
+                    "structural": full_mapp
+                }
+
+            case _ :
+                raise SyntaxError(f"{equivalence_method} is not a valid equivalence method")
 
     timing["conversion_to_dag"] = time.time() - last_time
     last_time = time.time()
 
-    if not return_json: return nodes, equivalency, mapping
+    if not return_json: return nodes, equivalency, mappings
     
     results = {
         "timing" : timing,
         "nodes" : list(map(lambda n : n.to_dict(), nodes.values())),
         "equivalency": equivalency,
-        "equiv_mappings": mapping
+        "equiv_mappings": mappings
     }
 
     return results

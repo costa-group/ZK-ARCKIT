@@ -267,7 +267,11 @@ def r1cs_cluster(
         last_time = time.time()
 
         if maxequiv:
-            nodes, equivalency, mappings = maximally_equivalent_classes(nodes, equivalency, mappings, tol = maxequiv_tol, solver_timeout=maxequiv_timeout, return_json=False, postprocessing_merge = maxequiv_merge)
+            nodes, equivalency, mappings = maximally_equivalent_classes(nodes, 
+                                                                        equivalency['structural'] if equivalence_method == 'structural' else equivalency['local'], 
+                                                                        mappings['structural'] if equivalence_method == 'structural' else mappings['local'], 
+                                                                        tol = maxequiv_tol, solver_timeout=maxequiv_timeout, return_json=False, 
+                                                                        postprocessing_merge = maxequiv_merge, equivalence_method=equivalence_method)
 
             timing["maxequiv"] = time.time() - last_time
             last_time = time.time()
