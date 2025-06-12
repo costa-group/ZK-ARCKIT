@@ -22,10 +22,11 @@ def encode_int(x: int, size: int = INT_SIZE) -> bytes:
 def write_r1cs(circ: Circuit, outfile: str, sym: bool = False) -> None:
 
     # magic_value, version, n_section
-    stream = [b"r1cs", encode_int(1), encode_int(2)]
+    stream = [b"r1cs", encode_int(1), encode_int(3)]
 
     write_header(circ, stream)
     write_constraints(circ, stream)
+    write_signals(circ, stream)
 
     file = open(outfile, "wb")
     deque(maxlen=0, iterable=map(file.write, stream))
@@ -70,8 +71,8 @@ def write_linear_expr(expr: Dict[int, int], stream: List[bytes]) -> None:
 
 def write_signals(circ: Circuit, stream: List[bytes]) -> None:
     stream.append(encode_int(SIGNAL_SECTION))
-    stream.append(encode_int(circ.nWires * 4))
-    stream.extend(map(encode_int, range(circ.nWires)))
+    stream.append(encode_int(circ.nWires * 8, size=LONGLONG_SIZE))
+    stream.extend(map(lambda x : encode_int(x, size=LONGLONG_SIZE), range(circ.nWires)))
 
 if __name__ == '__main__':
     "script to test writing"
