@@ -18,6 +18,7 @@ import json
 import subprocess
 from collections import deque
 import itertools
+import time
 
 from r1cs_scripts.write_r1cs import write_r1cs
 from structural_analysis.cluster_trees.dag_from_clusters import DAGNode
@@ -68,8 +69,11 @@ def verify_extending_downwards(
     write_r1cs(r1cs, "picus_emulator_temp.r1cs")
     output = subprocess.run([PICUS_DIR_LOCATION + "run-picus", "--timeout", str(timeout), "--solver", "z3", "--truncate", "off", "picus_emulator_temp.r1cs"], capture_output=True)
 
+    nrounds = 0
+
     while output.returncode != PICUS_PROVEN_CODE and len(working_node.successors) > 0:
         working_node = extend_dagnode(working_node, nodes, sig_to_coni, coni_to_node)
+        nrounds += 1
 
         r1cs = working_node.get_subcircuit()
         write_r1cs(r1cs, "picus_emulator_temp.r1cs")
@@ -77,7 +81,7 @@ def verify_extending_downwards(
 
     ## clean up and return
     subprocess.run(["rm", "picus_emulator_temp.r1cs"])
-    return output.returncode
+    return (output.returncode, nrounds)
 
 def verify_node(
         node: DAGNode, 
@@ -89,14 +93,18 @@ def verify_node(
 
     working_node = node
     
-    returncode = verify_extending_downwards(working_node, nodes, sig_to_coni, coni_to_node, timeout)
+    (returncode, downrounds) = verify_extending_downwards(working_node, nodes, sig_to_coni, coni_to_node, timeout)
+    uprounds = 0
 
     while returncode != PICUS_PROVEN_CODE and len(working_node.predecessors) > 0:
 
         working_node = extend_dagnode(working_node, nodes, sig_to_coni, coni_to_node, extendup=True)
-        returncode = verify_extending_downwards(working_node, nodes, sig_to_coni, coni_to_node, timeout)
+        uprounds += 1
 
-    return working_node
+        (returncode, more_downrounds) = verify_extending_downwards(working_node, nodes, sig_to_coni, coni_to_node, timeout)
+        downrounds += more_downrounds
+
+    return returncode, uprounds, downrounds
 
 def picus_civer_emulator(
         nodes: Dict[int, DAGNode], 
@@ -104,9 +112,10 @@ def picus_civer_emulator(
         equivalence_structural: List[List[int]] | None,
         timeout : int = 5000
         ) -> Dict[str, int]:
+    
     # TODO: handle not having one of the above
-    circ = next(iter(nodes.values())).circ
 
+    ## Preprocessing
     node_to_local_class = {}
     node_to_structural_class = {}
     coni_to_node = {}
@@ -114,8 +123,113 @@ def picus_civer_emulator(
     deque(maxlen = 0, iterable = itertools.starmap(lambda i, x : node_to_local_class.__setitem__(x, i), itertools.chain(*itertools.starmap(lambda i, class_ : itertools.product([i], class_), enumerate(equivalence_local)))))
     deque(maxlen = 0, iterable = itertools.starmap(lambda i, x : node_to_structural_class.__setitem__(x, i), itertools.chain(*itertools.starmap(lambda i, class_ : itertools.product([i], class_), enumerate(equivalence_structural)))))
     deque(maxlen = 0, iterable = itertools.starmap(lambda i, x : coni_to_node.__setitem__(x, i), itertools.chain(*itertools.starmap(lambda id, node : itertools.product([id], node.constraints), nodes.items()))))
+    sig_to_coni = _signal_data_from_cons_list(next(iter(nodes.values())).circ.constraints)
 
-    sig_to_coni = _signal_data_from_cons_list(circ.constraints)
+    ## Data to maintain
+    data = {
+        "Number of equivalence classes": len(equivalence_structural),
+        "Number of verified equivalence classes": 0,
+        "Number of local equivalence classes verified": 0,
+        "Total duration of l-verified equivalence classes": 0,
+        "Total number of l-verified nodes": 0,
+        "Maximum size of l-verified equivalence classes": 0,
+        "Maximum duration of l-verified equivalence classes": 0,
+        "Number of structural equivalence classes verified": 0,
+        "Total duration of s-verified equivalence classes": 0,
+        "Total number of s-verified nodes": 0,
+        "Maximum size of s-verified equivalence classes": 0,
+        "Maximum duration of s-verified equivalence classes": 0,
+        "Number of total nodes": len(nodes),
+        "Number of remaining nodes": 0,
+        "Number of verified nodes": 0,
+        "Mean duration of verified nodes": 0,
+        "Mean rounds of verified nodes": 0,
+        "Mean size of verified nodes": 0,
+        "Mean number of predecessors of verified nodes": 0,
+        "Maximum size of verified nodes": 0,
+        "Maximum duration of verified nodes": 0,
+        "Maximum number of children verified nodes": 0,
+        "Maximum number of predecessors of verified nodes": 0,
+        "Number of failed nodes": 0,
+        "Mean duration of failed nodes": 0,
+        "Mean rounds of failed nodes": 0,
+        "Mean size of failed nodes": 0,
+        "Mean number of predecessors of failed nodes": 0,
+        "Maximum size of failed nodes": 0,
+        "Maximum duration of failed nodes": 0,
+        "Maximum number of children failed nodes": 0,
+        "Maximum number of predecessors of failed nodes": 0,
+        "Number of unknown nodes": 0,
+        "Mean duration of unknown nodes": 0,
+        "Mean rounds of unknown nodes": 0,
+        "Mean size of unknown nodes": 0,
+        "Mean number of predecessors of unknown nodes": 0,
+        "Maximum size of unknown nodes": 0,
+        "Maximum duration of unknown nodes": 0,
+        "Maximum number of children unknown nodes": 0,
+        "Maximum number of predecessors of unknown nodes": 0,
+        "Number of verified nodes with parent": 0,
+        "Mean duration of verified with parent nodes": 0,
+        "Mean rounds of verified with parent nodes": 0,
+        "Mean size of verified with parent nodes": 0,
+        "Mean number of predecessors of verified with parent nodes": 0,
+        "Maximum size of verified with parent nodes": 0,
+        "Maximum duration of verified with parent nodes": 0,
+        "Maximum number of children verified with parent nodes": 0,
+        "Maximum number of predecessors of verified with parent nodes": 0
+    }
+
+    verified = {}
+    for id, node in nodes.items():
+        if verified.get(id, False): continue
+
+        start = time.time()
+        returncode, uprounds, downrounds = verify_node(node, nodes, sig_to_coni, coni_to_node, timeout)
+        time_taken = time.time() - start
+
+        if returncode == PICUS_PROVEN_CODE:
+            
+            if uprounds == 0 and downrounds == 0:
+                ## Locally Equivalent Proven
+                class_ = equivalence_local[node_to_local_class[id]]
+
+                for node_id in class_: verified[node_id] = True
+                data["Number of verified equivalence classes"] += 1
+                data["Number of verified nodes"] += len(class_)
+                data["Number of local equivalence classes verified"] += 1
+                data["Total number of l-verified nodes"] += len(class_)
+                data["Total duration of l-verified equivalence classes"] += time_taken
+                data["Maximum size of l-verified equivalence classes"] = max(len(class_), data["Maximum size of l-verified equivalence classes"])
+                data["Maximum duration of l-verified equivalence classes"] = max(time_taken, data["Maximum duration of l-verified equivalence classes"])
+            
+            elif uprounds == 0:
+                ## Structurally Equivalent Proven
+                class_ = equivalence_structural[node_to_structural_class[id]]
+
+                for node_id in class_: verified[node_id] = True
+                data["Number of verified equivalence classes"] += 1
+                data["Number of verified nodes"] += len(class_)
+                data["Number of structural equivalence classes verified"] += 1
+                data["Total number of s-verified nodes"] += len(class_)
+                data["Total duration of s-verified equivalence classes"] += time_taken
+                data["Maximum size of s-verified equivalence classes"] = max(len(class_), data["Maximum size of s-verified equivalence classes"])
+                data["Maximum duration of s-verified equivalence classes"] = max(time_taken, data["Maximum duration of s-verified equivalence classes"])
+            
+            else:
+                ## Just verified solo node:
+                data["Number of verified nodes"] += 1
+                data["Number of verified nodes with parent"] += 1
+                data["Maximum size of verified with parent nodes"] = max(len(node.constraints), data["Maximum size of verified with parent nodes"])
+                data["Maximum duration of verified with parent nodes"] = max(time_taken, data["Maximum duration of verified with parent nodes"])
+        
+        elif returncode == PICUS_UNKNOWN_CODE:
+            
+            data["Number of unknown nodes"] += 1
+            data["Maximum size of unknown nodes"] += max(len(node.constraints), data["Maximum size of unknown nodes"])
+            data["Maximum duration of unknown nodes"] = max(time_taken, data["Maximum duration of unknown nodes"])
+
+        else:
+            raise ValueError(f"Unknown returncode: {returncode}")
     
-    # nodeid = next(iter(nodes.keys()))
-    # verify_node(nodes[nodeid], nodes, sig_to_coni, coni_to_node, timeout)
+    return data
+
