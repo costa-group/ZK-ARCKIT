@@ -20,6 +20,8 @@ from collections import deque
 import itertools
 import time
 
+from r1cs_scripts.circuit_representation import Circuit
+from r1cs_scripts.read_r1cs import parse_r1cs
 from r1cs_scripts.write_r1cs import write_r1cs
 from structural_analysis.cluster_trees.dag_from_clusters import DAGNode
 from utilities.utilities import _signal_data_from_cons_list
@@ -273,3 +275,38 @@ def picus_civer_emulator(
 
     return data
 
+def picus_civer_manager(r1csfile: str, jsonfile: str, outfile: str) -> None:
+
+    fp = open(jsonfile, 'r')
+    clustering = json.load(fp)
+    fp.close()
+
+    circ = Circuit()
+    parse_r1cs(r1csfile, circ)
+
+    nodes = clustering["nodes"]
+
+    def to_dagnode(node):
+        dagnode = DAGNode(circ, node["node_id"], constraints=node["constraints"], input_signals=set(node["input_signals"]), output_signals=set(node["output_signals"]))
+        dagnode.successors = node["successors"]
+        dagnode.predecessors = []
+        return dagnode
+
+    dagnodes = list(map(to_dagnode, nodes))
+    dagnodes = {node.id : node for node in dagnodes}
+
+    for node in dagnodes.values():
+        for oid in node.successors:
+            dagnodes[oid].predecessors.append(node.id)
+
+    if "equivalency_local" not in clustering.keys() or "equivalency_structural" not in clustering.keys():
+        raise AssertionError("JSON must be a total clustering, try running clustering.py with the -e total flag")
+
+    equivalence_local = clustering["equivalency_local"]
+    equivalence_structural = clustering["equivalency_structural"]
+    data = picus_civer_emulator(dagnodes, equivalence_local, equivalence_structural)
+
+    fp = open(outfile, 'w')
+    json.dump(data, indent = 2)
+    fp.close()
+    
