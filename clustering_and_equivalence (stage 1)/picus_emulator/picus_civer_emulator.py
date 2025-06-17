@@ -104,7 +104,7 @@ def verify_node(
         (returncode, more_downrounds) = verify_extending_downwards(working_node, nodes, sig_to_coni, coni_to_node, timeout)
         downrounds += more_downrounds
 
-    return returncode, uprounds, downrounds
+    return working_node, returncode, uprounds, downrounds
 
 def picus_civer_emulator(
         nodes: Dict[int, DAGNode], 
@@ -120,12 +120,17 @@ def picus_civer_emulator(
     node_to_structural_class = {}
     coni_to_node = {}
 
-    deque(maxlen = 0, iterable = itertools.starmap(lambda i, x : node_to_local_class.__setitem__(x, i), itertools.chain(*itertools.starmap(lambda i, class_ : itertools.product([i], class_), enumerate(equivalence_local)))))
-    deque(maxlen = 0, iterable = itertools.starmap(lambda i, x : node_to_structural_class.__setitem__(x, i), itertools.chain(*itertools.starmap(lambda i, class_ : itertools.product([i], class_), enumerate(equivalence_structural)))))
-    deque(maxlen = 0, iterable = itertools.starmap(lambda i, x : coni_to_node.__setitem__(x, i), itertools.chain(*itertools.starmap(lambda id, node : itertools.product([id], node.constraints), nodes.items()))))
+    deque(maxlen = 0, iterable = itertools.starmap(lambda i, x : node_to_local_class.__setitem__(x, i)     , itertools.chain.from_iterable(itertools.starmap(lambda i, class_ : itertools.product([i], class_), enumerate(equivalence_local)))))
+    deque(maxlen = 0, iterable = itertools.starmap(lambda i, x : node_to_structural_class.__setitem__(x, i), itertools.chain.from_iterable(itertools.starmap(lambda i, class_ : itertools.product([i], class_), enumerate(equivalence_structural)))))
+    deque(maxlen = 0, iterable = itertools.starmap(lambda i, x : coni_to_node.__setitem__(x, i)            , itertools.chain.from_iterable(itertools.starmap(lambda id, node  : itertools.product([id], node.constraints), nodes.items()))))
     sig_to_coni = _signal_data_from_cons_list(next(iter(nodes.values())).circ.constraints)
 
     ## Data to maintain
+    aux_data = {
+        type_: {"total_duration": 0, "total_child_depth": 0, "total_size": 0, "total_parent_depth": 0}
+        for type_ in ["verified", "failed", "unknown", "verified with parent"]
+    }
+
     data = {
         "Number of equivalence classes": len(equivalence_structural),
         "Number of verified equivalence classes": 0,
@@ -145,11 +150,11 @@ def picus_civer_emulator(
         "Mean duration of verified nodes": 0,
         "Mean rounds of verified nodes": 0,
         "Mean size of verified nodes": 0,
-        "Mean number of predecessors of verified nodes": 0,
+        "Mean number of predecessors of verified nodes": 0, # Given we're keeping them disjoint isn't this always 0?
         "Maximum size of verified nodes": 0,
         "Maximum duration of verified nodes": 0,
         "Maximum number of children verified nodes": 0,
-        "Maximum number of predecessors of verified nodes": 0,
+        "Maximum number of predecessors of verified nodes": 0, # Given we're keeping them disjoint isn't this always 0?
         "Number of failed nodes": 0,
         "Mean duration of failed nodes": 0,
         "Mean rounds of failed nodes": 0,
@@ -184,7 +189,7 @@ def picus_civer_emulator(
         if verified.get(id, False): continue
 
         start = time.time()
-        returncode, uprounds, downrounds = verify_node(node, nodes, sig_to_coni, coni_to_node, timeout)
+        working_node, returncode, uprounds, downrounds = verify_node(node, nodes, sig_to_coni, coni_to_node, timeout)
         time_taken = time.time() - start
 
         if returncode == PICUS_PROVEN_CODE:
@@ -202,6 +207,11 @@ def picus_civer_emulator(
                 data["Maximum size of l-verified equivalence classes"] = max(len(class_), data["Maximum size of l-verified equivalence classes"])
                 data["Maximum duration of l-verified equivalence classes"] = max(time_taken, data["Maximum duration of l-verified equivalence classes"])
             
+                data["Maximum size of verified nodes"] = max(len(working_node.constraints), data["Maximum size of verified nodes"])
+
+                aux_data["verified"]["total_duration"] += time_taken * len(class_)
+                aux_data["verified"]["total_size"] += len(working_node.constraints) * len(class_)
+
             elif uprounds == 0:
                 ## Structurally Equivalent Proven
                 class_ = equivalence_structural[node_to_structural_class[id]]
@@ -214,22 +224,52 @@ def picus_civer_emulator(
                 data["Total duration of s-verified equivalence classes"] += time_taken
                 data["Maximum size of s-verified equivalence classes"] = max(len(class_), data["Maximum size of s-verified equivalence classes"])
                 data["Maximum duration of s-verified equivalence classes"] = max(time_taken, data["Maximum duration of s-verified equivalence classes"])
+                
+                data["Maximum size of verified nodes"] = max(len(working_node.constraints), data["Maximum size of verified nodes"])
+                data["Maximum number of children verified nodes"] = max(downrounds, data["Maximum number of children verified nodes"])
+
+                aux_data["verified"]["total_duration"] += time_taken * len(class_)
+                aux_data["verified"]["total_child_depth"] += downrounds * len(class_)
+                aux_data["verified"]["total_size"] += len(working_node.constraints) * len(class_)
             
             else:
                 ## Just verified solo node:
-                data["Number of verified nodes"] += 1
+                
+                # data["Number of verified nodes"] += 1
                 data["Number of verified nodes with parent"] += 1
-                data["Maximum size of verified with parent nodes"] = max(len(node.constraints), data["Maximum size of verified with parent nodes"])
+                data["Maximum size of verified with parent nodes"] = max(len(working_node.constraints), data["Maximum size of verified with parent nodes"])
                 data["Maximum duration of verified with parent nodes"] = max(time_taken, data["Maximum duration of verified with parent nodes"])
+                data["Maximum number of children verified with parent nodes"] = max(downrounds, data["Maximum number of children verified with parent nodes"])
+                data["Maximum number of predecessors of verified with parent nodes"] = max(uprounds, data["Maximum number of predecessors of verified with parent nodes"])
+
+                aux_data["verified_with_parent"]["total_duration"] += time_taken * len(class_)
+                aux_data["verified_with_parent"]["total_child_depth"] += downrounds * len(class_)
+                aux_data["verified_with_parent"]["total_parent_depth"] += uprounds * len(class_)
+                aux_data["verified_with_parent"]["total_size"] += len(working_node.constraints) * len(class_)
         
         elif returncode == PICUS_UNKNOWN_CODE:
             
             data["Number of unknown nodes"] += 1
-            data["Maximum size of unknown nodes"] += max(len(node.constraints), data["Maximum size of unknown nodes"])
+            data["Maximum size of unknown nodes"] += max(len(working_node.constraints), data["Maximum size of unknown nodes"])
             data["Maximum duration of unknown nodes"] = max(time_taken, data["Maximum duration of unknown nodes"])
+
+            data["Maximum number of children unknown nodes"] = max(downrounds, data["Maximum number of children unknown nodes"])
+            data["Maximum number of predecessors of unknown nodes"] = max(uprounds, data["Maximum number of predecessors of unknown nodes"])
+
+            aux_data["unknown"]["total_duration"] += time_taken * len(class_)
+            aux_data["unknown"]["total_child_depth"] += downrounds * len(class_)
+            aux_data["unknown"]["total_parent_depth"] += uprounds * len(class_)
+            aux_data["unknown"]["total_size"] += len(working_node.constraints) * len(class_)
 
         else:
             raise ValueError(f"Unknown returncode: {returncode}")
     
+    means = ["Mean duration of verified nodes", "Mean rounds of verified nodes", "Mean number of predecessors of verified nodes", "Mean size of verified nodes"]
+    totals = itertools.product(["verified", "unknown", "failed", "verified_with_parent"], ["total_duration", "total_child_depth", "total_parent_depth", "total_size"])
+    divisors = itertools.chain.from_iterable(map( lambda x : itertools.repeat(x, 4), ["Number of verified nodes", "Number of unknown nodes", "Number of verified nodes with parent", "Number of failed nodes"]))
+
+    for lkey, (tkey, rkey), divisor in zip(means, totals, divisors):
+        data[lkey] = None if data[divisor] == 0 else aux_data[tkey][rkey] / data[divisor]
+
     return data
 
