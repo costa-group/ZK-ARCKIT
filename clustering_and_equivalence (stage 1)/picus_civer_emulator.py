@@ -307,6 +307,13 @@ def picus_civer_manager(r1csfile: str, jsonfile: str, outfile: str) -> None:
     data = picus_civer_emulator(dagnodes, equivalence_local, equivalence_structural)
 
     fp = open(outfile, 'w')
-    json.dump(data, indent = 2)
+    json.dump(data, fp, indent = 2)
     fp.close()
     
+if __name__ == '__main__':
+    import sys
+
+    if len(sys.argv) != 4:
+        raise SyntaxError("Callstyle is: python3 picus_civer_emulator.py <r1csfile> <jsonfile> <outfile>")
+    
+    picus_civer_manager(*sys.argv[1:])
