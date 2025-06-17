@@ -40,18 +40,18 @@ def extend_dagnode(node: DAGNode, nodes: Dict[int, DAGNode], sig_to_coni: List[L
     init_output_signals = set(node.output_signals) if extendup else set([])
 
     newnode = DAGNode(node.circ, node.id, node.constraints.copy(), init_input_signals, init_output_signals)
-    newnode.constraints.extend(itertools.chain(*map(lambda id: nodes[id].constraints, node.successors)))
-    newnode.predecessors = list(set(itertools.chain(init_predecessors, *map(lambda id: nodes[id].predecessors, to_extend))).difference([node.id] + to_extend))
-    newnode.successors = list(set(itertools.chain(init_successors, *map(lambda id: nodes[id].successors, to_extend))).difference([node.id] + to_extend))
+    newnode.constraints.extend(itertools.chain.from_iterable(map(lambda id: nodes[id].constraints, node.successors)))
+    newnode.predecessors = list(set(itertools.chain.from_iterable([init_predecessors, itertools.chain.from_iterable(map(lambda id: nodes[id].predecessors, to_extend))])).difference(itertools.chain([node.id], to_extend)))
+    newnode.successors = list(set(itertools.chain.from_iterable([init_successors, itertools.chain.from_iterable(map(lambda id: nodes[id].successors, to_extend))])).difference(itertools.chain([node.id], to_extend)))
     
     circ = newnode.circ
     newnode.input_signals.update(filter(
         lambda sig : circ.nPubOut < sig <= circ.nPubOut + circ.nPrvIn + circ.nPubIn or any(map(lambda coni : coni_to_node[coni] in newnode.predecessors, sig_to_coni[sig])),
-        itertools.chain(*map(lambda id: nodes[id].input_signals, to_extend))
+        itertools.chain.from_iterable(map(lambda id: nodes[id].input_signals, to_extend))
     ))
     newnode.output_signals.update(filter(
         lambda sig : 0 < sig <= circ.nPubOut or any(map(lambda coni : coni_to_node[coni] in newnode.successors, sig_to_coni[sig])),
-        itertools.chain(*map(lambda id: nodes[id].output_signals, to_extend)
+        itertools.chain.from_iterable(map(lambda id: nodes[id].output_signals, to_extend)
     )))
 
     return newnode
