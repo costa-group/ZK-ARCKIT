@@ -4,7 +4,6 @@ Fixes compiler bug where some circuits aren't a single connected component
 
 """
 from typing import List, Tuple
-from utilities.utilities import getvars
 import itertools
 
 from circuits_and_constraints.abstract_circuit import Circuit
@@ -73,7 +72,7 @@ def componentwise_preprocessing(circ: Circuit) -> Tuple[List[Circuit], List[Tupl
     """
 
     signal_to_conis = _signal_data_from_cons_list(circ.constraints)
-    signals = set(range(1,circ.nWires))
+    signals = set(circ.get_signals)
 
     signals_by_component = []
 

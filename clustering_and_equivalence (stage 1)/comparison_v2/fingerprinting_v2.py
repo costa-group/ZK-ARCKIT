@@ -10,7 +10,7 @@ from circuits_and_constraints.abstract_circuit import Circuit
 from circuits_and_constraints.abstract_constraint import Constraint
 
 from utilities.assignment import Assignment
-from utilities.utilities import getvars, count_ints
+from utilities.utilities import count_ints
 
 def _key_is_unique(key, name, names, label_to_indices, strict: bool) -> bool:
     if strict:

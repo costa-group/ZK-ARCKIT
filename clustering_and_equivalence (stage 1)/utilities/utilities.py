@@ -2,19 +2,12 @@
 Set of utility function used throughout the entire codebase
 """
 
-from r1cs_scripts.constraint import Constraint
+from circuits_and_constraints.abstract_constraint import Constraint
 from typing import Iterable, Dict, List, Set, Tuple
 from itertools import chain
 from functools import reduce
 from collections import deque
 import heapq
-
-def _is_nonlinear(con: Constraint) -> bool:
-        return len(con.A) > 0 and len(con.B) > 0
-
-def getvars(con: Constraint) -> Set[int]:
-    """For a given constraint, returns the set of non-constant signals that appear in it"""
-    return set(filter(lambda x : x != 0, chain(con.A.keys(), con.B.keys(), con.C.keys())))
 
 def count_ints(lints : Iterable[int]) -> List[Tuple[int, int]]:
     """
@@ -35,7 +28,7 @@ def _signal_data_from_cons_list(cons: List[Constraint], names: List[int] = None,
     if signal_to_cons is None: signal_to_cons = {}
 
     for i, con in zip(names if names is not None else range(len(cons)), cons):
-        for signal in getvars(con):
+        for signal in con.signals():
             if is_dict:
                 signal_to_cons.setdefault(signal, []).append(i)
             else:
@@ -243,7 +236,7 @@ def _distances_to_signal_set(cons: List[Constraint], source_set: Set[int], signa
             lambda sig : not checked.setdefault(sig, False),
             reduce(
                 lambda acc, x : acc.union(x),
-                map(lambda coni: getvars(cons[coni]), signal_to_conis.get(sig, [])),
+                map(lambda coni: cons[coni].signals(), signal_to_conis.get(sig, [])),
                 set([])
             )
         )
@@ -252,9 +245,6 @@ def _distances_to_signal_set(cons: List[Constraint], source_set: Set[int], signa
             checked[adj] = True
             distances[adj] = distances[sig] + 1
             queue.append(adj)
-    
-    # if len(reduce(lambda acc, x : acc.union(getvars(x)), cons, set([])).difference(checked.keys())) > 0:
-    #     raise AssertionError(f"Constrants do not form a single connected component")
 
     return distances
 

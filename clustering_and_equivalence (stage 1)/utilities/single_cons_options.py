@@ -4,13 +4,8 @@ Functions for comparing two normalised constraints
 
 """
 
-from functools import reduce
-from itertools import chain, starmap, product
-from typing import Dict, List, Tuple, Set
-
-from circuits_and_constraints.r1cs.r1cs_constraint import R1CSConstraint
-from utilities.assignment import Assignment
-from utilities.utilities import getvars
+from itertools import product
+from typing import Dict, List, Tuple
 
 def _compare_norms_with_unordered_parts(dicts: List[List[Dict[int, int]]], allkeys: List[List[int]]) -> Tuple[List[List[Dict[int, List[int]]]], List[Dict[int, List[int]]]]:
     """
@@ -113,94 +108,3 @@ def _compare_norms_with_ordered_parts(dicts: List[List[Dict[int, int]]], _) -> T
             app[i].setdefault(key, []).append(j)
 
     return app, inv
-
-
-def signal_options(in_pair: List[Tuple[str, R1CSConstraint]], mapp: Assignment,
-                   unordered_parts: bool, signal_bijection: Dict[str, Dict[int, List[int]]] | None = None) -> dict:
-    """
-    Given an assumed equivalence between normalised constraints returns signal information. 
-
-    As part of encoding an equivalence class we need a comparison between two normalised constraints to be viable (i.e. have a
-    bijection between signals that have the same value in the same parts). This function constructs the signals equivalences that 
-    are then the clauses that enfore the relevant signal equivalences.
-
-    The final return is a dictionary that for each constraint name and each signal in the constraint a list of signals (in the other
-    constraint) that can be mapped to. To computational redudancy, once the assignment keys are generated and checked the values are
-    stored as the keys.
-
-    Parameters
-    -----------
-        in_pair: List[Tuple[str, Constraint]]
-            The input normalised constraints that are assumed to be equivalent. The in_pair names must be the circuit names.
-        mapp: Assignmentt
-            The current complete signal assignment class
-        unordered_parts: Bool
-            A flag for whether the normalised constraint have unordered parts. This could be checked in function but this is redudant work.
-        signal_bijection: Dict[str, Dict[int, List[int]]] | None
-            A mapping for each circuit, and signal to the list of signal pair keys that are still viable. May be None
-    
-    Returns
-    ----------
-    Dict[str, Dict[int, List[int]]]
-        A mapping for each circuit name, and each signal to the List of signal pair keys that are forced by the normalisation. e.g. if 
-        options[name][sig] = [sig1, sig2] then assuming the equivalence sig is equivalent to exactly one of sig1 sig2. If any list is 
-        empty then there the equivalence is nonviable.
-    """
-
-    ## Assume input constraints are in a comparable canonical form
-    #   canonical form is normalised w.t. to normalisation.py
-    #   thus we cannot assume that A*B are the same, specifically if A, B have the same ordered parts they are different
- 
-    # iterator for dicts in a constraint
-    norms = list(starmap(lambda _, norm : norm, in_pair))
-
-    dicts = list(map(lambda norm : [norm.A, norm.B, norm.C], norms))
-    allkeys = list(map(getvars, norms))
-
-    app, inv = (_compare_norms_with_ordered_parts if not unordered_parts else _compare_norms_with_unordered_parts)(dicts, allkeys)
-
-    for j in range(3):
-        if len( set(inv[0][j].keys()).symmetric_difference(inv[1][j].keys()) ) != 0:
-            # These are not equivalent constraints, hence the option is inviable
-
-            return {
-                name: {signal: set([]) for signal in allkeys[i]}
-                for i, name in enumerate(["S1", "S2"])
-            }
-
-    options = {
-        name: {}
-        for name, _ in in_pair
-    }
-
-    def _get_values_for_key(i, j, key) -> int | Tuple[int, int]:
-        if not unordered_parts or j == 2: return dicts[i][j][key]
-        if j == 0: return tuple(sorted(map(lambda j : dicts[i][j][key], range(2))))
-        return next(iter([dicts[i][j][key] for j in range(2) if key in dicts[i][j].keys()]))
-
-    for i, (name, _) in enumerate(in_pair):
-        for key in allkeys[i]:
-
-            # ensures consistency amongst potential pairs
-            oset = reduce(
-                lambda x, y : x.intersection(y),
-                [ inv[1-i][j][_get_values_for_key(i, j, key)] for j in app[i][key] ], 
-                allkeys[1-i]
-            )
-
-            oset = set(filter(
-                lambda osig : signal_bijection is None or 
-                    osig not in signal_bijection[in_pair[1-i][0]].keys() or 
-                    key in map(lambda ass : mapp.get_inv_assignment(ass)[i], signal_bijection[in_pair[1-i][0]][osig]),
-                oset
-            ))
-
-            if signal_bijection is not None and key in signal_bijection[name].keys():
-                oset.intersection_update(map(lambda ass : mapp.get_inv_assignment(ass)[1-i], signal_bijection[name][key]))
-
-            options[name][key] = set(map(
-                lambda pair : mapp.get_assignment(*((key, pair) if i == 0 else (pair, key))),
-                oset
-            ))
-   
-    return options
