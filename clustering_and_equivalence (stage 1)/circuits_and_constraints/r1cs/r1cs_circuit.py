@@ -10,35 +10,30 @@ from utilities.assignment import Assignment
 from utilities.single_cons_options import _compare_norms_with_ordered_parts, _compare_norms_with_unordered_parts
 
 class R1CSCircuit(Circuit):
+
     def __init__(self):
-        self.constraints = []
-        self.normalised_constraints = []
-        self.normi_to_coni = []
+        self._constraints = []
+        self._normalised_constraints = []
+        self._normi_to_coni = []
 
         self.field_size = None
         self.prime_number = None
-        self.nWires = None
+        self._nWires = None
         self.nPubOut = None
         self.nPubIn = None
         self.nPrvIn = None
         self.nLabels = None
-        self.nConstraints = None
-
-        self.nOutputs = None
-        self.nInputs = None
+        self._nConstraints = None
     
     def update_header(self, field_size, prime_number, nWires, nPubOut, nPubIn, nPrvIn, nLabels, nConstraints):
         self.field_size = field_size
         self.prime_number = prime_number
-        self.nWires = nWires
+        self._nWires = nWires
         self.nPubOut = nPubOut
         self.nPubIn = nPubIn
         self.nPrvIn = nPrvIn
         self.nLabels = nLabels
-        self.nConstraints = nConstraints
-
-        self.nOutputs = nPubOut
-        self.nInputs = nPubIn + nPrvIn
+        self._nConstraints = nConstraints
 
     def add_constraint(self, con: R1CSConstraint) -> None:
         self.constraints.append(con)
@@ -214,6 +209,34 @@ class R1CSCircuit(Circuit):
                 )))
         
         return clauses
+
+    @property
+    def nConstraints(self) -> int:
+        return self._nConstraints
+
+    @property
+    def nWires(self) -> int:
+        return self._nWires
+
+    @property
+    def constraints(self) -> List[R1CSConstraint]:
+        return self._constraints
+    
+    @property
+    def normalised_constraints(self) -> List[R1CSConstraint]:
+        return self._normalised_constraints
+    
+    @property
+    def normi_to_coni(self) -> List[int]:
+        return self._normi_to_coni
+
+    @property
+    def nInputs(self) -> int:
+        return self.nPrvIn + self.nPubIn
+
+    @property
+    def nOutputs(self) -> int:
+        return self.nPubOut
 
     
     
