@@ -6,11 +6,8 @@ Created on Thu Mar 18 10:21:14 2021
 @author: clara
 """
 import struct
-from r1cs_scripts.circuit_representation import Circuit
-from r1cs_scripts.constraint import Constraint
+from circuits_and_constraints.r1cs.r1cs_constraint import R1CSConstraint
         
-    
-
 def parse_header(content, info):
     field_size = struct.unpack('<i', content[0:4])[0]
     prime_number = 0
@@ -50,7 +47,7 @@ def parse_constraint(content, info, init_pos):
     const_b, init_pos = parse_linear_expression(content, info, init_pos)
     const_c, init_pos = parse_linear_expression(content, info, init_pos)
     
-    info.add_constraint(Constraint(const_a, const_b, const_c, info.prime_number))
+    info.add_constraint(R1CSConstraint(const_a, const_b, const_c, info.prime_number))
     return init_pos
 
     

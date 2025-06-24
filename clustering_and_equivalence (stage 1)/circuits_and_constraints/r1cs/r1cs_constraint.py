@@ -7,9 +7,9 @@ from r1cs_scripts.modular_operations import multiplyP, divideP
 
 class R1CSConstraint(Constraint):
     def __init__(self, A, B, C, p):
-        self.A = A,
-        self.B = B,
-        self.C = C,
+        self.A = A
+        self.B = B
+        self.C = C
         self.p = p
     
     def is_nonlinear(self) -> bool:
