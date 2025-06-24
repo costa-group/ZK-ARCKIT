@@ -112,3 +112,6 @@ class R1CSConstraint(Constraint):
                         tuple(sorted(map(lambda sig : (_get_signal_fingerprint(sig), self.C[sig]), self.C.keys()))))
 
         return fingerprint
+
+    def __repr__(self):
+        return f"R1CSConstraint(A: {self.A}, B: {self.B}, C: {self.C})"
