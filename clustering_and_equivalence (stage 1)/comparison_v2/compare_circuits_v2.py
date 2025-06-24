@@ -84,20 +84,12 @@ def circuit_equivalence(
         assumptions = set([])
         formula = CNF()
 
+        S1.normalise_constraints()
+        S2.normalise_constraints()
+
         # the norms for each constraint
-        normalised_constraints = { name : [] for name in names}
-        normi_to_coni = {name : [] for name in names}
-
-        def _normalised_constraint_building_step(name, con: Tuple[int, Constraint]):
-            coni, cons = con
-            norms = cons.normalise()
-            normalised_constraints[name].extend(norms)
-            normi_to_coni[name].extend(coni for _ in range(len(norms)))
-
-        deque(
-            maxlen=0,
-            iterable = itertools.starmap(_normalised_constraint_building_step, itertools.chain.from_iterable(itertools.starmap(lambda name, circ : itertools.product([name], enumerate(circ.constraints)), in_pair)))
-        )
+        normalised_constraints = { name : circ.normalised_constraints for name, circ in in_pair}
+        normi_to_coni = {name : circ.normi_to_coni for name, circ in in_pair}
 
         signal_to_normi = {name: _signal_data_from_cons_list(normalised_constraints[name]) for name in names}
 

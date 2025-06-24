@@ -1,27 +1,40 @@
 from abc import ABC, abstractmethod
-from typing import Iterable
+from typing import Iterable, Hashable, Tuple, List
+import warnings
+from collections import deque
+import itertools
+
+from circuits_and_constraints.abstract_constraint import Constraint
 
 class Circuit(ABC):
 
     @property
     @abstractmethod
-    def nConstraints(self): pass
+    def nConstraints(self) -> int: pass
 
     @property
     @abstractmethod
-    def nWires(self): pass
+    def nWires(self) -> int: pass
 
     @property
     @abstractmethod
-    def constraints(self): pass
+    def constraints(self) -> List[Constraint]: pass
 
     @property
     @abstractmethod
-    def nInputs(self): pass
+    def normalised_constraints(self) -> List[Constraint]: pass
+    
+    @property
+    @abstractmethod
+    def normi_to_coni(self) -> List[int]: pass
 
     @property
     @abstractmethod
-    def nOutputs(self): pass
+    def nInputs(self) -> int: pass
+
+    @property
+    @abstractmethod
+    def nOutputs(self) -> int: pass
 
     @abstractmethod
     def signal_is_input(self, signal: int) -> bool: pass
@@ -40,3 +53,23 @@ class Circuit(ABC):
 
     @abstractmethod
     def parse_file(self, file: str) -> None: pass
+
+    @abstractmethod
+    def fingerprint_signal(self, signal: int) -> Hashable: pass
+
+    def normalise_constraints(self) -> None:
+
+        if len(self.normalised_constraints) != 0: 
+            warnings.warn("Attempting to normalised already normalised constraints")
+        else:
+
+            def _normalised_constraint_building_step(name, con: Tuple[int, Constraint]):
+                coni, cons = con
+                norms = cons.normalise()
+                self.normalised_constraints.extend(norms)
+                self.normi_to_coni.extend(coni for _ in range(len(norms)))
+
+            deque(
+                maxlen=0,
+                iterable = itertools.starmap(_normalised_constraint_building_step, itertools.chain.from_iterable(itertools.starmap(lambda name, circ : itertools.product([name], enumerate(circ.constraints)), in_pair)))
+            )
