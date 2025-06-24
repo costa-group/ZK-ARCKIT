@@ -164,7 +164,7 @@ def encode_single_norm_class(
 
         for normj in class_[names[1]]:
 
-            ij_clauses = in_pair[0][1].encode_single_norm_pair(names, [in_pair[0][1].normalised_constraints[normi], in_pair[0][1].normalised_constraints[normj]], 
+            ij_clauses = in_pair[0][1].encode_single_norm_pair(names, [in_pair[0][1].normalised_constraints[normi], in_pair[1][1].normalised_constraints[normj]], 
                                         is_ordered, signal_pair_encoder, signal_to_fingerprint, fingerprint_to_signals)
 
             if len(ij_clauses) == 0: continue
@@ -175,7 +175,7 @@ def encode_single_norm_class(
             formula.extend(map(lambda clause: clause + [-sat_variable] , ij_clauses))
     
         if len(normi_options) == 0 and not weighted_cnf:
-            raise AssertionError(f"norm {normi} cannot be mapped to")
+            raise AssertionError(f"Norm {normi} in left circuit cannot be mapped")
         
         if len(normi_options) > 0:
             formula.append(normi_options, *([1] if weighted_cnf else []))
