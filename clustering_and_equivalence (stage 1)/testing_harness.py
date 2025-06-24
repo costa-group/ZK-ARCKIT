@@ -6,9 +6,9 @@ import signal # NOTE: use of signal as a timeout handler requires unix
 from contextlib import contextmanager
 from typing import Dict
 
-from r1cs_scripts.circuit_representation import Circuit
+from circuits_and_constraints.abstract_circuit import Circuit
 
-from circuit_shuffle import get_circuits
+from circuit_shuffle import get_r1cs_circuits
 from comparison_v2.compare_circuits_v2 import circuit_equivalence
 
 class TimeoutException(Exception): pass
@@ -50,7 +50,7 @@ def exception_catcher(
     return test_data
     
 
-def run_affirmative_test(
+def run_r1cs_affirmative_test(
         filename: str,
         out_filename: str,
         seed: int,
@@ -59,7 +59,7 @@ def run_affirmative_test(
         **kwargs
     ):
 
-    in_pair = get_circuits(filename, seed = seed, 
+    in_pair = get_r1cs_circuits(filename, seed = seed, 
         const_factor=True, shuffle_sig=True, shuffle_const=True)
 
     test_data = {
@@ -75,6 +75,7 @@ def run_affirmative_test(
         **kwargs
     )
 
+    if out_filename is None: return test_data
     # TODO: check result?
 
     f = open(out_filename, "w")
@@ -82,8 +83,6 @@ def run_affirmative_test(
     f.close()
 
 ## current best imports
-
-from r1cs_scripts.read_r1cs import parse_r1cs
 
 def quick_compare(
     lpair: Tuple[str, Circuit],
@@ -114,8 +113,8 @@ def run_current_best_test(
 
     circ, circs = Circuit(), Circuit()
 
-    parse_r1cs(lfilename, circ)
-    parse_r1cs(rfilename, circs)
+    circ.parse_file(lfilename)
+    circs.parse_file(rfilename)
 
     in_pair = [("S1", circ), ("S2", circs)]
 
