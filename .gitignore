@@ -9,6 +9,12 @@
 !clustering_and_equivalence\ \(stage\ 1\)/r1cs_scripts
 !clustering_and_equivalence\ \(stage\ 1\)/r1cs_scripts/*.py
 
+!clustering_and_equivalence\ \(stage\ 1\)/circuits_and_constraints
+!clustering_and_equivalence\ \(stage\ 1\)/circuits_and_constraints/*.py
+
+!clustering_and_equivalence\ \(stage\ 1\)/circuits_and_constraints/r1cs
+!clustering_and_equivalence\ \(stage\ 1\)/circuits_and_constraints/r1cs/*.py
+
 !clustering_and_equivalence\ \(stage\ 1\)/utilities
 !clustering_and_equivalence\ \(stage\ 1\)/utilities/*.py
 
