@@ -14,3 +14,6 @@ class Constraint(ABC):
 
     @abstractmethod
     def fingerprint(self, signal_to_fingerprint: List[int]) -> Hashable: pass
+
+    @abstractmethod
+    def is_nonlinear(self) -> bool: pass
