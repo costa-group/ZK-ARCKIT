@@ -90,40 +90,16 @@ def componentwise_preprocessing(circ: Circuit) -> Tuple[List[Circuit], List[Tupl
     sigmapp = [None for _ in range(circ.nWires)]
     sigmapp[0] = (0, 0) # signal 0 is special case
 
-    pubOuts = range(1, 1+circ.nPubOut)
-    pubInts = range(1+circ.nPubOut, 1+circ.nPubOut+circ.nPubIn)
-    prvInts = range(1+circ.nPubOut+circ.nPubIn, 1+circ.nPubOut+circ.nPubIn+circ.nPrvIn)
-
     for i, signals in enumerate(signals_by_component):
 
-        if all(map(lambda sig : sig > circ.nPubOut + circ.nPubIn + circ.nPrvIn , signals)):
+        if all(map(lambda sig : not circ.signal_is_input(sig) and not circ.signal_is_output(sig), signals)):
             continue
         
-        next_circuit = Circuit()
-
         for cnt, sig in enumerate(signals): sigmapp[sig] = (i, cnt + 1)
+        constraints = list(set(itertools.chain(*map(signal_to_conis.__getitem__, signals))))
+        for cnt, coni in enumerate(constraints): conmapp[coni] = (i, cnt)
 
-        constraints = set(itertools.chain(*map(signal_to_conis.__getitem__, signals)))
-
-        for coni in constraints:
-            conmapp[coni] = (i, len(next_circuit.constraints))
-            next_circuit.constraints.append(Constraint(
-                *[
-                    { sigmapp[key][1] : val for key, val in dic.items()}
-                    for dic in [ circ.constraints[coni].A, circ.constraints[coni].B, circ.constraints[coni].C ]
-                ],
-                circ.prime_number
-            ))
-
-        in_next_circuit = lambda sig : sigmapp[sig] is not None and sigmapp[sig][0] == i
-
-        next_circuit.update_header( circ.field_size, circ.prime_number, len(signals) + 1,
-            nPubOut=len(list(filter(in_next_circuit, pubOuts))),
-            nPubIn=len(list(filter(in_next_circuit, pubInts))),
-            nPrvIn=len(list(filter(in_next_circuit, prvInts))),
-            nLabels=None, # ??
-            nConstraints=len(next_circuit.constraints)
-        )
+        next_circuit = circ.take_subcircuit(constraints, [sigmapp[sig][1] if sig in signals else None for sig in range(circ.nWires)])
         circuits.append(next_circuit)
 
     return circuits, sigmapp, conmapp
