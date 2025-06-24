@@ -4,10 +4,10 @@ from typing import List
 
 import r1cs_scripts.read_r1cs
 
-from r1cs_scripts.circuit_representation import Circuit
+from circuits_and_constraints.r1cs.r1cs_circuit import R1CSCircuit
 from r1cs_scripts.modular_operations import multiplyP
 
-def shuffle_signals(circ: Circuit, seed = None) -> List[int]:
+def shuffle_signals(circ: R1CSCircuit, seed = None) -> List[int]:
     # modifies circ shuffling the signal labels in the circuit
 
     RNG = np.random.default_rng(seed)
@@ -28,7 +28,7 @@ def shuffle_signals(circ: Circuit, seed = None) -> List[int]:
     
     return mapping
 
-def shuffle_constraints(circ: Circuit, seed = None) -> None:
+def shuffle_constraints(circ: R1CSCircuit, seed = None) -> None:
     
     RNG = np.random.default_rng(seed)
     mapping = list(range(0,circ.nConstraints))
@@ -37,11 +37,11 @@ def shuffle_constraints(circ: Circuit, seed = None) -> None:
     temp = [None] * circ.nConstraints
     for i, j in enumerate(mapping):
         temp[j] = circ.constraints[i]
-    circ.constraints = temp
+    circ._constraints = temp
 
     return mapping
 
-def rand_const_factor(circ: Circuit, high = 2**10 - 1, seed = None) -> None:
+def rand_const_factor(circ: R1CSCircuit, high = 2**10 - 1, seed = None) -> None:
     RNG = np.random.default_rng(seed)
     coefs = RNG.integers(low=1, high = high, size=circ.nConstraints)
     coefs = list(map(int, coefs))
@@ -52,7 +52,7 @@ def rand_const_factor(circ: Circuit, high = 2**10 - 1, seed = None) -> None:
             for key in dict.keys():
                 dict[key] = multiplyP(dict[key], coef, circ.prime_number)
 
-def shuffle_internals(circ: Circuit, seed: int = None) -> None:
+def shuffle_internals(circ: R1CSCircuit, seed: int = None) -> None:
     RNG = np.random.default_rng(seed)
 
     for con in circ.constraints:
@@ -71,7 +71,7 @@ def shuffle_internals(circ: Circuit, seed: int = None) -> None:
         RNG.shuffle(conC)
         con.C = dict(conC)
 
-def get_circuits(file, seed = None, 
+def get_r1cs_circuits(file, seed = None, 
             return_mapping: bool = False,
             return_cmapping: bool = False,
             const_factor : bool = True, 
@@ -79,10 +79,10 @@ def get_circuits(file, seed = None,
             shuffle_const: bool = True,
             shuffle_internal_const: bool = True
     ):
-    circ, circ_shuffled = Circuit(), Circuit()
+    circ, circ_shuffled = R1CSCircuit(), R1CSCircuit()
 
-    r1cs_scripts.read_r1cs.parse_r1cs(file, circ)
-    r1cs_scripts.read_r1cs.parse_r1cs(file, circ_shuffled)
+    circ.parse_file(file)
+    circ_shuffled.parse_file(file)
 
     RNG = np.random.default_rng(seed = seed)
     seed1, seed2, seed3, seed4 = RNG.integers(0, 10**6, size = 4)
