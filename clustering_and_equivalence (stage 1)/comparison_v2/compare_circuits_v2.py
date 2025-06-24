@@ -9,12 +9,10 @@ import time
 import itertools
 from collections import deque 
 
-from normalisation import r1cs_norm
+from circuits_and_constraints.abstract_circuit import Circuit
+from circuits_and_constraints.abstract_constraint import Constraint
 
 from utilities.utilities import _signal_data_from_cons_list, count_ints
-
-from r1cs_scripts.circuit_representation import Circuit
-
 from structural_analysis.utilities.connected_preprocessing import connected_preprocessing
 
 from comparison_v2.fingerprinting_v2 import back_and_forth_fingerprinting, early_exit
@@ -79,8 +77,8 @@ def circuit_equivalence(
         K = S1.nWires
 
         for lval, rval, val_name,  in [
-            (S1.nWires, S2.nWires, "wires"), (S1.nConstraints, S2.nConstraints, "constraints"),(S1.nPubOut, S2.nPubOut, "output constraints"), 
-            (S1.nPubIn + S1.nPrvIn, S2.nPubIn + S2.nPrvIn, "input constraints")]:
+            (S1.nWires, S2.nWires, "wires"), (S1.nConstraints, S2.nConstraints, "constraints"),(S1.nOutputs, S2.nOutputs, "output signals"), 
+            (S1.nInputs, S2.nInputs, "input signals")]:
             if lval != rval: raise AssertionError(f"Different number of {val_name} in circuits: S1 has {lval}, S2 has {rval}")
 
         assumptions = set([])
@@ -90,15 +88,15 @@ def circuit_equivalence(
         normalised_constraints = { name : [] for name in names}
         normi_to_coni = {name : [] for name in names}
 
-        def _normalised_constraint_building_step(name, con):
+        def _normalised_constraint_building_step(name, con: Tuple[int, Constraint]):
             coni, cons = con
-            norms = r1cs_norm(cons)
+            norms = cons.normalise()
             normalised_constraints[name].extend(norms)
             normi_to_coni[name].extend(coni for _ in range(len(norms)))
 
         deque(
             maxlen=0,
-            iterable = itertools.starmap(_normalised_constraint_building_step, itertools.chain(*itertools.starmap(lambda name, circ : itertools.product([name], enumerate(circ.constraints)), in_pair)))
+            iterable = itertools.starmap(_normalised_constraint_building_step, itertools.chain.from_iterable(itertools.starmap(lambda name, circ : itertools.product([name], enumerate(circ.constraints)), in_pair)))
         )
 
         signal_to_normi = {name: _signal_data_from_cons_list(normalised_constraints[name]) for name in names}
@@ -111,10 +109,10 @@ def circuit_equivalence(
         # signals initially classed on input / output / neither
     
         if fingerprints_to_signals is None:
-            fingerprints_to_signals = {name : {0 : [0], 
-                                            1 : list(range(1,circ.nPubOut+1)), 
-                                            2 : list(range(circ.nPubOut+1, circ.nPubOut + circ.nPrvIn + circ.nPubIn + 1)), 
-                                            3 : list(range(circ.nPubOut + circ.nPrvIn + circ.nPubIn + 1, circ.nWires))} 
+            fingerprints_to_signals = {name : { 
+                                            1 : list(circ.get_output_signals()), 
+                                            2 : list(circ.get_input_signals()), 
+                                            3 : list(filter(lambda sig : not circ.signal_is_input(sig) and not circ.signal_is_output(sig), circ.get_signals()))} 
                                     for name, circ in in_pair}
 
         # encode initial fingerprints but norms now have signal class in norm

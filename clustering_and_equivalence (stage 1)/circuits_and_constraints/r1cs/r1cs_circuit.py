@@ -1,5 +1,5 @@
 import itertools
-from typing import Set, List, Tuple
+from typing import Iterable
 
 from circuits_and_constraints.abstract_circuit import Circuit
 from circuits_and_constraints.r1cs.r1cs_constraint import R1CSConstraint
@@ -17,6 +17,9 @@ class R1CSCircuit(Circuit):
         self.nPrvIn = None
         self.nLabels = None
         self.nConstraints = None
+
+        self.nOutputs = None
+        self.nInputs = None
     
     def update_header(self, field_size, prime_number, nWires, nPubOut, nPubIn, nPrvIn, nLabels, nConstraints):
         self.field_size = field_size
@@ -28,6 +31,9 @@ class R1CSCircuit(Circuit):
         self.nLabels = nLabels
         self.nConstraints = nConstraints
 
+        self.nOutputs = nPubOut
+        self.nInputs = nPubIn + nPrvIn
+
     def add_constraint(self, con: R1CSConstraint) -> None:
         self.constraints.append(con)
     
@@ -36,6 +42,15 @@ class R1CSCircuit(Circuit):
     
     def signal_is_output(self, signal: int) -> bool:
         return 0 < signal <= self.nPubOut
+    
+    def get_signals(self) -> Iterable[int]:
+        return range(1, self.nWires)
+
+    def get_input_signals(self) -> Iterable[int]: 
+        return range(self.nPubOut+1, self.nPrvIn + self.nPubIn+self.nPubOut+1)
+
+    def get_output_signals(self) -> Iterable[int]:
+        return range(1, self.nPubOut+1)
     
     def parse_file(self, file: str) -> None:
         parse_r1cs(file, self)
