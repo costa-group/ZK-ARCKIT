@@ -42,7 +42,7 @@ def connected_preprocessing(circ: Circuit, return_mapping: bool = False) -> Circ
         remapp[sig] = curr
         curr += 1
 
-    cons_subset = list(filter(lambda cons : all(map(lambda sig : remapp[sig] == None, cons.signals())), circ.constraints))
+    cons_subset = list(filter(lambda coni : all(map(lambda sig : remapp[sig] != None, circ.constraints[coni].signals())), range(circ.nConstraints)))
 
     new_circ = circ.take_subcircuit(constraint_subset=cons_subset, signal_map=remapp)
 

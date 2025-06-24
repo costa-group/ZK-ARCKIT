@@ -88,16 +88,14 @@ def circuit_equivalence(
         S2.normalise_constraints()
 
         # the norms for each constraint
-        normalised_constraints = { name : circ.normalised_constraints for name, circ in in_pair}
         normi_to_coni = {name : circ.normi_to_coni for name, circ in in_pair}
+        signal_to_normi = {name: _signal_data_from_cons_list(circ.normalised_constraints) for name, circ in in_pair}
 
-        signal_to_normi = {name: _signal_data_from_cons_list(normalised_constraints[name]) for name in names}
-
-        if len(normalised_constraints[names[0]]) != len(normalised_constraints[names[1]]): 
-            raise AssertionError(f"EE: Different number of normalised constraints, {names[0]} had {len(normalised_constraints[names[0]])} where {names[1]} had {len(normalised_constraints[names[1]])}")
+        if len(S1.normalised_constraints) != len(S2.normalised_constraints):
+            raise AssertionError(f"EE: Different number of normalised constraints, {names[0]} had {len(S1.normalised_constraints)} where {names[1]} had {len(S2.normalised_constraints)}")
 
         if fingerprints_to_normi is None: 
-            fingerprints_to_normi = {name: { 1 : list(range(len(normalised_constraints[name])))} for name in names}
+            fingerprints_to_normi = {name: { 1 : list(range(len(circ.normalised_constraints)))} for name, circ in in_pair}
         # signals initially classed on input / output / neither
     
         if fingerprints_to_signals is None:
@@ -109,7 +107,7 @@ def circuit_equivalence(
 
         # encode initial fingerprints but norms now have signal class in norm
         fingerprints_to_normi, fingerprints_to_signals, _, signal_to_fingerprints = back_and_forth_fingerprinting(
-            names, in_pair, normalised_constraints, signal_to_normi, fingerprints_to_normi, fingerprints_to_signals, return_index_to_fingerprint=True,
+            names, in_pair, signal_to_normi, fingerprints_to_normi, fingerprints_to_signals, return_index_to_fingerprint=True,
             test_data = test_data
         )
 
@@ -128,7 +126,7 @@ def circuit_equivalence(
             }
         # now do label passing for constraints
 
-        formula, assumptions, norm_assignment, signal_assignment = encode_classes_v2(names, normalised_constraints, fingerprints_to_normi, signal_to_fingerprints, fingerprints_to_signals)
+        formula, assumptions, norm_assignment, signal_assignment = encode_classes_v2(in_pair, fingerprints_to_normi, signal_to_fingerprints, fingerprints_to_signals)
 
         test_data["formula_size"] = len(formula.clauses)
         solver = Solver(name='cadical195', bootstrap_with=formula)

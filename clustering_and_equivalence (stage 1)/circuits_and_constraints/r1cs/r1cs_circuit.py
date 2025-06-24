@@ -71,9 +71,9 @@ class R1CSCircuit(Circuit):
         in_next_circuit = lambda sig : signal_map[sig] is not None
 
         new_circ.update_header(
-            self.field_size, self.prime_number, max(filter(lambda x : x is not None, signal_map)),
-            nPubOut=len(list(filter(in_next_circuit, self.get_output_signals))),
-            nPubIn=len(list(filter(in_next_circuit, self.get_input_signals))),
+            self.field_size, self.prime_number, max(filter(lambda x : x is not None, signal_map))+1,
+            nPubOut=len(list(filter(in_next_circuit, self.get_output_signals()))),
+            nPubIn=len(list(filter(in_next_circuit, self.get_input_signals()))),
             nPrvIn=0, # TODO: may need to change if this becomes relevant..
             nLabels=None, # ??
             nConstraints=len(new_circ.constraints)
@@ -108,7 +108,7 @@ class R1CSCircuit(Circuit):
 
         for normi in signal_to_normi[signal]:
 
-            norm = self.norms[normi]
+            norm = self.normalised_constraints[normi]
             is_ordered = sorted(norm.A.values()) != sorted(norm.B.values()) ## mayne have ordered lookup (more memory usage ...)
 
             if is_ordered:       

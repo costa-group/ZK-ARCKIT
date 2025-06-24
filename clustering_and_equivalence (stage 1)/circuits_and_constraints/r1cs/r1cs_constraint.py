@@ -5,6 +5,8 @@ from circuits_and_constraints.abstract_constraint import Constraint
 from normalisation import divisionNorm
 from r1cs_scripts.modular_operations import multiplyP, divideP
 
+CONSTANT_FINGERPRINT = (-3, 0)
+
 class R1CSConstraint(Constraint):
     def __init__(self, A, B, C, p):
         self.A = A
@@ -48,7 +50,7 @@ class R1CSConstraint(Constraint):
                 choices += list(itertools.product([(0, 0)], divisionNorm(list(self.C.values()), self.p, early_exit = True, select = True)))
             else:
                 # normalise by quadratic term if no constant factor
-                choices += list(zip(choices_AB, [itertools.multiplyP(a, b, self.p) for a, b in choices_AB]))
+                choices += list(zip(choices_AB, [multiplyP(a, b, self.p) for a, b in choices_AB]))
         
         return choices
     
@@ -93,8 +95,11 @@ class R1CSConstraint(Constraint):
         """
         is_ordered = not ( len(self.A) > 0 and len(self.B) > 0 and sorted(self.A.values()) == sorted(self.B.values()) )
 
+        def _get_signal_fingerprint(sig: int) -> Tuple[int, int]:
+            return CONSTANT_FINGERPRINT if sig == 0 else signal_to_fingerprint[sig]
+
         if is_ordered:
-            fingerprint = tuple(map(lambda part : tuple(sorted(map(lambda sig : (signal_to_fingerprint[sig], part[sig]), part.keys()))), [self.A, self.B, self.C]))
+            fingerprint = tuple(map(lambda part : tuple(sorted(map(lambda sig : (_get_signal_fingerprint(sig), part[sig]), part.keys()))), [self.A, self.B, self.C]))
         else:
             # set operations pretty slow ... better way of doing this? -- faster just to check each?
             lsignals, rsignals = self.A.keys(), self.B.keys()
@@ -102,8 +107,8 @@ class R1CSConstraint(Constraint):
             in_both = set(lsignals).intersection(rsignals)
             only_left, only_right = set(lsignals).difference(in_both), set(rsignals).difference(in_both)    
 
-            fingerprint = (tuple(sorted(map(lambda sig : (signal_to_fingerprint[sig], tuple(sorted(map(lambda part : part[sig], [self.A, self.B])))), in_both))), # both parts
-                        tuple(sorted(itertools.chain(*itertools.starmap(lambda part, signals : map(lambda sig : (signal_to_fingerprint[sig], part[sig]), signals) , [(self.A, only_left), (self.B, only_right)])))), 
-                        tuple(sorted(map(lambda sig : (signal_to_fingerprint[sig], self.C[sig]), self.C.keys()))))
+            fingerprint = (tuple(sorted(map(lambda sig : (_get_signal_fingerprint(sig), tuple(sorted(map(lambda part : part[sig], [self.A, self.B])))), in_both))), # both parts
+                        tuple(sorted(itertools.chain(*itertools.starmap(lambda part, signals : map(lambda sig : (_get_signal_fingerprint(sig), part[sig]), signals) , [(self.A, only_left), (self.B, only_right)])))), 
+                        tuple(sorted(map(lambda sig : (_get_signal_fingerprint(sig), self.C[sig]), self.C.keys()))))
 
         return fingerprint

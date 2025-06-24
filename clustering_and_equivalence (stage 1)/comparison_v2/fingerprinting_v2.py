@@ -120,7 +120,7 @@ def back_and_forth_fingerprinting(
     
     # TODO: think about if we can keep a last_assignment to then check if the assignment has changed and use the pipe that way... this should hopefully reduce the number of checks...
 
-    if signal_sets is None: signal_sets = { name : range(circ.nWires) for name, circ in in_pair}
+    if signal_sets is None: signal_sets = { name : circ.get_signals() for name, circ in in_pair}
 
     fingerprint_mode = initial_mode
     norm_fingerprints = {name: [None for _ in range(len(circ.normalised_constraints))] for name, circ in in_pair}
