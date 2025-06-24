@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import Iterable, Hashable, Tuple, List
+from typing import Iterable, Hashable, List
 import warnings
 from collections import deque
 import itertools
@@ -63,13 +63,12 @@ class Circuit(ABC):
             warnings.warn("Attempting to normalised already normalised constraints")
         else:
 
-            def _normalised_constraint_building_step(name, con: Tuple[int, Constraint]):
-                coni, cons = con
+            def _normalised_constraint_building_step(coni: int, cons: Constraint):
                 norms = cons.normalise()
                 self.normalised_constraints.extend(norms)
                 self.normi_to_coni.extend(coni for _ in range(len(norms)))
 
             deque(
                 maxlen=0,
-                iterable = itertools.starmap(_normalised_constraint_building_step, itertools.chain.from_iterable(itertools.starmap(lambda name, circ : itertools.product([name], enumerate(circ.constraints)), in_pair)))
+                iterable = itertools.starmap(_normalised_constraint_building_step, enumerate(self.constraints))
             )
