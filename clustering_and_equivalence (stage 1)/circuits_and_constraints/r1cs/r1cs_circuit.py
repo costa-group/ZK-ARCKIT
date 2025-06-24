@@ -1,5 +1,5 @@
 import itertools
-from typing import Iterable
+from typing import Iterable, List
 
 from circuits_and_constraints.abstract_circuit import Circuit
 from circuits_and_constraints.r1cs.r1cs_constraint import R1CSConstraint
@@ -8,6 +8,8 @@ from circuits_and_constraints.r1cs.parse_r1cs import parse_r1cs
 class R1CSCircuit(Circuit):
     def __init__(self):
         self.constraints = []
+        self.normalised_constraints = []
+        self.normi_to_coni = []
 
         self.field_size = None
         self.prime_number = None
@@ -54,6 +56,36 @@ class R1CSCircuit(Circuit):
     
     def parse_file(self, file: str) -> None:
         parse_r1cs(file, self)
+
+    def take_subcircuit(self, constraint_subset: List[int], signal_map: List[int | None]):
+    
+        new_circ = R1CSCircuit()
+
+        for coni in constraint_subset:
+
+            cons = self.constraints[coni]
+
+            new_circ.constraints.append(R1CSConstraint(
+                *[{signal_map[sig]:value for sig, value in dict_.items()} for dict_ in 
+                [cons.A, cons.B, cons.C]], cons.p))
+
+        in_next_circuit = lambda sig : signal_map[sig] is not None
+
+        new_circ.update_header(
+            self.field_size, self.prime_number, max(filter(lambda x : x is not None, signal_map)),
+            nPubOut=len(list(filter(in_next_circuit, self.get_output_signals))),
+            nPubIn=len(list(filter(in_next_circuit, self.get_input_signals))),
+            nPrvIn=0, # TODO: may need to change if this becomes relevant..
+            nLabels=None, # ??
+            nConstraints=len(new_circ.constraints)
+            )
+
+        return new_circ
+
+
+
+
+
 
 
     

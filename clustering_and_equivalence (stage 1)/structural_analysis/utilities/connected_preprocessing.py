@@ -7,8 +7,8 @@ from typing import List, Tuple
 from utilities.utilities import getvars
 import itertools
 
-from r1cs_scripts.circuit_representation import Circuit
-from r1cs_scripts.constraint import Constraint
+from circuits_and_constraints.abstract_circuit import Circuit
+from circuits_and_constraints.abstract_constraint import Constraint
 
 from utilities.utilities import _signal_data_from_cons_list, _distances_to_signal_set
 
@@ -28,17 +28,10 @@ def connected_preprocessing(circ: Circuit, return_mapping: bool = False) -> Circ
     Circuit | (Circuit, List[int | None])
         Always returns the new circuit that contains only connected components with inputs
     """
-
-    outputs = range(1, 1+circ.nPubOut)
-    inputs = range(circ.nPubOut+1, circ.nPubOut + circ.nPrvIn + circ.nPubIn + 1)
-
     sig_to_coni = _signal_data_from_cons_list(circ.constraints)
 
-    inputs = list(filter(lambda sig : sig in sig_to_coni.keys(), inputs))
-
-    dist_from_inputs = _distances_to_signal_set(circ.constraints, inputs, sig_to_coni)
-    # now ignoring outputs not connected to any inputs
-    dist_from_outputs = _distances_to_signal_set(circ.constraints, outputs, sig_to_coni)
+    dist_from_inputs = _distances_to_signal_set(circ.constraints, circ.get_input_signals(), sig_to_coni)
+    dist_from_outputs = _distances_to_signal_set(circ.constraints, circ.get_output_signals(), sig_to_coni)
 
     remapp = [None for _ in range(circ.nWires)]
     remapp[0] = 0
@@ -49,33 +42,9 @@ def connected_preprocessing(circ: Circuit, return_mapping: bool = False) -> Circ
         remapp[sig] = curr
         curr += 1
 
-    new_circ = Circuit()
+    cons_subset = list(filter(lambda cons : all(map(lambda sig : remapp[sig] == None, cons.signals())), circ.constraints))
 
-    for coni in range(circ.nConstraints):
-
-        # equivalent to any due to how distances are calculated
-        if all(map(lambda sig : remapp[sig] == None, getvars(circ.constraints[coni]))):          
-            continue
-
-        new_circ.constraints.append(Constraint(
-            *[{remapp[sig]:value for sig, value in dict_.items()} for dict_ in 
-              [circ.constraints[coni].A, circ.constraints[coni].B, circ.constraints[coni].C]],
-            circ.constraints[coni].p))
-    
-    # inputs ovbiously connected to inputs
-    # pubInts = range(1+circ.nPubOut, 1+circ.nPubOut+circ.nPubIn)
-    # prvInts = range(1+circ.nPubOut+circ.nPubIn, 1+circ.nPubOut+circ.nPubIn+circ.nPrvIn)
-
-    in_next_circuit = lambda sig : remapp[sig] is not None
-
-    new_circ.update_header(
-        circ.field_size, circ.prime_number, curr,
-        nPubOut=len(list(filter(in_next_circuit, outputs))),
-        nPubIn=len(inputs), # len(list(filter(in_next_circuit, pubInts))),
-        nPrvIn=0,# len(list(filter(in_next_circuit, prvInts))),
-        nLabels=None, # ??
-        nConstraints=len(new_circ.constraints)
-        )
+    new_circ = circ.take_subcircuit(constraint_subset=cons_subset, signal_map=remapp)
 
     return new_circ if not return_mapping else (new_circ, remapp)
 

@@ -57,6 +57,9 @@ class Circuit(ABC):
     @abstractmethod
     def fingerprint_signal(self, signal: int) -> Hashable: pass
 
+    @abstractmethod
+    def take_subcircuit(self, constraint_subset: List[int], signal_map: List[int | None]) -> "Circuit": pass
+
     def normalise_constraints(self) -> None:
 
         if len(self.normalised_constraints) != 0: 
