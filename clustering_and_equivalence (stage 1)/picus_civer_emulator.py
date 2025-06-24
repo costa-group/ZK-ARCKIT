@@ -133,6 +133,7 @@ def picus_civer_emulator(
         for type_ in ["verified", "failed", "unknown", "verified with parent"]
     }
 
+    # TODO: hacer esto de manera menos tonto.
     data = {
         "Number of equivalence classes": len(equivalence_structural),
         "Number of verified equivalence classes": 0,
