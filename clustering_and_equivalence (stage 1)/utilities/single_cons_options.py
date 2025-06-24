@@ -8,7 +8,7 @@ from functools import reduce
 from itertools import chain, starmap, product
 from typing import Dict, List, Tuple, Set
 
-from r1cs_scripts.constraint import Constraint
+from circuits_and_constraints.r1cs.r1cs_constraint import R1CSConstraint
 from utilities.assignment import Assignment
 from utilities.utilities import getvars
 
@@ -115,7 +115,7 @@ def _compare_norms_with_ordered_parts(dicts: List[List[Dict[int, int]]], _) -> T
     return app, inv
 
 
-def signal_options(in_pair: List[Tuple[str, Constraint]], mapp: Assignment,
+def signal_options(in_pair: List[Tuple[str, R1CSConstraint]], mapp: Assignment,
                    unordered_parts: bool, signal_bijection: Dict[str, Dict[int, List[int]]] | None = None) -> dict:
     """
     Given an assumed equivalence between normalised constraints returns signal information. 

@@ -1,10 +1,11 @@
 from abc import ABC, abstractmethod
-from typing import Iterable, Hashable, List
+from typing import Iterable, Hashable, List, Dict
 import warnings
 from collections import deque
 import itertools
 
 from circuits_and_constraints.abstract_constraint import Constraint
+from utilities.assignment import Assignment
 
 class Circuit(ABC):
 
@@ -59,6 +60,17 @@ class Circuit(ABC):
 
     @abstractmethod
     def take_subcircuit(self, constraint_subset: List[int], signal_map: List[int | None]) -> "Circuit": pass
+
+    @staticmethod
+    @abstractmethod
+    def encode_single_norm_pair(
+        names: List[str],
+        norms: List[Constraint],
+        is_ordered: bool,
+        signal_pair_encoder: Assignment,
+        signal_to_fingerprint: Dict[str, List[int]],
+        fingerprint_to_signals: Dict[str, Dict[int, List[int]]]
+    ): pass
 
     def normalise_constraints(self) -> None:
 

@@ -1,9 +1,13 @@
 import itertools
-from typing import Iterable, List
+from functools import reduce
+from typing import Iterable, List, Dict, Tuple
 
 from circuits_and_constraints.abstract_circuit import Circuit
 from circuits_and_constraints.r1cs.r1cs_constraint import R1CSConstraint
 from circuits_and_constraints.r1cs.parse_r1cs import parse_r1cs
+
+from utilities.assignment import Assignment
+from utilities.single_cons_options import _compare_norms_with_ordered_parts, _compare_norms_with_unordered_parts
 
 class R1CSCircuit(Circuit):
     def __init__(self):
@@ -126,6 +130,90 @@ class R1CSCircuit(Circuit):
                     fingerprint.append((normalised_constraint_fingerprints[normi], ((0, 0), norm.A[signal] if inA else (norm.B[signal] if inB else 0), cVal)))
 
         return tuple(sorted(fingerprint))
+    
+    @staticmethod
+    def encode_single_norm_pair(
+        names: List[str],
+        norms: List[R1CSConstraint],
+        is_ordered: bool,
+        signal_pair_encoder: Assignment,
+        signal_to_fingerprint: Dict[str, List[int]],
+        fingerprint_to_signals: Dict[str, Dict[int, List[int]]]
+    ):
+        """
+        SAT encoder for a single norm pair
+
+        Determines for a single norm pair the 'viable' signal pairs and builds a structure into the format for pysat. Signals
+        are considered to be viable pairs if they have the same coefficient in every ordered part, or if the same linear coefficient
+        and the same multiset of nonlinear coefficients if parts are unordered.
+
+        If pair is nonviable due to at least one signal having no viable signal pairs then empty clauses are returned.
+
+        Parameters
+        -----------
+            names: List[str]
+                Top-level index set for following dicts.
+            norms: List[Constraint]
+                The pair of constraints.
+            is_ordered: bool
+                Flag indicating that the norms have ordered linear parts.
+            signal_pair_encoder: Assignment
+                Assigment dict wrapper for signal_pairs
+            signal_to_fingerprint: Dict[str, List[int]]
+                For each circuit, signal to signal figerprint mapping. Assumed to be consistent with fingerprint_to_signals
+            fingerprint_to_signals: Dict[str, Dict[int, List[int]]]
+                For each circuit, the partition of signals into classes, indexed by the encoded fingerprint label. Assumed to be consistent with fingerprint_to_signals.
+        
+        Return
+        ---------
+        List[List[int]]
+            CNF formula where each clause is an at-least-one cardinality constraint for a mappings from each signal in each constraints to the viable signals in other constraint.
+        """
+
+        ## version from single_cons_options adapted to new signal fingerprints
+
+        ## this restriction is necessary:
+        #       e.g. two signals are in 'class' 3 that gives characteristics (6,4,0) and (2,4,6) for norms with class 5
+        #              when encoding class 5 we need to restrict choices for (6,4,0) <-> (6,4,0) and (6,4,0) <-> (2,4,6)
+
+        dicts = list(map(lambda norm : [norm.A, norm.B, norm.C], norms))
+        allkeys = [norm.signals() for norm in norms]
+        
+        app, inv = (_compare_norms_with_ordered_parts if is_ordered else _compare_norms_with_unordered_parts)(dicts, allkeys)
+
+        for j in range(3):
+            if len( set(inv[0][j].keys()).symmetric_difference(inv[1][j].keys()) ) != 0:
+                # These are not equivalent constraints, hence the option is inviable
+
+                return []
+
+        clauses = []
+
+        def _get_values_for_key(i, j, key) -> int | Tuple[int, int]:
+            if is_ordered or j == 2: return dicts[i][j][key]
+            if j == 0: return tuple(sorted(map(lambda j : dicts[i][j][key], range(2))))
+            return next(iter([dicts[i][j][key] for j in range(2) if key in dicts[i][j].keys()]))
+        
+        for i, name in enumerate(names):
+            for key in allkeys[i]:
+
+                # ensures consistency amongst potential pairs
+                oset = reduce(
+                    lambda x, y : x.intersection(y),
+                    [ inv[1-i][j][_get_values_for_key(i, j, key)] for j in app[i][key] ], 
+                    allkeys[1-i]
+                )
+
+                oset.intersection_update(fingerprint_to_signals[names[1-i]].setdefault(signal_to_fingerprint[names[i]][key], []))
+
+                if len(oset) == 0: return []
+
+                clauses.append(list(map(
+                    lambda pair : signal_pair_encoder.get_assignment(*((key, pair) if i == 0 else (pair, key))),
+                    oset
+                )))
+        
+        return clauses
 
     
     
