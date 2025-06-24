@@ -6,11 +6,10 @@ from typing import List, Dict, Set, Tuple, Callable
 from collections import deque
 import itertools
 
+from circuits_and_constraints.abstract_circuit import Circuit
+from circuits_and_constraints.abstract_constraint import Constraint
+
 from utilities.assignment import Assignment
-
-from r1cs_scripts.circuit_representation import Circuit
-from r1cs_scripts.constraint import Constraint
-
 from utilities.utilities import getvars, count_ints
 
 def _key_is_unique(key, name, names, label_to_indices, strict: bool) -> bool:
@@ -71,7 +70,6 @@ def back_and_forth_preprocessing(names, label_to_indices, index_to_label, init_r
 def back_and_forth_fingerprinting(
             names: List[str],
             in_pair: List[Tuple[str, Circuit]],
-            normalised_constraints: Dict[str, List[Constraint]],
             signal_to_normi: Dict[str, List[List[int]]],
             fingerprints_to_normi: Dict[str, Dict[int, List[int]]],
             fingerprints_to_signals: Dict[str, Dict[int, List[int]]],
@@ -94,8 +92,6 @@ def back_and_forth_fingerprinting(
         Circuit names.
     in_pair : List[Tuple[str, Circuit]]
         List of named circuits to be compared.
-    normalised_constraints : Dict[str, List[Constraint]]
-        Normalized constraints per circuit.
     signal_to_normi : Dict[str, List[List[int]]]
         Maps each signal to the indices of the constraints it participates in.
     fingerprints_to_normi : Dict[str, Dict[int, List[int]]]
@@ -127,7 +123,7 @@ def back_and_forth_fingerprinting(
     if signal_sets is None: signal_sets = { name : range(circ.nWires) for name, circ in in_pair}
 
     fingerprint_mode = initial_mode
-    norm_fingerprints = {name: [None for _ in range(len(normalised_constraints[name]))] for name in names}
+    norm_fingerprints = {name: [None for _ in range(len(circ.normalised_constraints))] for name, circ in in_pair}
     signal_fingerprints = {name: {sig : None for sig in signal_sets[name]} for name in names}
     
     num_singular_norm_fingerprints, norms_to_update = back_and_forth_preprocessing(names, fingerprints_to_normi, norm_fingerprints, -2 if initial_mode else -1, strict_unique)
@@ -148,11 +144,11 @@ def back_and_forth_fingerprinting(
 
     prev_fingerprints_to_normi_count, prev_fingerprints_to_signals_count = {name: {} for name in names}, {name: {} for name in names}
     prev_fingerprints_to_normi, prev_fingerprints_to_signals = {name: {} for name in names}, {name: {} for name in names}
-    prev_normi_to_fingerprints = {name: [norm_fingerprints[name][normi] for normi in range(len(normalised_constraints[name]))] for name in names}
+    prev_normi_to_fingerprints = {name: [norm_fingerprints[name][normi] for normi in range(len(circ.normalised_constraints))] for name, circ in in_pair}
     prev_signals_to_fingerprints = {name: { sig : signal_fingerprints[name][sig] for sig in signal_sets[name]} for name in names}
     # normi_has_changed, signal_has_changed = {name: [True for _ in range(len(normalised_constraints))] for name in names}, {name: [True for _ in range(circ.nWires)] for name, circ in in_pair}
 
-    get_to_update_normi = lambda normi, name : getvars(normalised_constraints[name][normi])
+    get_to_update_normi = lambda normi, name : in_pair[names.index(name)][1].normalised_constraints[normi].signals()
     get_to_update_signal = lambda sig, name : signal_to_normi[name][sig]
 
     ## TODO: introduce new/prev assignment behaviour with a pipe to reduce the number of checks
@@ -172,9 +168,9 @@ def back_and_forth_fingerprinting(
         if fingerprint_mode:
             if break_on_next_norm: break
 
-            for name in names:
+            for name, circ in in_pair:
                 for normi in norms_to_update[name]:
-                    fingerprint(True, normalised_constraints[name][normi], normi, norm_assignment, norm_fingerprints[name], fingerprints_to_normi[name], 
+                    fingerprint(circ, True, circ.normalised_constraints[normi], normi, norm_assignment, norm_fingerprints[name], fingerprints_to_normi[name], 
                                 [signal_fingerprints[name]], round_num)
                     
             per_iteration_postprocessing(names, norm_fingerprints, fingerprints_to_normi, prev_normi_to_fingerprints, prev_fingerprints_to_normi, prev_fingerprints_to_normi_count)
@@ -202,11 +198,11 @@ def back_and_forth_fingerprinting(
         else:
             if break_on_next_signal: break
 
-            for name in names:
+            for name, circ in in_pair:
                 for signal in signals_to_update[name]:
                     if signal not in signal_sets[name]: raise AssertionError(f"signal {signal} not in {signal_sets[name]}")
-                    fingerprint(False, signal, signal, signal_assignment, signal_fingerprints[name], fingerprints_to_signals[name], 
-                                [norm_fingerprints[name], signal_to_normi[name], normalised_constraints[name]], round_num)
+                    fingerprint(circ, False, signal, signal, signal_assignment, signal_fingerprints[name], fingerprints_to_signals[name], 
+                                [norm_fingerprints[name], signal_to_normi[name]], round_num)
             
             per_iteration_postprocessing(names, signal_fingerprints, fingerprints_to_signals, prev_signals_to_fingerprints, prev_fingerprints_to_signals, prev_fingerprints_to_signals_count)
             
@@ -238,7 +234,7 @@ def back_and_forth_fingerprinting(
     return fingerprints_to_normi, fingerprints_to_signals
 
 
-def fingerprint(is_norm: bool, item: Constraint | int, index: int, assignment: Assignment, index_to_fingerprint: List[int], 
+def fingerprint(circ: Circuit, is_norm: bool, item: Constraint | int, index: int, assignment: Assignment, index_to_fingerprint: List[int], 
                 fingerprints_to_indices: Dict[int, List[int]], fingerprint_data, round_num: int):
     """
     Assigns a fingerprint to a constraint norm or signal and updates the mappings.
@@ -264,100 +260,14 @@ def fingerprint(is_norm: bool, item: Constraint | int, index: int, assignment: A
     """
 
     if is_norm:
-        fingerprint = fingerprint_norms(item, *fingerprint_data)
+        fingerprint = item.fingerprint(*fingerprint_data)
     else:       
-        fingerprint = fingerprint_signals(item, *fingerprint_data)
+        fingerprint = circ.fingerprint_signal(item, *fingerprint_data)
 
     new_hash = assignment.get_assignment(fingerprint)
 
     index_to_fingerprint[index] = (round_num, new_hash)
-    fingerprints_to_indices.setdefault((round_num, new_hash), set([])).add(index)    
-
-
-def fingerprint_norms(norm : Constraint, signal_fingerprints: List[int]) -> int:
-    """
-    Generates a fingerprint for a normalized constraint.
-
-    Fingerprint norm is based on latest fingerprints of signals in norm sorted by characteristic of signal in norm.
-
-    Parameters
-    ----------
-    norm : Constraint
-        The constraint to fingerprint.
-    signal_fingerprints : List[int]
-        Fingerprint values of signals involved in the constraint.
-
-    Returns
-    -------
-    Tuple
-        Hashable fingerprint representation of the constraint.
-    """
-    # norm fingerprint is characteristic of each part
-    #   i.e. for each part the values taken by the signals -- given to the fingerprints
-
-    is_ordered = not ( len(norm.A) > 0 and len(norm.B) > 0 and sorted(norm.A.values()) == sorted(norm.B.values()) )
-
-    if is_ordered:
-        fingerprint = tuple(map(lambda part : tuple(sorted(map(lambda sig : (signal_fingerprints[sig], part[sig]), part.keys()))), [norm.A, norm.B, norm.C]))
-    else:
-        # set operations pretty slow ... better way of doing this? -- faster just to check each?
-        lsignals, rsignals = norm.A.keys(), norm.B.keys()
-
-        in_both = set(lsignals).intersection(rsignals)
-        only_left, only_right = set(lsignals).difference(in_both), set(rsignals).difference(in_both)    
-
-        fingerprint = (tuple(sorted(map(lambda sig : (signal_fingerprints[sig], tuple(sorted(map(lambda part : part[sig], [norm.A, norm.B])))), in_both))), # both parts
-                       tuple(sorted(itertools.chain(*itertools.starmap(lambda part, signals : map(lambda sig : (signal_fingerprints[sig], part[sig]), signals) , [(norm.A, only_left), (norm.B, only_right)])))), 
-                       tuple(sorted(map(lambda sig : (signal_fingerprints[sig], norm.C[sig]), norm.C.keys()))))
-
-    return fingerprint
-
-def fingerprint_signals(signal : int, constraint_fingerprints: List[int], signal_to_normi: List[List[int]], norms: List[Constraint]) -> int:
-    """
-    Computes a fingerprint for a signal based on associated constraints and their fingerprints.
-
-    Signal hashable is list of fingerprints of constraint norms that signal is in sorted by its characterstic in that norm.
-
-    Parameters
-    ----------
-    signal : int
-        Signal identifier.
-    constraint_fingerprints : List[int]
-        List of fingerprints for constraints.
-    signal_to_normi : List[List[int]]
-        Mapping from signals to constraints they appear in.
-    norms : List[Constraint]
-        List of all normalized constraints.
-
-    Returns
-    -------
-    Tuple
-        Hashable fingerprint for the signal.
-    """
-
-    # signal fingerprint is characterstic in each norm indexed by norm fingerprint
-
-    fingerprint = []
-
-    for normi in signal_to_normi[signal]:
-
-        norm = norms[normi]
-        is_ordered = sorted(norm.A.values()) != sorted(norm.B.values()) ## mayne have ordered lookup (more memory usage ...)
-
-        if is_ordered:       
-            Aval, Bval, Cval = [0 if signal not in part.keys() else part[signal] for part in [norm.A, norm.B, norm.C]]
-                                              # weird structure here so comparable to unordered
-            fingerprint.append((constraint_fingerprints[normi], ((Aval, 0), Bval, Cval)))
-        else:
-            inA, inB, inC = tuple(map(lambda part : signal in part.keys(), [norm.A, norm.B, norm.C]))
-            cVal = 0 if not inC else norm.C[signal]
-
-            if inA and inB:
-                fingerprint.append((constraint_fingerprints[normi], (tuple(sorted([norm.A[signal], norm.B[signal]])), 0, cVal)))
-            else:
-                fingerprint.append((constraint_fingerprints[normi], ((0, 0), norm.A[signal] if inA else (norm.B[signal] if inB else 0), cVal)))
-
-    return tuple(sorted(fingerprint))
+    fingerprints_to_indices.setdefault((round_num, new_hash), set([])).add(index)
 
 def switch(assignment: Assignment, fingerprints: Dict[str, List[int]], fingerprints_to_index: Dict[str, Dict[int, List[int]]], num_singular_fingerprints: int, 
            prev_fingerprints: Dict[str, List[int]], prev_fingerprints_to_index:  Dict[str, Dict[int, List[int]]], prev_fingerprints_to_index_count:  Dict[str, Dict[int, int]], to_update: Dict[str, Set[int]],

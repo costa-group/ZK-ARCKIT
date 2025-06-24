@@ -1,5 +1,5 @@
 import itertools
-from typing import Set, List, Tuple
+from typing import Set, List, Tuple, Hashable
 from circuits_and_constraints.abstract_constraint import Constraint
 
 from normalisation import divisionNorm
@@ -72,3 +72,38 @@ class R1CSConstraint(Constraint):
         return [
             normalise_with_choices(a, b, c) for (a, b), c in choices
         ]
+    
+    def fingerprint(self, signal_to_fingerprint: List[int]) -> Hashable:
+        """
+        Generates a fingerprint for a normalized constraint.
+
+        Fingerprint norm is based on latest fingerprints of signals in norm sorted by characteristic of signal in self.
+
+        Parameters
+        ----------
+        self : R1CSConstraint
+            The constraint to fingerprint.
+        signal_fingerprints : List[int]
+            Fingerprint values of signals involved in the constraint.
+
+        Returns
+        -------
+        Tuple
+            Hashable fingerprint representation of the constraint.
+        """
+        is_ordered = not ( len(self.A) > 0 and len(self.B) > 0 and sorted(self.A.values()) == sorted(self.B.values()) )
+
+        if is_ordered:
+            fingerprint = tuple(map(lambda part : tuple(sorted(map(lambda sig : (signal_to_fingerprint[sig], part[sig]), part.keys()))), [self.A, self.B, self.C]))
+        else:
+            # set operations pretty slow ... better way of doing this? -- faster just to check each?
+            lsignals, rsignals = self.A.keys(), self.B.keys()
+
+            in_both = set(lsignals).intersection(rsignals)
+            only_left, only_right = set(lsignals).difference(in_both), set(rsignals).difference(in_both)    
+
+            fingerprint = (tuple(sorted(map(lambda sig : (signal_to_fingerprint[sig], tuple(sorted(map(lambda part : part[sig], [self.A, self.B])))), in_both))), # both parts
+                        tuple(sorted(itertools.chain(*itertools.starmap(lambda part, signals : map(lambda sig : (signal_to_fingerprint[sig], part[sig]), signals) , [(self.A, only_left), (self.B, only_right)])))), 
+                        tuple(sorted(map(lambda sig : (signal_to_fingerprint[sig], self.C[sig]), self.C.keys()))))
+
+        return fingerprint

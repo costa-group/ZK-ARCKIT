@@ -82,10 +82,50 @@ class R1CSCircuit(Circuit):
 
         return new_circ
 
+    def fingerprint_signal(self, signal: int, normalised_constraint_fingerprints: List[int], signal_to_normi: List[List[int]]):
+        """
+        Computes a fingerprint for a signal based on associated constraints and their fingerprints.
 
+        Signal hashable is list of fingerprints of constraint norms that signal is in sorted by its characterstic in that norm.
 
+        Parameters
+        ----------
+        signal : int
+            Signal identifier.
+        constraint_fingerprints : List[int]
+            List of fingerprints for constraints.
+        signal_to_normi : List[List[int]]
+            Mapping from signals to constraints they appear in.
+        norms : List[Constraint]
+            List of all normalized constraints.
 
+        Returns
+        -------
+        Tuple
+            Hashable fingerprint for the signal.
+        """
+    
+        fingerprint = []
 
+        for normi in signal_to_normi[signal]:
 
+            norm = self.norms[normi]
+            is_ordered = sorted(norm.A.values()) != sorted(norm.B.values()) ## mayne have ordered lookup (more memory usage ...)
 
+            if is_ordered:       
+                Aval, Bval, Cval = [0 if signal not in part.keys() else part[signal] for part in [norm.A, norm.B, norm.C]]
+                                                # weird structure here so comparable to unordered
+                fingerprint.append((normalised_constraint_fingerprints[normi], ((Aval, 0), Bval, Cval)))
+            else:
+                inA, inB, inC = tuple(map(lambda part : signal in part.keys(), [norm.A, norm.B, norm.C]))
+                cVal = 0 if not inC else norm.C[signal]
+
+                if inA and inB:
+                    fingerprint.append((normalised_constraint_fingerprints[normi], (tuple(sorted([norm.A[signal], norm.B[signal]])), 0, cVal)))
+                else:
+                    fingerprint.append((normalised_constraint_fingerprints[normi], ((0, 0), norm.A[signal] if inA else (norm.B[signal] if inB else 0), cVal)))
+
+        return tuple(sorted(fingerprint))
+
+    
     

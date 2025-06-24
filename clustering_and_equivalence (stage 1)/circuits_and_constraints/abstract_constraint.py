@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import Set, List
+from typing import Set, List, Hashable
 
 class Constraint(ABC):
 
@@ -11,3 +11,6 @@ class Constraint(ABC):
 
     @abstractmethod
     def signals(self) -> Set[int]: pass
+
+    @abstractmethod
+    def fingerprint(self, signal_to_fingerprint: List[int]) -> Hashable: pass
