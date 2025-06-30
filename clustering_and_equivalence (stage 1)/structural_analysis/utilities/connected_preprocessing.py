@@ -32,16 +32,9 @@ def connected_preprocessing(circ: Circuit, return_mapping: bool = False) -> Circ
     dist_from_inputs = _distances_to_signal_set(circ.constraints, circ.get_input_signals(), sig_to_coni)
     dist_from_outputs = _distances_to_signal_set(circ.constraints, circ.get_output_signals(), sig_to_coni)
 
-    remapp = [None for _ in range(circ.nWires)]
-    remapp[0] = 0
-
-    curr = 1
-    for sig in sorted(set(dist_from_inputs.keys()).union(dist_from_outputs.keys())):
-        
-        remapp[sig] = curr
-        curr += 1
-
-    cons_subset = list(filter(lambda coni : all(map(lambda sig : remapp[sig] != None, circ.constraints[coni].signals())), range(circ.nConstraints)))
+    next_int = itertools.count().__next__
+    remapp = {k : next_int() for k in sorted(set(dist_from_inputs.keys()).union(dist_from_outputs.keys()))}
+    cons_subset = list(filter(lambda coni : all(map(lambda sig : remapp.get(sig, None) != None, circ.constraints[coni].signals())), range(circ.nConstraints)))
 
     new_circ = circ.take_subcircuit(constraint_subset=cons_subset, signal_map=remapp)
 

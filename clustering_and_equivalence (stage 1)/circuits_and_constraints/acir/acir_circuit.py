@@ -68,8 +68,8 @@ class ACIRCircuit(Circuit):
 
         newcirc._prime = self.prime
         newcirc._nWires = sum(1 for _ in filter(lambda k: k is not None, signal_map))
-        newcirc.input_signals = [filter(lambda k: k is not None, map(signal_map.__getitem__, self.input_signals))]
-        newcirc.output_signals = [filter(lambda k: k is not None, map(signal_map.__getitem__, self.output_signals))]
+        newcirc.input_signals = [filter(lambda k: k is not None, map(lambda k : signal_map.get(k, None), self.input_signals))]
+        newcirc.output_signals = [filter(lambda k: k is not None, map(lambda k : signal_map.get(k, None), self.output_signals))]
 
         return newcirc
 
