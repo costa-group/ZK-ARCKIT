@@ -11,6 +11,10 @@ class Circuit(ABC):
 
     @property
     @abstractmethod
+    def prime(self) -> int: pass
+
+    @property
+    @abstractmethod
     def nConstraints(self) -> int: pass
 
     @property

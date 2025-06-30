@@ -41,6 +41,7 @@ class ACIRCircuit(Circuit):
 
         self._constraints = list(map(parse_acir_constraint, acir_json["constraints"]))
 
+        self._prime = acir_json["prime"]
         self._nWires = acir_json["number_of_signals"]
         self.input_signals = acir_json["inputs"]
         self.output_signals = acir_json["outputs"]
@@ -55,6 +56,10 @@ class ACIRCircuit(Circuit):
     def fingerprint_signal(self, signal, normalised_constraint_fingerprints, signal_to_normi):
         raise NotImplementedError
     
+    @property
+    def prime(self) -> int:
+        return self._prime
+
     @property
     def nConstraints(self) -> int:
         return len(self.constraints)

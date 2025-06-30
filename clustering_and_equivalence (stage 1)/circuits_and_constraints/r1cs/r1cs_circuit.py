@@ -17,7 +17,7 @@ class R1CSCircuit(Circuit):
         self._normi_to_coni = []
 
         self.field_size = None
-        self.prime_number = None
+        self._prime_number = None
         self._nWires = None
         self.nPubOut = None
         self.nPubIn = None
@@ -209,6 +209,10 @@ class R1CSCircuit(Circuit):
                 )))
         
         return clauses
+
+    @property
+    def prime(self) -> int:
+        return self._prime_number
 
     @property
     def nConstraints(self) -> int:
