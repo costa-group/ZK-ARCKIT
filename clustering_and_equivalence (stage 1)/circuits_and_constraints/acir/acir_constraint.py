@@ -1,4 +1,4 @@
-from typing import List, Set, Dict, Tuple
+from typing import List, Set, Dict, Tuple, Hashable
 import itertools
 
 from circuits_and_constraints.abstract_constraint import Constraint
@@ -14,7 +14,7 @@ class ACIRConstraint(Constraint):
         self.p = prime
 
     def signals(self) -> Set[int]:
-        return set(itertools.chain.from_iterable(map(lambda part : part.signals(), self.parts)))
+        return set(itertools.chain(self.linear.keys(), itertools.chain.from_iterable(self.mult.keys())))
     
     def signal_map(self, signal_map: List[int]) -> "ACIRConstraint":
         return ACIRConstraint(
@@ -40,8 +40,22 @@ class ACIRConstraint(Constraint):
                 ) for divisor in self.normalisation_choices()
             ]
     
-    def fingerprint(self, signal_to_fingerprint):
-        raise NotImplementedError
+    def fingerprint(self, signal_to_fingerprint: List[int]) -> Hashable:
+        
+        ## groups signals and signal pairs by their fingerprint then places coefficients into tuples
+        ##  i.e. norms should have the same fingerprinted signals with the same coefficient sets
+
+        mult_groups = {}
+        linear_groups = {}
+
+        for k, v in self.mult.items(): mult_groups.setdefault(tuple(sorted(map(signal_to_fingerprint.__getitem__, k))), []).append(v)
+        for k, v in self.linear.items(): linear_groups.setdefault(signal_to_fingerprint[k], []).append(v)
+
+        mult_hashable = tuple((k, tuple(sorted(v))) for k, v in mult_groups.items())
+        linear_hashable = tuple((k, tuple(sorted(v))) for k, v in linear_groups.items())
+
+        return (mult_hashable, linear_hashable, self.constant)
+
     
     def is_nonlinear(self):
         return len(self.mult) > 0

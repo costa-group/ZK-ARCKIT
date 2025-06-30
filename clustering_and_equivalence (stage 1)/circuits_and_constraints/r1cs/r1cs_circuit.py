@@ -1,6 +1,6 @@
 import itertools
 from functools import reduce
-from typing import Iterable, List, Dict, Tuple
+from typing import Iterable, List, Dict, Tuple, Hashable
 
 from circuits_and_constraints.abstract_circuit import Circuit
 from circuits_and_constraints.r1cs.r1cs_constraint import R1CSConstraint
@@ -81,7 +81,7 @@ class R1CSCircuit(Circuit):
 
         return new_circ
 
-    def fingerprint_signal(self, signal: int, normalised_constraint_fingerprints: List[int], signal_to_normi: List[List[int]]):
+    def fingerprint_signal(self, signal: int, normalised_constraint_fingerprints: List[int], prev_signal_to_fingerprint: Dict[int, Hashable], signal_to_normi: List[List[int]]) -> Hashable:
         """
         Computes a fingerprint for a signal based on associated constraints and their fingerprints.
 

@@ -202,7 +202,7 @@ def back_and_forth_fingerprinting(
                 for signal in signals_to_update[name]:
                     if signal not in signal_sets[name]: raise AssertionError(f"signal {signal} not in {signal_sets[name]}")
                     fingerprint(circ, False, signal, signal, signal_assignment, signal_fingerprints[name], fingerprints_to_signals[name], 
-                                [norm_fingerprints[name], signal_to_normi[name]], round_num)
+                                [norm_fingerprints[name], signal_fingerprints[name], signal_to_normi[name]], round_num)
             
             per_iteration_postprocessing(names, signal_fingerprints, fingerprints_to_signals, prev_signals_to_fingerprints, prev_fingerprints_to_signals, prev_fingerprints_to_signals_count)
             

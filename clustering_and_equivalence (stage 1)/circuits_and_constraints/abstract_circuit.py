@@ -60,7 +60,7 @@ class Circuit(ABC):
     def parse_file(self, file: str) -> None: pass
 
     @abstractmethod
-    def fingerprint_signal(self, signal: int, normalised_constraint_fingerprints: List[int], signal_to_normi: List[List[int]]) -> Hashable: pass
+    def fingerprint_signal(self, signal: int, normalised_constraint_fingerprints: List[int], prev_signal_to_fingerprint: Dict[int, Hashable], signal_to_normi: List[List[int]]) -> Hashable: pass
 
     @abstractmethod
     def take_subcircuit(self, constraint_subset: List[int], signal_map: List[int | None]) -> "Circuit": pass
