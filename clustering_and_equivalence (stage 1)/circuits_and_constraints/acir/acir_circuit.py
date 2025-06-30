@@ -5,6 +5,7 @@ from typing import Iterable, List, Hashable, Dict
 
 from circuits_and_constraints.abstract_circuit import Circuit
 from circuits_and_constraints.acir.acir_constraint import ACIRConstraint, parse_acir_constraint
+from circuits_and_constraints.acir.acir_encode_single_norm_pair import encode_single_norm_pair
 
 class ACIRCircuit(Circuit):
 
@@ -74,8 +75,17 @@ class ACIRCircuit(Circuit):
         return newcirc
 
     @staticmethod
-    def encode_single_norm_pair(names, norms, is_ordered, signal_pair_encoder, signal_to_fingerprint, fingerprint_to_signals):
-        raise NotImplementedError
+    def encode_single_norm_pair(
+        names: List[str],
+        norms: List[ACIRConstraint],
+        is_ordered: bool,
+        signal_pair_encoder: Assignment,
+        signal_to_fingerprint: Dict[str, List[int]],
+        fingerprint_to_signals: Dict[str, Dict[int, List[int]]]
+    ):
+        encode_single_norm_pair(names, norms, signal_pair_encoder, signal_to_fingerprint)
+    
+        raise NotImplementedError()
     
     def fingerprint_signal(self, signal: int, normalised_constraint_fingerprints: List[Hashable], prev_signal_to_fingerprint: Dict[int, Hashable], signal_to_normi: List[List[int]]) -> Hashable:
         ## for every norm that is in - convert norm to fingerprint
