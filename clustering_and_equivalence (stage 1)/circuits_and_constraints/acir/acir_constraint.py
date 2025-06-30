@@ -1,128 +1,70 @@
-from abc import ABC, abstractmethod
-from typing import List, Set
+from typing import List, Set, Dict, Tuple
 import itertools
 
 from circuits_and_constraints.abstract_constraint import Constraint
-
-class ACIRComponent(ABC):
-
-    @property
-    @abstractmethod
-    def coefficient(self): pass
-
-    @abstractmethod
-    def signals(self) -> Set[int]: pass
-
-    @abstractmethod
-    def map_signals(self, signal_map: List[int]) -> "ACIRComponent": pass
-
-class ACIRLinear(ACIRComponent):
-    
-    def __init__(self, coeff, witness):
-        self._coefficient = coeff
-        self.signal = witness
-    
-    @property
-    def coefficient(self):
-        return self._coefficient
-
-    def signals(self):
-        return set([self.signal])
-    
-    def map_signals(self, signal_map: List[int]):
-        return ACIRLinear(self.coefficient, signal_map[self.signal])
-    
-    def __repr__(self):
-        return f"{self.coefficient}[{self.signal}]"
-
-class ACIRMultiply(ACIRComponent):
-    
-    def __init__(self, coeff, witness1, witness2):
-        self._coefficient = coeff
-        self.signal1 = witness1
-        self.signal2 = witness2
-    
-    @property
-    def coefficient(self):
-        return self._coefficient
-    
-    def signals(self):
-        return set([self.signal1, self.signal2])
-
-    def map_signals(self, signal_map: List[int]):
-        return ACIRLinear(self.coefficient, signal_map[self.signal1], signal_map[self.signal2])
-
-    def __repr__(self):
-        return f"{self.coefficient}[{self.signal1}.{self.signal2}]"
-
-class ACIRConstant(ACIRComponent):
-    
-    def __init__(self, coeff):
-        self._coefficient = coeff
-    
-    @property
-    def coefficient(self):
-        return self._coefficient
-
-    def signals(self):
-        return set([])
-    
-    def map_signals(self, signal_map):
-        return self
-    
-    def __repr__(self):
-        return f"{self.coefficient}"
+from normalisation import divisionNorm, divideP
 
 class ACIRConstraint(Constraint):
     
-    def __init__(self):
+    def __init__(self, mult: Dict[Tuple[int, int], int], linear: Dict[int, int], constant: int, prime: int):
         # TODO: maybe split this up into multiple parts if it helps
-        self.parts: List[ACIRComponent] = []
+        self.mult = mult
+        self.linear = linear
+        self.constant = constant
+        self.p = prime
 
-    def __init__(self, parts):
-        # TODO: maybe split this up into multiple parts if it helps
-        self.parts: List[ACIRComponent] = parts
-
-    def add_component(self, component: ACIRComponent) -> None:
-        self.parts.append(component)
-        
     def signals(self) -> Set[int]:
         return set(itertools.chain.from_iterable(map(lambda part : part.signals(), self.parts)))
     
     def signal_map(self, signal_map: List[int]) -> "ACIRConstraint":
-        return ACIRConstraint()
+        return ACIRConstraint(
+            mult = {tuple(sorted(map(signal_map.__getitem__, k))) : v for k, v in self.mult.items()},
+            linear= {signal_map[k] : v for k, v in self.linear.items()},
+            constant=self.constant,
+            prime=self.p
+        )
     
     def normalisation_choices(self):
-        raise NotImplementedError
+
+        if self.constant != 0: return [self.constant]
+        elif len(self.mult) > 0: return divisionNorm(list(self.mult.values()), self.p, early_exit=True, select=True)
+        else: return divisionNorm(list(self.linear.values()), self.p, early_exit=True, select=True)
 
     def normalise(self):
-        raise NotImplementedError
+        return [
+                ACIRConstraint(
+                    mult = {k : v for v, k in sorted(itertools.starmap(lambda k, v : (divideP(v, divisor, self.p), k), self.mult.items()))},
+                    linear = {k : v for v, k in sorted(itertools.starmap(lambda k, v : (divideP(v, divisor, self.p), k), self.linear.items()))},
+                    constant = divideP(self.constant, divisor, self.p),
+                    prime = self.p
+                ) for divisor in self.normalisation_choices()
+            ]
     
     def fingerprint(self, signal_to_fingerprint):
         raise NotImplementedError
     
     def is_nonlinear(self):
-        return any(map(lambda part : type(part) == ACIRMultiply, self.parts))
+        return len(self.mult) > 0
     
     def __repr__(self):
-        return f"ACIRConstraint({self.parts})"
+        return f"ACIRConstraint({self.mult}, {self.linear}, {self.constant})"
 
 
-def parse_acir_constraint(json: dict) -> ACIRConstraint:
+def parse_acir_constraint(json: dict, prime: int) -> ACIRConstraint:
+    ## Assumes each witness appears in each part at most once
 
-    cons = ACIRConstraint()
+    cons = ACIRConstraint(mult={}, linear = {}, constant=0, prime=prime)
 
     for key, value in json.items():
-
         match key:
 
-            case "linear": cons.parts.extend(map(lambda part : ACIRLinear(part["coeff"], part["witness"]), value))
+            case "linear": cons.linear = {part["witness"] : int(part["coeff"]) for part in value}
 
-            case "mul": cons.parts.extend(map(lambda part: ACIRMultiply(part["coeff"], part["witness1"], part["witness2"]), value))
+            case "mul": cons.mult = {tuple(sorted(map(int, [part["witness1"], part["witness2"]]))) : int(part["coeff"]) for part in value}
 
             case "constant": 
-                if int(value) != 0: cons.add_component(ACIRConstant(int(value)))
+                if int(value) != 0: cons.constant = int(value)
 
-            case _: raise TypeError(f"Unknown ACIRComponent type {key}")
+            case _: raise TypeError(f"Unknown ACIR constraint type {key}")
     
     return cons

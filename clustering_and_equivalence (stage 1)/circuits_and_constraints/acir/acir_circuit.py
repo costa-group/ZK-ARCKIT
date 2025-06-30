@@ -39,12 +39,12 @@ class ACIRCircuit(Circuit):
         acir_json = json.load(fp)
         fp.close()
 
-        self._constraints = list(map(parse_acir_constraint, acir_json["constraints"]))
-
         self._prime = acir_json["prime"]
         self._nWires = acir_json["number_of_signals"]
         self.input_signals = acir_json["inputs"]
         self.output_signals = acir_json["outputs"]
+
+        self._constraints = list(map(lambda cons : parse_acir_constraint(cons, self.prime), acir_json["constraints"]))
 
     def take_subcircuit(self, constraint_subset: List[int], signal_map: List[int]):
         raise NotImplementedError
