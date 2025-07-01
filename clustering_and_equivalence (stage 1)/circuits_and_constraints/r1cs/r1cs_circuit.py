@@ -92,12 +92,12 @@ class R1CSCircuit(Circuit):
     
     def take_subcircuit(self, constraint_subset: List[int], input_signals: List[int], output_signals: List[int]):
 
-        subcircuit = Circuit()
+        subcircuit = R1CSCircuit()
 
         ordered_signals = list(itertools.chain(
             [0],
-            self.output_signals.difference(input_signals), # TODO: how to handle signal being in input AND output?
-            self.input_signals,
+            output_signals.difference(input_signals), # TODO: how to handle signal being in input AND output?
+            input_signals,
             set(itertools.chain(*map(lambda con : con.signals(), map(self.constraints.__getitem__, constraint_subset)))).difference(itertools.chain(output_signals, input_signals))
         ))
 
@@ -106,7 +106,7 @@ class R1CSCircuit(Circuit):
             range(len(ordered_signals))
         ))
 
-        subcircuit.constraints = list(map(lambda con : 
+        subcircuit._constraints = list(map(lambda con : 
             R1CSConstraint(
                 *[{sig_mapping[sig]: val for sig, val in dict_.items()} for dict_ in [con.A, con.B, con.C]],
                 con.p
