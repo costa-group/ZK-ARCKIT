@@ -73,6 +73,16 @@ The following flags alter the behaviour of the file
         auto-merges clusters that have no linear constraints to an adjacent cluster
         : default
             does not merge
+
+    --r1cs
+        assumes input file is in the r1cs format
+        : default
+            this is default behaviour
+    
+    --acir
+        assumes that the input format is in the acir format
+        : default
+            assumes r1cs by default
 """
 #TODO image subgraph selection??
 
@@ -86,6 +96,8 @@ import itertools
 import random
 
 from circuits_and_constraints.abstract_circuit import Circuit
+from circuits_and_constraints.r1cs.r1cs_circuit import R1CSCircuit
+from circuits_and_constraints.acir.acir_circuit import ACIRCircuit
 from networkx.algorithms.community import louvain_communities
 from testing_harness import time_limit
 
@@ -102,6 +114,7 @@ from maximal_equivalence.applied_maximal_equivalence import maximally_equivalent
 
 def r1cs_cluster(
         input_filename: str,
+        fileformat: str,
         output_directory: str,
         clustering_method: str,
         equivalence_method: str,
@@ -125,9 +138,14 @@ def r1cs_cluster(
     if seed is None:
         seed = random.randint(0,25565)
     
-    
+    match fileformat:
+        case "r1cs": 
+            if input_filename[input_filename.index(".")+1:] != "r1cs": warnings.warn(f"File {input_filename} provided is not of type .r1cs")
+            main_circ = R1CSCircuit()
+        case "acir": main_circ = ACIRCircuit()
+        case _:
+            raise SyntaxError(f"fileformat provided is of unspecified type {fileformat}")
 
-    main_circ = Circuit()
     main_circ.parse_file(input_filename)
 
     circs, sig_mapping, con_mapping = componentwise_preprocessing(main_circ) #NOTE: UPDATED SO NOW WON'T PUT (0,0) FOR R1CSCircuit
@@ -315,7 +333,7 @@ def r1cs_cluster(
 
 if __name__ == '__main__':
 
-    req_args = [None, None, None, None]
+    req_args = [None, None, None, None, None]
     timeout = 0
     automerge_passthrough, automerge_only_nonlinear, return_img , timing, undo_remapping, include_mappings = True, False, False, True, True, False
     maxequiv, maxequiv_timeout, maxequiv_tol, maxequiv_merge, sanity_check, seed = False, 5, 0.8, 0, False, None
@@ -345,22 +363,22 @@ if __name__ == '__main__':
                 set_file(0, sys.argv[i+1])
                 i += 2
             case "-o": 
-                set_file(1, sys.argv[i+1])
+                set_file(2, sys.argv[i+1])
                 i += 2
             case "--outfile": 
-                set_file(1, sys.argv[i+1])
+                set_file(2, sys.argv[i+1])
                 i += 2
             case "-c": 
-                set_file(2, sys.argv[i+1])
+                set_file(3, sys.argv[i+1])
                 i += 2
             case "--clustering": 
-                set_file(2, sys.argv[i+1])
+                set_file(3, sys.argv[i+1])
                 i += 2
             case "-e": 
-                set_file(3, sys.argv[i+1])
+                set_file(4, sys.argv[i+1])
                 i += 2
             case "--equivalence": 
-                set_file(3, sys.argv[i+1])
+                set_file(4, sys.argv[i+1])
                 i += 2
             case "-t":
                 if sys.argv[i+1][0] == '-': raise SyntaxError(f"Invalid timeout value {sys.argv[i+1]}")
@@ -398,13 +416,16 @@ if __name__ == '__main__':
             case "--maxequiv-merge": 
                 if sys.argv[i+1][0] == '-': raise SyntaxError(f"Invalid timeout value {sys.argv[i+1]}")
                 maxequiv_merge, i = int(sys.argv[i+1]), i+2
+            case "--r1cs": req_args[1], i = "r1cs", i+1
+            case "--acir": req_args[1], i = "acir", i+1
             case _: warnings.warn(f"Invalid argument '{arg}' ignored", SyntaxWarning)
 
 
     if req_args[0] is None: raise SyntaxError("No input file given")
-    if req_args[1] is None: req_args[1] = req_args[0][:req_args[0].index(".")]
-    if req_args[2] is None: req_args[2] = "louvain"
-    if req_args[3] is None: req_args[3] = "structural"
+    if req_args[1] is None: req_args[1] = "r1cs"
+    if req_args[2] is None: req_args[2] = req_args[0][:req_args[0].index(".")]
+    if req_args[3] is None: req_args[3] = "louvain"
+    if req_args[4] is None: req_args[4] = "structural"
 
     with time_limit(timeout):
         r1cs_cluster(*req_args, automerge_passthrough=automerge_passthrough, automerge_only_nonlinear=automerge_only_nonlinear, return_img=return_img, timing=timing, undo_remapping = undo_remapping, include_mappings=include_mappings, 
