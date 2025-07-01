@@ -87,7 +87,7 @@ def componentwise_preprocessing(circ: Circuit) -> Tuple[List[Circuit], List[Tupl
         if all(map(lambda sig : not circ.signal_is_input(sig) and not circ.signal_is_output(sig), signals)):
             continue
         
-        for cnt, sig in enumerate(signals): sigmapp[sig] = (i, cnt + 1)
+        for cnt, sig in enumerate(signals): sigmapp[sig] = (i, cnt)
         constraints = list(set(itertools.chain(*map(signal_to_conis.__getitem__, signals))))
         for cnt, coni in enumerate(constraints): conmapp[coni] = (i, cnt)
 
