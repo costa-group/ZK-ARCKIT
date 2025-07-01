@@ -105,6 +105,9 @@ class ACIRCircuit(Circuit):
                 for normi in signal_to_normi[signal]
         ))
     
+    def take_subcircuit(self, constraint_subset, input_signals, output_signals): # placeholder so that equivalence can still run
+        return NotImplementedError()
+    
     @property
     def prime(self) -> int:
         return self._prime
