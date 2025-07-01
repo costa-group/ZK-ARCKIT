@@ -65,16 +65,19 @@ def subcircuit_fingerprinting_equivalency_and_structural_augmentation_equivalenc
 def fingerprint_subcircuits(nodes: Dict[int, DAGNode]) -> Dict[int, List[int]]:
 
     in_pair: List[Tuple[str, Circuit]] = [(node.id, node.get_subcircuit()) for node in nodes.values()]
-    normalised_constraints = { node.id : list(itertools.chain.from_iterable(map(lambda con : con.normalise(), node.get_subcircuit().constraints))) for node in nodes.values() }
-    fingerprints_to_normi = { node.id: { 1 : list(range(len(normalised_constraints[node.id])))} for node in nodes.values() }
+    deque(maxlen = 0,
+          iterable = (circ.normalise_constraints() for name, circ in in_pair)
+    )
+
+    fingerprints_to_normi = { id: { 1 : list(range(len(circ.normalised_constraints)))} for id, circ in in_pair }
     fingerprints_to_signals = {name : {
-                                        1 : list(circ.get_output_signals), 
-                                        2 : list(circ.get_input_signals), 
+                                        1 : list(circ.get_output_signals()), 
+                                        2 : list(circ.get_input_signals()), 
                                         3 : list(filter(lambda sig : not circ.signal_is_input(sig) and not circ.signal_is_output(sig), circ.get_signals()))} 
                                     for name, circ in in_pair}
-    signal_to_normi = {name: _signal_data_from_cons_list(normalised_constraints[name]) for name in nodes.keys()}
+    signal_to_normi = {name: _signal_data_from_cons_list(circ.normalised_constraints) for name, circ in in_pair}
 
-    fingerprints_to_normi, fingerprints_to_signals = back_and_forth_fingerprinting(nodes.keys(), in_pair, normalised_constraints, signal_to_normi, fingerprints_to_normi, fingerprints_to_signals)
+    fingerprints_to_normi, fingerprints_to_signals = back_and_forth_fingerprinting(list(nodes.keys()), in_pair, signal_to_normi, fingerprints_to_normi, fingerprints_to_signals)
 
     ## COMBINE norm fingerprints into 
     subcircuit_assignment = Assignment(assignees=1)
