@@ -7,11 +7,9 @@ import time
 import itertools
 from collections import deque 
 
-from normalisation import r1cs_norm
+from utilities.utilities import _signal_data_from_cons_list, count_ints
 
-from utilities.utilities import _signal_data_from_cons_list, getvars, count_ints
-
-from r1cs_scripts.circuit_representation import Circuit
+from circuits_and_constraints.abstract_circuit import Circuit
 from comparison_v2.constraint_encoding_v2 import encode_classes_v2
 
 from maximal_equivalence.iterated_fingerprints_with_pausing import iterated_fingerprints_w_reverting, coefficient_only_fingerprinting
@@ -57,13 +55,13 @@ def maximum_equivalence(
 
         def _normalised_constraint_building_step(name, con):
             coni, cons = con
-            norms = r1cs_norm(cons)
+            norms = cons.normalise()
             normalised_constraints[name].extend(norms)
             normi_to_coni[name].extend(coni for _ in range(len(norms)))
 
         deque(
             maxlen=0,
-            iterable = itertools.starmap(_normalised_constraint_building_step, itertools.chain(*itertools.starmap(lambda name, circ : itertools.product([name], enumerate(circ.constraints)), in_pair)))
+            iterable = itertools.starmap(_normalised_constraint_building_step, itertools.chain.from_iterable(itertools.starmap(lambda name, circ : itertools.product([name], enumerate(circ.constraints)), in_pair)))
         )
 
         ## parameters deal with signals in no constraint (i.e. used input signal case)
@@ -81,7 +79,7 @@ def maximum_equivalence(
         # signals initially classed on input / output / neither
     
         if fingerprints_to_signals is None:
-            fingerprints_to_signals = {name: { 0: [0], 1 : list(range(1, circ.nWires))} for name, circ in in_pair}
+            fingerprints_to_signals = {name: { 1 : list(circ.get_signals())} for name, circ in in_pair}
 
         # encode initial fingerprints but norms now have signal class in norm
         fingerprints_to_normi, fingerprints_to_signals, _, signal_to_fingerprints = iterated_fingerprints_w_reverting(

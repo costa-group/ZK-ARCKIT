@@ -4,7 +4,7 @@ import itertools
 
 from utilities.assignment import Assignment
 from structural_analysis.cluster_trees.dag_from_clusters import DAGNode
-from utilities.utilities import dijkstras_shortest_weight, getvars, _is_nonlinear
+from utilities.utilities import dijkstras_shortest_weight
 
 def get_subclasses_by_nonlinear_shortest_path(nodes: Dict[int, DAGNode], equivalency: List[int] | None = None) -> List[Dict[int, DAGNode]]:
     ## weighted shortest path where weight is number of nonlinears in target vertex.
@@ -13,19 +13,17 @@ def get_subclasses_by_nonlinear_shortest_path(nodes: Dict[int, DAGNode], equival
     if equivalency is None: equivalency = nodes.keys()
 
     circ = next(iter(nodes.values())).circ
-    _is_input_signal = lambda sig : circ.nPubOut < sig <= circ.nPubOut + circ.nPubIn + circ.nPrvIn
-    _is_output_signal = lambda sig : 0 < sig <= circ.nPubOut
 
-    input_parts = list(filter(lambda node_id : any(map(_is_input_signal, nodes[node_id].input_signals)), nodes.keys()))
-    output_parts = list(filter(lambda node_id : any(map(_is_output_signal, nodes[node_id].output_signals)), nodes.keys()))
+    input_parts = list(filter(lambda node_id : any(map(circ.signal_is_input, nodes[node_id].input_signals)), nodes.keys()))
+    output_parts = list(filter(lambda node_id : any(map(circ.signal_is_output, nodes[node_id].output_signals)), nodes.keys()))
 
-    nodeid_to_signal = {nodeid : set(itertools.chain(*map(getvars, map(circ.constraints.__getitem__, nodes[nodeid].constraints)))) for nodeid in nodes.keys()}
-    nodeid_to_num_nonlinear = {nodeid : sum(1 for _ in filter(_is_nonlinear, map(circ.constraints.__getitem__, nodes[nodeid].constraints))) for nodeid in nodes.keys()}
+    nodeid_to_signal = {nodeid : set(itertools.chain.from_iterable(map(lambda con : con.signals(), map(circ.constraints.__getitem__, nodes[nodeid].constraints)))) for nodeid in nodes.keys()}
+    nodeid_to_num_nonlinear = {nodeid : sum(1 for _ in filter(lambda con : con.is_nonlinear(), map(circ.constraints.__getitem__, nodes[nodeid].constraints))) for nodeid in nodes.keys()}
 
     signal_to_nodeid = {}
     deque(maxlen=0, 
           iterable = itertools.starmap(lambda nodeid, sig : signal_to_nodeid.setdefault(sig, []).append(nodeid),
-                     itertools.chain(*map(lambda nodeid : itertools.product([nodeid], nodeid_to_signal[nodeid]), 
+                     itertools.chain.from_iterable(map(lambda nodeid : itertools.product([nodeid], nodeid_to_signal[nodeid]), 
                      nodes.keys()
                     )))
     )
@@ -33,9 +31,9 @@ def get_subclasses_by_nonlinear_shortest_path(nodes: Dict[int, DAGNode], equival
     adjacencies = {}
     deque(maxlen=0,
           iterable = itertools.starmap(lambda id, id2 : adjacencies.setdefault(id2, {}).__setitem__(id, nodeid_to_num_nonlinear[id]), 
-                     itertools.chain(*map(lambda nodeid : itertools.product(
+                     itertools.chain.from_iterable(map(lambda nodeid : itertools.product(
                         [nodeid], 
-                        set(filter(lambda oid : oid != nodeid, itertools.chain(*map(lambda sig : signal_to_nodeid[sig], nodeid_to_signal[nodeid])))), 
+                        set(filter(lambda oid : oid != nodeid, itertools.chain.from_iterable(map(lambda sig : signal_to_nodeid[sig], nodeid_to_signal[nodeid])))), 
                         ), 
                     nodes.keys()
                     ))

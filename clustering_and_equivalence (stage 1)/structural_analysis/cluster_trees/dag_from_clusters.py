@@ -6,9 +6,9 @@ from typing import List, Dict, Set, Tuple, Iterable
 import itertools
 import json
 
-from utilities.utilities import UnionFind, _signal_data_from_cons_list, getvars, dist_to_source_set, _distances_to_signal_set
-from r1cs_scripts.circuit_representation import Circuit
-from r1cs_scripts.constraint import Constraint
+from utilities.utilities import UnionFind, _signal_data_from_cons_list, dist_to_source_set, _distances_to_signal_set
+from circuits_and_constraints.abstract_circuit import Circuit
+from circuits_and_constraints.abstract_constraint import Constraint
 
 def partition_from_partial_clustering(
         circ: Circuit, clusters: List[List[int]], 
@@ -51,7 +51,7 @@ def partition_from_partial_clustering(
     
     for coni in remaining:
         unclustered_uf.find(coni)
-        adj_unclustered_coni = set(filter(not_in_cluster.__getitem__, itertools.chain(*map(sig_to_coni.__getitem__, getvars(circ.constraints[coni])))))
+        adj_unclustered_coni = set(filter(not_in_cluster.__getitem__, itertools.chain(*map(sig_to_coni.__getitem__, circ.constraints[coni].signals()))))
         # adj_unclustered will contain coni
         unclustered_uf.union(*adj_unclustered_coni)
     
@@ -103,14 +103,11 @@ def dag_from_partition(circ: Circuit, partition: List[List[int]]) -> "directed_a
     # TODO: optimise this it's very messy
     # copying to avoid mutating
 
-    partition = {i : part for i, part in enumerate(partition)}
+    partition: Dict[int, List[int]] = {i : part for i, part in enumerate(partition)}
 
-    is_input_sig = lambda sig : circ.nPubOut < sig <= circ.nPubOut + circ.nPubIn + circ.nPrvIn
-    is_output_sig = lambda sig : 0 < sig <= circ.nPubOut
-
-    part_to_sigs = lambda part : itertools.chain(*map(lambda coni : getvars(circ.constraints[coni]), part))
-    input_parts = set(filter(lambda i : any(map(is_input_sig, part_to_sigs(partition[i]))),partition.keys()))
-    output_parts = set(filter(lambda i : any(map(is_output_sig, part_to_sigs(partition[i]))),partition.keys()))
+    part_to_sigs = lambda part : itertools.chain(*map(lambda coni : circ.constraints[coni].signals(), part))
+    input_parts = set(filter(lambda i : any(map(circ.signal_is_input, part_to_sigs(partition[i]))),partition.keys()))
+    output_parts = set(filter(lambda i : any(map(circ.signal_is_output, part_to_sigs(partition[i]))),partition.keys()))
 
     coni_to_part = [None for _ in range(circ.nConstraints)]
     for i, part in partition.items():
@@ -260,40 +257,7 @@ class DAGNode():
         this is because Circuits are assumed to always have signals 0..nSignals not a set of named signals
         """
 
-        if self.subcircuit is None:
-
-            self.subcircuit = Circuit()
-
-            ordered_signals = list(itertools.chain(
-                [0],
-                self.output_signals.difference(self.input_signals), # TODO: how to handle signal being in input AND output?
-                self.input_signals,
-                set(itertools.chain(*map(getvars, map(self.circ.constraints.__getitem__, self.constraints)))).difference(itertools.chain(self.output_signals, self.input_signals))
-            ))
-
-            sig_mapping = dict(zip(
-                ordered_signals,
-                range(len(ordered_signals))
-            ))
-
-            self.subcircuit.constraints = list(map(lambda con : 
-                Constraint(
-                    *[{sig_mapping[sig]: val for sig, val in dict_.items()} for dict_ in [con.A, con.B, con.C]],
-                    con.p
-                ),
-                map(self.circ.constraints.__getitem__, self.constraints)))
-            
-            self.subcircuit.update_header(
-                self.circ.field_size,
-                self.circ.prime_number,
-                len(sig_mapping),
-                len(self.output_signals.difference(self.input_signals)),
-                len(self.input_signals),
-                0, # prv in doesn't matter
-                None,
-                len(self.constraints)
-            )
-
+        if self.subcircuit is None: self.subcircuit = self.circ.take_subcircuit(self.constraints, self.input_signals, self.output_signals)
         return self.subcircuit
     
     def to_dict(self, inverse_mapping : Tuple[dict] | None = None) -> Dict[str, int | List[int]]:
@@ -311,7 +275,7 @@ class DAGNode():
 
         return {
             key: val for key, val in [
-                ("node_id", self.id), ("constraints", list(map(inverse_coni, self.constraints))), ("signals", list(map(inverse_signal, set(itertools.chain(*map(getvars, map(self.circ.constraints.__getitem__, self.constraints))))))),
+                ("node_id", self.id), ("constraints", list(map(inverse_coni, self.constraints))), ("signals", list(map(inverse_signal, set(itertools.chain.from_iterable(map(lambda con : con.signals(), map(self.circ.constraints.__getitem__, self.constraints))))))),
                 # need to convert to hashable type list
                 ("input_signals", list(map(inverse_signal, self.input_signals))), ("output_signals", list(map(inverse_signal, self.output_signals))),
                 ("successors", self.successors)
@@ -333,13 +297,13 @@ def dag_to_nodes(circ: Circuit, partition: List[List[int]], arcs: List[Tuple[int
 
     # TODO: slower then just iterating once, could use a consume on a subordinate function
 
-    part_to_signals = list(map(lambda part : set(itertools.chain(*map(lambda coni : getvars(circ.constraints[coni]), part))), partition))
+    part_to_signals = list(map(lambda part : set(itertools.chain.from_iterable(map(lambda coni : circ.constraints[coni].signals(), part))), partition))
 
     nodes: List[DAGNode] = {
         i : DAGNode(
             circ, i, part,
-            set(filter(lambda sig : circ.nPubOut < sig <= circ.nPubOut + circ.nPubIn + circ.nPrvIn, part_to_signals[i])),
-            set(filter(lambda sig : 0 < sig <= circ.nPubOut, part_to_signals[i]))
+            set(filter(circ.signal_is_input, part_to_signals[i])),
+            set(filter(circ.signal_is_output, part_to_signals[i]))
         )
         for i, part in enumerate(partition)
     }

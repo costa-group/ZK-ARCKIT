@@ -85,17 +85,15 @@ import time
 import itertools
 import random
 
-from r1cs_scripts.circuit_representation import Circuit
-from r1cs_scripts.read_r1cs import parse_r1cs
+from circuits_and_constraints.abstract_circuit import Circuit
 from networkx.algorithms.community import louvain_communities
 from testing_harness import time_limit
 
 from structural_analysis.utilities.constraint_graph import shared_signal_graph
 from structural_analysis.utilities.connected_preprocessing import componentwise_preprocessing
 from structural_analysis.clustering_methods.nonlinear_attract import nonlinear_attract_clustering
-from structural_analysis.clustering_methods.linear_coefficient import cluster_by_linear_coefficient
-from structural_analysis.cluster_trees.dag_from_clusters import dag_from_partition, partition_from_partial_clustering, dag_to_nodes, nodes_to_json
-from structural_analysis.cluster_trees.equivalent_partitions import easy_fingerprint_then_equivalence, structural_augmentation_equivalence
+# from structural_analysis.clustering_methods.linear_coefficient import cluster_by_linear_coefficient #TODO: maybe refactor but not promising enough to spend time on
+from structural_analysis.cluster_trees.dag_from_clusters import dag_from_partition, partition_from_partial_clustering, dag_to_nodes
 from structural_analysis.cluster_trees.full_equivalency_partitions import subcircuit_fingerprinting_equivalency, subcircuit_fingerprint_with_structural_augmentation_equivalency, subcircuit_fingerprinting_equivalency_and_structural_augmentation_equivalency
 from structural_analysis.utilities.graph_to_img import dag_graph_to_img
 from structural_analysis.cluster_trees.dag_postprocessing import merge_passthrough, merge_only_nonlinear
@@ -127,13 +125,15 @@ def r1cs_cluster(
     if seed is None:
         seed = random.randint(0,25565)
     
-    main_circ = Circuit()
-    parse_r1cs(input_filename, main_circ)
-
-    circs, sig_mapping, con_mapping = componentwise_preprocessing(main_circ)
     
-    if main_circ.nPubOut == 0: warnings.warn("Your circuit has no outputs, this may cause undefined behaviour")
-    if main_circ.nPrvIn + main_circ.nPubIn == 0: warnings.warn("Your circuit has no inputs, this may cause undefined behaviour")
+
+    main_circ = Circuit()
+    main_circ.parse_file(input_filename)
+
+    circs, sig_mapping, con_mapping = componentwise_preprocessing(main_circ) #NOTE: UPDATED SO NOW WON'T PUT (0,0) FOR R1CSCircuit
+    
+    if main_circ.nOutputs == 0: warnings.warn("Your circuit has no outputs, this may cause undefined behaviour")
+    if main_circ.nInputs == 0: warnings.warn("Your circuit has no inputs, this may cause undefined behaviour")
 
     # TODO: pass mapping data to output json
     # TODO: add timing information for utility/debugging
@@ -187,9 +187,9 @@ def r1cs_cluster(
                 partition = list(map(list, partition))
                 data["final_resolution"] = resolution
             
-            case "linear_coefficient":
-                clusters, _, remaining = cluster_by_linear_coefficient(circ, coefs=[-1])
-                partition = partition_from_partial_clustering(circ, clusters.values(), remaining=remaining)
+            # case "linear_coefficient":
+            #     clusters, _, remaining = cluster_by_linear_coefficient(circ, coefs=[-1])
+            #     partition = partition_from_partial_clustering(circ, clusters.values(), remaining=remaining)
 
             case _ :
                 raise SyntaxError(f"{clustering_method} is not a valid clustering_method")

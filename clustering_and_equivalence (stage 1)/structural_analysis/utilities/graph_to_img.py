@@ -10,10 +10,8 @@ import pydot as pd
 import itertools
 import collections
 
-from utilities.utilities import getvars
-from r1cs_scripts.circuit_representation import Circuit
+from circuits_and_constraints.abstract_circuit import Circuit
 from structural_analysis.cluster_trees.dag_from_clusters import DAGNode
-from utilities.utilities import _signal_data_from_cons_list, getvars
 
 def circuit_graph_to_img(
         circ: Circuit, G: nx.Graph, induced_subgraph: List[int] | None = None,
@@ -50,17 +48,14 @@ def circuit_graph_to_img(
 
     g: pd.Graph = nx.nx_pydot.to_pydot(G)
 
-    in_outputs = lambda sig : 0 < sig <= circ.nPubOut
-    in_inputs = lambda sig : circ.nPubOut < sig <= circ.nPubOut+circ.nPrvIn+circ.nPubIn
-
     for node in g.get_node_list(): # coni, con in enumerate(circ.constraints):
         con = circ.constraints[ int( node.get_name() ) ]
 
-        if any(map(in_outputs, getvars(con))):
+        if any(map(circ.signal_is_output, con.signals())):
             node.set('shape','triangle')
-        if any(map(in_inputs, getvars(con))):
+        if any(map(circ.signal_is_input, con.signals())):
             node.set('shape','square')
-        if len(con.A) > 0 and len(con.B) > 0:
+        if con.is_nonlinear():
             node.set('color','red')
     
     if return_graph: return g
@@ -141,7 +136,7 @@ def dag_graph_to_img( circ: Circuit, G:nx.Graph, nodes: Dict[int, DAGNode], outf
     for node in nodes.values():
         for rkey in node.successors:
             for src, dst in itertools.product(node.constraints, nodes[rkey].constraints):
-                if len(getvars(circ.constraints[src]).intersection(getvars(circ.constraints[dst]))) > 0:
+                if len(circ.constraints[src].signals().intersection(circ.constraints[dst].signals())) > 0:
                     g.del_edge(*map(str, [dst, src]))
                     g.add_edge(pd.Edge(src, dst))
 

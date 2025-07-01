@@ -11,11 +11,10 @@ import itertools
 from collections import deque
 
 from structural_analysis.cluster_trees.dag_from_clusters import DAGNode
-from r1cs_scripts.circuit_representation import Circuit
+from circuits_and_constraints.abstract_circuit import Circuit
 from utilities.assignment import Assignment
-from normalisation import r1cs_norm
 from comparison_v2.fingerprinting_v2 import back_and_forth_fingerprinting
-from utilities.utilities import _signal_data_from_cons_list, count_ints
+from utilities.utilities import _signal_data_from_cons_list
 
 from structural_analysis.cluster_trees.equivalent_partitions import naive_equivalency_analysis, class_iterated_label_passing
 
@@ -66,12 +65,12 @@ def subcircuit_fingerprinting_equivalency_and_structural_augmentation_equivalenc
 def fingerprint_subcircuits(nodes: Dict[int, DAGNode]) -> Dict[int, List[int]]:
 
     in_pair: List[Tuple[str, Circuit]] = [(node.id, node.get_subcircuit()) for node in nodes.values()]
-    normalised_constraints = { node.id : list(itertools.chain(*map(r1cs_norm, node.get_subcircuit().constraints))) for node in nodes.values() }
+    normalised_constraints = { node.id : list(itertools.chain.from_iterable(map(lambda con : con.normalise(), node.get_subcircuit().constraints))) for node in nodes.values() }
     fingerprints_to_normi = { node.id: { 1 : list(range(len(normalised_constraints[node.id])))} for node in nodes.values() }
-    fingerprints_to_signals = {name : {0 : [0], 
-                                            1 : list(range(1,circ.nPubOut+1)), 
-                                            2 : list(range(circ.nPubOut+1, circ.nPubOut + circ.nPrvIn + circ.nPubIn + 1)), 
-                                            3 : list(range(circ.nPubOut + circ.nPrvIn + circ.nPubIn + 1, circ.nWires))} 
+    fingerprints_to_signals = {name : {
+                                        1 : list(circ.get_output_signals), 
+                                        2 : list(circ.get_input_signals), 
+                                        3 : list(filter(lambda sig : not circ.signal_is_input(sig) and not circ.signal_is_output(sig), circ.get_signals()))} 
                                     for name, circ in in_pair}
     signal_to_normi = {name: _signal_data_from_cons_list(normalised_constraints[name]) for name in nodes.keys()}
 

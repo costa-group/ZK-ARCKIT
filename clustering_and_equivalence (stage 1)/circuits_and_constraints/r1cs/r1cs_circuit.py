@@ -56,7 +56,7 @@ class R1CSCircuit(Circuit):
     def parse_file(self, file: str) -> None:
         parse_r1cs(file, self)
 
-    def take_subcircuit(self, constraint_subset: List[int], signal_map: Dict[int, int]):
+    def remap_signal_subcircuit(self, constraint_subset: List[int], signal_map: Dict[int, int]):
     
         # could do it in just 
         maxval = -float("inf")
@@ -89,6 +89,42 @@ class R1CSCircuit(Circuit):
             )
 
         return new_circ
+    
+    def take_subcircuit(self, constraint_subset: List[int], input_signals: List[int], output_signals: List[int]):
+
+        subcircuit = Circuit()
+
+        ordered_signals = list(itertools.chain(
+            [0],
+            self.output_signals.difference(input_signals), # TODO: how to handle signal being in input AND output?
+            self.input_signals,
+            set(itertools.chain(*map(lambda con : con.signals(), map(self.constraints.__getitem__, constraint_subset)))).difference(itertools.chain(output_signals, input_signals))
+        ))
+
+        sig_mapping = dict(zip(
+            ordered_signals,
+            range(len(ordered_signals))
+        ))
+
+        subcircuit.constraints = list(map(lambda con : 
+            R1CSConstraint(
+                *[{sig_mapping[sig]: val for sig, val in dict_.items()} for dict_ in [con.A, con.B, con.C]],
+                con.p
+            ),
+            map(self.constraints.__getitem__, constraint_subset)))
+        
+        subcircuit.update_header(
+            self.field_size,
+            self.prime_number,
+            len(sig_mapping),
+            len(output_signals.difference(input_signals)),
+            len(input_signals),
+            0, # prv in doesn't matter
+            None,
+            len(constraint_subset)
+        )
+
+        return subcircuit
 
     def fingerprint_signal(self, signal: int, normalised_constraint_fingerprints: List[int], prev_signal_to_fingerprint: Dict[int, Hashable], signal_to_normi: List[List[int]]) -> Hashable:
         """

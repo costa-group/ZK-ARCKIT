@@ -4,9 +4,7 @@ import collections
 
 from structural_analysis.cluster_trees.dag_from_clusters import DAGNode
 from utilities.iterated_adj_reclassing import iterated_label_propagation
-from r1cs_scripts.circuit_representation import Circuit
-from r1cs_scripts.constraint import Constraint
-from utilities.utilities import getvars
+from circuits_and_constraints.abstract_circuit import Circuit
 from utilities.assignment import Assignment
 from testing_harness import exception_catcher
 
@@ -84,7 +82,7 @@ def class_fingerprints(nodes: Dict[int, DAGNode]) -> Dict[int, List[int]]:
 
     # pairs each node with the subcircuit hash data - then group the subcircuits by equivalent hash
     for node, key in zip(nodes.values(), 
-        map(lambda circ: (circ.nConstraints, circ.nWires, circ.nPrvIn + circ.nPubIn, circ.nPubOut), 
+        map(lambda circ: (circ.nConstraints, circ.nWires, circ.nInputs, circ.nOutputs), 
         map(lambda node : node.get_subcircuit(), nodes.values()))):
 
         hash_ = NKAssignment.get_assignment(key)

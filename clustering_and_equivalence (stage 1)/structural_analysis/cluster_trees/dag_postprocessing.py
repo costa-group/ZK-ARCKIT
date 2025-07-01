@@ -8,7 +8,7 @@ import collections
 
 from r1cs_scripts.circuit_representation import Circuit
 from structural_analysis.cluster_trees.dag_from_clusters import DAGNode
-from utilities.utilities import DFS_reachability, getvars, _signal_data_from_cons_list, BFS_shortest_path, _is_nonlinear
+from utilities.utilities import DFS_reachability, _signal_data_from_cons_list
 
 def merge_under_property(circ: Circuit, nodes: Dict[int, DAGNode], 
     property : Callable[[DAGNode], bool], 
@@ -165,7 +165,7 @@ def merge_only_nonlinear(circ: Circuit, nodes: Dict[int, DAGNode]) -> Dict[int, 
         Note that this function mutates the input nodes dictionary
     """
     
-    constraint_is_nonlinear = lambda con : len(con.A) > 0 and len(con.B) > 0
+    constraint_is_nonlinear = lambda con : con.is_nonlinear()
     is_only_nonlinear = lambda node : all(map(constraint_is_nonlinear, map(circ.constraints.__getitem__, node.constraints)))
     child_isnt_nonlinear = lambda _, child : not is_only_nonlinear(child)
     parent_isnt_nonliner = lambda parent, _: not is_only_nonlinear(parent)
@@ -193,7 +193,7 @@ def merge_single_linear(circ: Circuit, nodes: Dict[int, DAGNode], favour_down: b
         Nodes list after merging.
         Note that this function mutates the input nodes dictionary
     """
-    is_single_linear : Callable[[DAGNode], bool]= lambda node : len(node.constraints) == 1 and not _is_nonlinear(circ.constraints[next(iter(node.constraints))])
+    is_single_linear : Callable[[DAGNode], bool]= lambda node : len(node.constraints) == 1 and not circ.constraints[next(iter(node.constraints))].is_nonlinear()
 
     # note that this prioritises children over parents -- this is a heuristic given by Albert
     child_attraction : Callable[[DAGNode, DAGNode], int] = lambda node, child : (len(node.input_signals) if favour_down else 0) + len(node.output_signals.intersection(child.input_signals))
@@ -222,7 +222,7 @@ def merge_unsafe_linear(circ: Circuit, nodes: Dict[int, DAGNode], favour_down: b
         Note that this function mutates the input nodes dictionary
     """
     is_single_unsafe_linear : Callable[[DAGNode], bool
-        ] = lambda node : len(node.constraints) == 1 and not _is_nonlinear(circ.constraints[next(iter(node.constraints))]) and len(node.successors) > 1
+        ] = lambda node : len(node.constraints) == 1 and not circ.constraints[next(iter(node.constraints))].is_nonlinear() and len(node.successors) > 1
 
     # note that this prioritises children over parents -- this is a heuristic given by Albert
     child_attraction : Callable[[DAGNode, DAGNode], int] = lambda node, child : (len(node.input_signals) if favour_down else 0) + len(node.output_signals.intersection(child.input_signals))

@@ -6,9 +6,9 @@ from typing import List, Tuple, Dict, Set
 from pysat.formula import CNF
 import itertools
 
-from utilities.utilities import _signal_data_from_cons_list, getvars
+from utilities.utilities import _signal_data_from_cons_list
 from utilities.assignment import Assignment
-from r1cs_scripts.circuit_representation import Circuit
+from circuits_and_constraints.abstract_circuit import Circuit
 
 def iterated_label_propagation(
         names: List[str],
@@ -162,7 +162,7 @@ def iterated_adjacency_reclassing(
 
     coni_to_adj_coni = {
         name: [
-            set(filter(lambda x : x != coni, itertools.chain(*map(signal_to_coni[name].__getitem__, getvars(con)))))
+            set(filter(lambda x : x != coni, itertools.chain(*map(signal_to_coni[name].__getitem__, con.signals()))))
             for coni, con in enumerate(circ.constraints)
         ]
         for name, circ in in_pair

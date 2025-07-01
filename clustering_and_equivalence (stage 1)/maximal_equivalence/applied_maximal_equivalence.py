@@ -8,10 +8,9 @@ from typing import List, Dict
 import itertools
 import time
 
-from r1cs_scripts.circuit_representation import Circuit
 from structural_analysis.cluster_trees.dag_from_clusters import DAGNode
 from maximal_equivalence.maximal_equivalence import maximum_equivalence
-from utilities.utilities import count_ints, _is_nonlinear
+from utilities.utilities import count_ints
 from maximal_equivalence.subclassing.by_nonlinears import get_subclasses_by_nonlinear_relation
 from maximal_equivalence.subclassing.by_size import get_subclasses_by_size
 from maximal_equivalence.subclassing.by_nonlinear_shortest_path import get_subclasses_by_nonlinear_shortest_path
@@ -103,7 +102,7 @@ def maximally_equivalent_classes(
     start = time.time()
     last_time = start
 
-    equivalent_with_nonlinear = list(filter(lambda id : any(map(_is_nonlinear, map(nodes[id].circ.constraints.__getitem__, nodes[id].constraints))), equivalent.keys()))
+    equivalent_with_nonlinear = list(filter(lambda id : any(map(lambda con : con.is_nonlinear(), map(nodes[id].circ.constraints.__getitem__, nodes[id].constraints))), equivalent.keys()))
     classes = get_subclasses_by_nonlinear_shortest_path(nodes, equivalent_with_nonlinear)
     # classes = get_subclasses_by_nonlinear_shortest_path(nodes, equivalent.keys())
     
@@ -126,7 +125,7 @@ def maximally_equivalent_classes(
     partition = []
 
     # parts from linear nodes that are not equivalenced
-    for key in filter(lambda id : not any(map(_is_nonlinear, map(nodes[id].circ.constraints.__getitem__, nodes[id].constraints))), equivalent.keys()):
+    for key in filter(lambda id : not any(map(lambda con : con.is_nonlinear(), map(nodes[id].circ.constraints.__getitem__, nodes[id].constraints))), equivalent.keys()):
         partition.extend(map(lambda id : nodes[id].constraints, equivalent[key]))
 
     # parts from nonlinear nodes now made equivalent
@@ -141,7 +140,7 @@ def maximally_equivalent_classes(
                                 )) # coni from equivalent
 
             partition.extend(map(lambda int_ : [int_], removed_coni)) # removed coni - left unclustered
-            partition.extend(itertools.chain(*itertools.starmap(lambda onode_id, mapping : 
+            partition.extend(itertools.chain.from_iterable(itertools.starmap(lambda onode_id, mapping : 
                             map(lambda int_ : [int_], map(nodes[onode_id].constraints.__getitem__, map(mapping.__getitem__, map(nodes[node.id].constraints.index, removed_coni))))   
                             , zip(equivalent[node.id][1:], equivalent_coni_map[equivalent_index[node.id]]) 
                             ))) # equiv removed coni - left unclustered

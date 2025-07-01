@@ -1,9 +1,9 @@
 from typing import Iterable, List, Tuple, Dict, Set
 import itertools
 
-from utilities.utilities import UnionFind, _signal_data_from_cons_list, getvars
-from r1cs_scripts.circuit_representation import Circuit
-from r1cs_scripts.constraint import Constraint
+from utilities.utilities import UnionFind, _signal_data_from_cons_list
+from circuits_and_constraints.abstract_circuit import Circuit
+from circuits_and_constraints.abstract_constraint import Constraint
 
 def nonlinear_attract_clustering(circ: Circuit, pre_merge: bool = False):
     """
@@ -38,20 +38,17 @@ def nonlinear_attract_clustering(circ: Circuit, pre_merge: bool = False):
 
     # Step 1: place adjacent nonlinears into a cluster
     sig_to_coni = _signal_data_from_cons_list(circ.constraints)
-    coni_to_adjacent_coni = lambda coni : set(filter(lambda oconi: oconi != coni, itertools.chain(*map(sig_to_coni.__getitem__, getvars(circ.constraints[coni])))))
-
-    def _is_nonlinear(con: Constraint) -> bool:
-        return len(con.A) > 0 and len(con.B) > 0
+    coni_to_adjacent_coni = lambda coni : set(filter(lambda oconi: oconi != coni, itertools.chain(*map(sig_to_coni.__getitem__, circ.constraints[coni].signals()))))
     
     nonlinear_clusters = UnionFind()
 
     # NOTE: we do not want only nonlinear clusters so we merge the first adjacency of linear clusters as well
-    for coni in filter(lambda coni : _is_nonlinear(circ.constraints[coni]), range(circ.nConstraints)):
+    for coni in filter(lambda coni : circ.constraints[coni].is_nonlinear(), range(circ.nConstraints)):
         if pre_merge:
             nonlinear_clusters.parent[coni] = -2 # hack to ensure no linear cluster indexes
             nonlinear_clusters.union(coni, *coni_to_adjacent_coni(coni))
         else:
-            nonlinear_clusters.union(coni, *filter(lambda oconi : _is_nonlinear(circ.constraints[oconi]), coni_to_adjacent_coni(coni)) )
+            nonlinear_clusters.union(coni, *filter(lambda oconi : circ.constraints[oconi].is_nonlinear(), coni_to_adjacent_coni(coni)) )
             
     clusters = {}
     for coni in nonlinear_clusters.parent.keys():
@@ -63,7 +60,7 @@ def nonlinear_attract_clustering(circ: Circuit, pre_merge: bool = False):
             adjacent_nonlinear[key] = set(
                 itertools.chain(
                 *map(
-                    lambda coni : filter(lambda oconi : ( not _is_nonlinear(circ.constraints[oconi]) ) and 
+                    lambda coni : filter(lambda oconi : ( not circ.constraints[oconi].is_nonlinear() ) and 
                         nonlinear_clusters.find(oconi) == oconi, coni_to_adjacent_coni(coni)),
                     cluster
                 )
@@ -92,7 +89,7 @@ def nonlinear_attract_clustering(circ: Circuit, pre_merge: bool = False):
         for coni in to_attract:
             key = adjacent_to[coni][0]
             clusters[key].append(coni)
-            adjacent_nonlinear.setdefault(key, set([])).update(filter(lambda oconi : ( not _is_nonlinear(circ.constraints[oconi]) ) and nonlinear_clusters.find(oconi) == oconi, coni_to_adjacent_coni(coni)))
+            adjacent_nonlinear.setdefault(key, set([])).update(filter(lambda oconi : ( not circ.constraints[oconi].is_nonlinear() ) and nonlinear_clusters.find(oconi) == oconi, coni_to_adjacent_coni(coni)))
 
     return clusters, None, None
 

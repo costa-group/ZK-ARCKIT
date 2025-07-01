@@ -63,7 +63,7 @@ class ACIRCircuit(Circuit):
         self.input_signals = list(map(sigmapp.__getitem__, self.input_signals))
         self.output_signals = list(map(sigmapp.__getitem__, self.output_signals))
 
-    def take_subcircuit(self, constraint_subset: List[int], signal_map: List[int]):
+    def remap_signal_subcircuit(self, constraint_subset: List[int], signal_map: List[int]):
         
         newcirc = ACIRCircuit()
 
