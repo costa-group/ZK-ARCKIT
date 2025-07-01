@@ -107,9 +107,9 @@ def maximally_equivalent_classes(
     # classes = get_subclasses_by_nonlinear_shortest_path(nodes, equivalent.keys())
     
     # filter by nonlinear fingerprinting
-    classes = itertools.chain(*map(get_subclasses_by_nonlinear_relation, classes))
+    classes = itertools.chain.from_iterable(map(get_subclasses_by_nonlinear_relation, classes))
     # filter by size tolerance
-    classes = itertools.chain(*map(lambda class_ : get_subclasses_by_size(class_, tol=tol), classes))
+    classes = itertools.chain.from_iterable(map(lambda class_ : get_subclasses_by_size(class_, tol=tol), classes))
 
     if exit_subclasses: return count_ints(map(len, classes))
 

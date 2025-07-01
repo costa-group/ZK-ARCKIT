@@ -59,8 +59,9 @@ class Circuit(ABC):
     @abstractmethod
     def parse_file(self, file: str) -> None: pass
 
+    # now required constraints_to_fingerprint provided to be able to fingerprint on an aribtrary list of constraints not just the norms
     @abstractmethod
-    def fingerprint_signal(self, signal: int, normalised_constraint_fingerprints: List[int], prev_signal_to_fingerprint: Dict[int, Hashable], signal_to_normi: List[List[int]]) -> Hashable: pass
+    def fingerprint_signal(self, signal: int, constraints_to_fingerprint: List[Constraint], normalised_constraint_fingerprints: List[int], prev_signal_to_fingerprint: Dict[int, Hashable], signal_to_normi: List[List[int]]) -> Hashable: pass
 
     @abstractmethod
     def remap_signal_subcircuit(self, constraint_subset: List[int], signal_map: Dict[int, int]) -> "Circuit": pass

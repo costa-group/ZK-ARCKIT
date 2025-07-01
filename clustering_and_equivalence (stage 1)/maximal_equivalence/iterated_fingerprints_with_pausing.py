@@ -71,7 +71,6 @@ def sanity_check_and_revert(
 def iterated_fingerprints_w_reverting(
     names: List[str],
     in_pair: List[Tuple[str, Circuit]],
-    normalised_constraints: Dict[str, List[Constraint]],
     signal_to_normi: Dict[str, List[List[int]]],
     fingerprints_to_normi: Dict[str, Dict[int, List[int]]],
     fingerprints_to_signals: Dict[str, Dict[int, List[int]]],
@@ -80,6 +79,6 @@ def iterated_fingerprints_w_reverting(
     test_data: dict | None = None 
     ):
     return back_and_forth_fingerprinting(
-        names, in_pair, normalised_constraints, signal_to_normi, fingerprints_to_normi, fingerprints_to_signals, initial_mode = initial_mode, 
+        names, in_pair, signal_to_normi, fingerprints_to_normi, fingerprints_to_signals, initial_mode = initial_mode, 
         per_iteration_postprocessing = sanity_check_and_revert, return_index_to_fingerprint = return_index_to_fingerprint, test_data = test_data, strict_unique=True
     )

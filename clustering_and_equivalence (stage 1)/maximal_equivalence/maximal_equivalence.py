@@ -50,22 +50,11 @@ def maximum_equivalence(
         formula = CNF()
 
         # the norms for each constraint
-        normalised_constraints = { name : [] for name in names}
-        normi_to_coni = {name : [] for name in names}
-
-        def _normalised_constraint_building_step(name, con):
-            coni, cons = con
-            norms = cons.normalise()
-            normalised_constraints[name].extend(norms)
-            normi_to_coni[name].extend(coni for _ in range(len(norms)))
-
-        deque(
-            maxlen=0,
-            iterable = itertools.starmap(_normalised_constraint_building_step, itertools.chain.from_iterable(itertools.starmap(lambda name, circ : itertools.product([name], enumerate(circ.constraints)), in_pair)))
-        )
+        S1.normalise_constraints()
+        S2.normalise_constraints()
 
         ## parameters deal with signals in no constraint (i.e. used input signal case)
-        signal_to_normi = {name: _signal_data_from_cons_list(normalised_constraints[name], signal_to_cons=[[] for _ in range(circ.nWires)], is_dict=False) for name, circ in in_pair}
+        signal_to_normi = {name: _signal_data_from_cons_list(circ.normalised_constraints, signal_to_cons=[[] for _ in range(circ.nWires)], is_dict=False) for name, circ in in_pair}
 
         norm_signal_data_calculation_time = time.time()
         test_data["timing"]["norm_signal_data_calculation"] = norm_signal_data_calculation_time - last_time
@@ -75,7 +64,7 @@ def maximum_equivalence(
         #     raise AssertionError(f"EE: Different number of normalised constraints, {names[0]} had {len(normalised_constraints[names[0]])} where {names[1]} had {len(normalised_constraints[names[1]])}")
 
         if fingerprints_to_normi is None: 
-            fingerprints_to_normi = coefficient_only_fingerprinting(names, normalised_constraints)
+            fingerprints_to_normi = coefficient_only_fingerprinting(names, {name : circ.normalised_constraints for name, circ in in_pair})
         # signals initially classed on input / output / neither
     
         if fingerprints_to_signals is None:
@@ -83,7 +72,7 @@ def maximum_equivalence(
 
         # encode initial fingerprints but norms now have signal class in norm
         fingerprints_to_normi, fingerprints_to_signals, _, signal_to_fingerprints = iterated_fingerprints_w_reverting(
-            names, in_pair, normalised_constraints, signal_to_normi, fingerprints_to_normi, fingerprints_to_signals, return_index_to_fingerprint=True,
+            names, in_pair, signal_to_normi, fingerprints_to_normi, fingerprints_to_signals, return_index_to_fingerprint=True,
             initial_mode = False
         )
 
@@ -108,7 +97,7 @@ def maximum_equivalence(
                 "counts": [x[1] for x in ints]
             }
 
-        formula, _, norm_assignment, signal_assignment = encode_classes_v2(names, normalised_constraints, fingerprints_to_normi, signal_to_fingerprints, fingerprints_to_signals, weighted_cnf=True)
+        formula, _, norm_assignment, signal_assignment = encode_classes_v2(in_pair, fingerprints_to_normi, signal_to_fingerprints, fingerprints_to_signals, weighted_cnf=True)
         test_data["formula_size"] = len(formula.hard) + len(formula.soft)
 
         solver = LSU(formula, solver='glucose4' if solver_timeout is not None else 'cadical195', expect_interrupt=solver_timeout is not None, verbose=debug, incr=solver_timeout is not None)
@@ -149,7 +138,7 @@ def maximum_equivalence(
         ))
         signal_pairs = list(map(signal_assignment.get_inv_assignment, filter(lambda lit : signal_vals.setdefault(lit, False), filter(lambda x : x > 0, model))))
 
-        coni_pairs = list(set(map(lambda pair : tuple(normi_to_coni[names[i]][pair[i]] for i in range(2)), norm_pairs)))
+        coni_pairs = list(set(map(lambda pair : tuple(in_pair[i][1].normi_to_coni[pair[i]] for i in range(2)), norm_pairs)))
 
         test_data["results"] = (coni_pairs, signal_pairs)
 

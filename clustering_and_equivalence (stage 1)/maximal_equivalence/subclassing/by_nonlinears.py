@@ -37,14 +37,14 @@ def get_subclasses_by_nonlinear_relation(nodes: Dict[int, DAGNode]) -> List[Dict
 
     circ = next(iter(nodes.values())).circ
 
-    normalised_constraints = { name : list(filter(lambda con : con.is_nonlinear(), map(node.circ.constraints.__getitem__, node.constraints))) for name, node in nodes.items() }
-    fingerprints_to_normi = coefficient_only_fingerprinting(names, normalised_constraints)
+    ## seemed not to use normalised constraints at all...
+    nonlinear_constraints = { name : list(filter(lambda con : con.is_nonlinear(), map(node.circ.constraints.__getitem__, node.constraints))) for name, node in nodes.items() }
+    fingerprints_to_normi = coefficient_only_fingerprinting(names, nonlinear_constraints)
 
-    signal_to_normi = {name: _signal_data_from_cons_list(normalised_constraints[name]) for name in names}
+    signal_to_normi = {name: _signal_data_from_cons_list(nonlinear_constraints[name]) for name in names}
     signal_sets = {name: signal_to_normi[name].keys() for name in names}
     fingerprints_to_signals = {name: { 1 : list(signal_sets[name])} for name in names}
-    fingerprints_to_normi, _ = back_and_forth_fingerprinting(names, itertools.product(names, [circ]), normalised_constraints, signal_to_normi, fingerprints_to_normi, fingerprints_to_signals, signal_sets = signal_sets, initial_mode=False)
-
+    fingerprints_to_normi, _ = back_and_forth_fingerprinting(names, itertools.product(names, [circ]), signal_to_normi, fingerprints_to_normi, fingerprints_to_signals, signal_sets = signal_sets, initial_mode=False, constraints_to_fingerprint=nonlinear_constraints)
 
     node_hashing = Assignment(assignees=1)
     node_fingerprints = {node_id : node_hashing.get_assignment(tuple(sorted(itertools.starmap(lambda fp, normis : (fp, len(normis)), fingerprints_to_normi[node_id].items())))) for node_id in names}
