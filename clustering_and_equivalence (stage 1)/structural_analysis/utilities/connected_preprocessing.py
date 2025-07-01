@@ -65,7 +65,7 @@ def componentwise_preprocessing(circ: Circuit) -> Tuple[List[Circuit], List[Tupl
     """
 
     signal_to_conis = _signal_data_from_cons_list(circ.constraints)
-    signals = set(circ.get_signals)
+    signals = set(circ.get_signals())
 
     signals_by_component = []
 
