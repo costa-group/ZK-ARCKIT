@@ -57,16 +57,8 @@ class R1CSCircuit(Circuit):
         parse_r1cs(file, self)
 
     def remap_signal_subcircuit(self, constraint_subset: List[int], signal_map: Dict[int, int]):
-    
-        # could do it in just 
-        maxval = -float("inf")
-        zerokey = None
-        for k, v in signal_map.items(): 
-            if v == 0: zerokey = k
-            if maxval < v: maxval = v
-        if zerokey is not None:
-            signal_map[zerokey] = maxval + 1
-        
+        # Signal_Map is assumed to give values 0...nWires, but in R1CS 0 is reserved for the constant signals.. Hence the +1 in value
+
         new_circ = R1CSCircuit()
 
         for coni in constraint_subset:
@@ -74,13 +66,13 @@ class R1CSCircuit(Circuit):
             cons = self.constraints[coni]
 
             new_circ.constraints.append(R1CSConstraint(
-                *[{0 if sig == 0 else signal_map[sig]:value for sig, value in dict_.items()} for dict_ in 
+                *[{0 if sig == 0 else signal_map[sig]+1:value for sig, value in dict_.items()} for dict_ in
                 [cons.A, cons.B, cons.C]], cons.p))
 
         in_next_circuit = lambda sig : signal_map.get(sig, None) is not None
 
         new_circ.update_header(
-            self.field_size, self.prime_number, maxval+2,
+            self.field_size, self.prime_number, len(signal_map)+1,
             nPubOut=len(list(filter(in_next_circuit, self.get_output_signals()))),
             nPubIn=len(list(filter(in_next_circuit, self.get_input_signals()))),
             nPrvIn=0, # TODO: may need to change if this becomes relevant..
