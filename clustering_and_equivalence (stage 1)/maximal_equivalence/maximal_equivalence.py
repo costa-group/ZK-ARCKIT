@@ -50,8 +50,8 @@ def maximum_equivalence(
         formula = CNF()
 
         # the norms for each constraint
-        S1.normalise_constraints()
-        S2.normalise_constraints()
+        if S1.normalised_constraints == []: S1.normalise_constraints()
+        if S2.normalised_constraints == []: S2.normalise_constraints()
 
         ## parameters deal with signals in no constraint (i.e. used input signal case)
         signal_to_normi = {name: _signal_data_from_cons_list(circ.normalised_constraints, signal_to_cons=[[] for _ in range(circ.nWires)], is_dict=False) for name, circ in in_pair}
