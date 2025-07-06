@@ -287,11 +287,11 @@ def merge_nodes(lkey: int, rkey: int, nodes: Dict[int, DAGNode],
     circ = next(iter(nodes.values())).circ
 
     nodes[lkey].input_signals.update(filter(
-        lambda sig : circ.nPubOut < sig <= circ.nPubOut + circ.nPrvIn + circ.nPubIn or  any(map(lambda coni : coni_to_node[coni] in nodes[lkey].predecessors, sig_to_coni[sig])),
+        lambda sig : circ.signal_is_input(sig) or any(map(lambda coni : coni_to_node[coni] in nodes[lkey].predecessors, sig_to_coni[sig])),
         nodes[rkey].input_signals
     ))
     nodes[lkey].output_signals = nodes[rkey].output_signals.union(filter(
-        lambda sig : 0 < sig <= circ.nPubOut or any(map(lambda coni : coni_to_node[coni] in nodes[lkey].successors, sig_to_coni[sig])),
+        lambda sig : circ.signal_is_output(sig) or any(map(lambda coni : coni_to_node[coni] in nodes[lkey].successors, sig_to_coni[sig])),
         nodes[lkey].output_signals
     ))
     
