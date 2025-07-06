@@ -172,6 +172,6 @@ def circuit_equivalence(
     except AssertionError as e:
 
         test_data["result"] = False
-        test_data["result_explanation"] = repr(e)
+        test_data["result_explanation"] = repr(e)[:1000]
     
     return test_data
