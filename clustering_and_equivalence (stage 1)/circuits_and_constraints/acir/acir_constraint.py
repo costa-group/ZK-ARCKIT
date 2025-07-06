@@ -64,7 +64,7 @@ class ACIRConstraint(Constraint):
         return f"ACIRConstraint({self.mult}, {self.linear}, {self.constant})"
     
     def get_coefficients(self):
-        return tuple(map(lambda part: tuple(sorted(part.values())), [self.mult, self.linear, self.constant])) # In general constraint values are sorted already since these are norms, but just to be careful
+        return tuple(itertools.chain(itertools.chain.from_iterable(map(lambda part: tuple(sorted(part.values())), [self.mult, self.linear])), [self.constant])) # In general constraint values are sorted already since these are norms, but just to be careful
 
 
 def parse_acir_constraint(json: dict, prime: int) -> ACIRConstraint:
