@@ -171,7 +171,8 @@ class R1CSCircuit(Circuit):
         is_ordered: bool,
         signal_pair_encoder: Assignment,
         signal_to_fingerprint: Dict[str, List[int]],
-        fingerprint_to_signals: Dict[str, Dict[int, List[int]]]
+        fingerprint_to_signals: Dict[str, Dict[int, List[int]]],
+        is_singular_class: bool = False
     ):
         """
         SAT encoder for a single norm pair
@@ -247,6 +248,9 @@ class R1CSCircuit(Circuit):
                 )))
         
         return clauses
+    
+    @staticmethod
+    def singular_class_requires_additional_constraints(): return False
 
     @property
     def prime(self) -> int:

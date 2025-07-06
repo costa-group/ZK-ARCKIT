@@ -74,8 +74,13 @@ class Circuit(ABC):
         is_ordered: bool,
         signal_pair_encoder: Assignment,
         signal_to_fingerprint: Dict[str, List[int]],
-        fingerprint_to_signals: Dict[str, Dict[int, List[int]]]
+        fingerprint_to_signals: Dict[str, Dict[int, List[int]]],
+        is_singular_class: bool = False
     ): pass
+
+    @staticmethod
+    @abstractmethod
+    def singular_class_requires_additional_constraints() -> bool: pass
 
     def normalise_constraints(self) -> None:
 

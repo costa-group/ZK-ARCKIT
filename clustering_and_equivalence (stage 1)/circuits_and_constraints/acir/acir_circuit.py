@@ -91,17 +91,6 @@ class ACIRCircuit(Circuit):
         newcirc.output_signals = list(filter(lambda k: k is not None, map(lambda k : signal_map.get(k, None), output_signals)))
 
         return newcirc
-
-    @staticmethod
-    def encode_single_norm_pair(
-        names: List[str],
-        norms: List[ACIRConstraint],
-        is_ordered: bool,
-        signal_pair_encoder: Assignment,
-        signal_to_fingerprint: Dict[str, List[int]],
-        fingerprint_to_signals: Dict[str, Dict[int, List[int]]]
-    ):
-        return encode_single_norm_pair(names, norms, signal_pair_encoder, signal_to_fingerprint)
     
     def fingerprint_signal(self, signal: int, constraints_to_fingerprint: List[ACIRConstraint], normalised_constraint_fingerprints: List[Hashable], prev_signal_to_fingerprint: Dict[int, Hashable], signal_to_normi: List[List[int]]) -> Hashable:
         ## for every norm that is in - convert norm to fingerprint
@@ -120,6 +109,21 @@ class ACIRCircuit(Circuit):
                 )
                 for normi in signal_to_normi[signal]
         ))
+    
+    @staticmethod
+    def encode_single_norm_pair(
+        names: List[str],
+        norms: List[ACIRConstraint],
+        is_ordered: bool,
+        signal_pair_encoder: Assignment,
+        signal_to_fingerprint: Dict[str, List[int]],
+        fingerprint_to_signals: Dict[str, Dict[int, List[int]]],
+        is_singular_class: bool = False
+    ):
+        return encode_single_norm_pair(names, norms, signal_pair_encoder, signal_to_fingerprint, fingerprint_to_signals, is_singular_class)
+    
+    @staticmethod
+    def singular_class_requires_additional_constraints(): return True
     
     @property
     def prime(self) -> int:

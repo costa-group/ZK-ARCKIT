@@ -9,7 +9,9 @@ def encode_single_norm_pair(
         names: List[str], 
         norms: List[ACIRConstraint], 
         signal_pair_encoder: Assignment, 
-        signal_to_fingerprint: Dict[str, Dict[int, int]]
+        signal_to_fingerprint: Dict[str, Dict[int, int]],
+        fingerprint_to_signals: Dict[str, Dict[int, List[int]]],
+        is_singular_class: bool
     ):
     ## Worse Encoding than in R1CS because of arbitrary two-pair... explodes for arbitrary polynomials very quickly
     # each n-ary equivalence implies up to k-1 (n-1)-ary equivalences which are unordered and so on for O(kn) layers each of which takes... etc
@@ -24,13 +26,16 @@ def encode_single_norm_pair(
             inverse_nonlinear_part[name].setdefault(l, {}).setdefault(v, []).append(r)
             inverse_nonlinear_part[name].setdefault(r, {}).setdefault(v, []).append(l)
 
+    if is_singular_class: # Since class is uniquely identifiable fingerprints will remain unchanged
+        return encode_from_fingerprints(names, inverse_nonlinear_part, signal_pair_encoder, fingerprint_to_signals, True)
+
     curr_fingerprint_to_signals = fingerprint_signals_in_current_norms(names, norms, inverse_nonlinear_part, signal_to_fingerprint)
 
     # if they have different keys or signals with different keys then
     if len(set(curr_fingerprint_to_signals[names[0]].keys()).symmetric_difference(curr_fingerprint_to_signals[names[1]])) > 0 or any(len(curr_fingerprint_to_signals[names[0]][key]) != len(curr_fingerprint_to_signals[names[1]][key]) for key in curr_fingerprint_to_signals[names[0]].keys()):
         return []
 
-    return encode_from_fingerprints(names, inverse_nonlinear_part, signal_pair_encoder, curr_fingerprint_to_signals)
+    return encode_from_fingerprints(names, inverse_nonlinear_part, signal_pair_encoder, curr_fingerprint_to_signals, False)
 
 
 def fingerprint_signals_in_current_norms(
@@ -52,7 +57,8 @@ def fingerprint_signals_in_current_norms(
             (curr_signal_to_fingerprint[name][osig], val) for val, osigs in inverse_nonlinear_part[name].get(sig, {}).items() for osig in osigs
         )))
 
-    ## TODO: could do multiple rounds but feels like overkill to refactor fingerprinting_v2 to work in this context just for that when one round
+    ## TODO: could do multiple rounds but feels like overkill to refactor fingerprinting_v2 to work in this context just for that when one round is almost always going to be stable
+    #           also feels like it would impact performance
 
     curr_fingerprint_to_signals = {name: {} for name in names}
     signal_hashables = {name: {sig : get_hashable(name, norm, sig) for sig in signals[name]} for name, norm in zip(names, norms)}
@@ -67,7 +73,8 @@ def encode_from_fingerprints(
         names: List[str], 
         inverse_nonlinear_part: Dict[str, Dict[int, Dict[int, List[int]]]], 
         signal_pair_encoder: Assignment, 
-        curr_fingerprint_to_signals: Dict[str, Dict[int, List[int]]]
+        curr_fingerprint_to_signals: Dict[str, Dict[int, List[int]]],
+        is_singular_class: bool
     ):
 
     clauses = []
@@ -79,17 +86,19 @@ def encode_from_fingerprints(
             for sig in curr_fingerprint_to_signals[name][key]:
 
                 # at least one
-                clauses.append(list(map(lambda osig : signal_pair_encoder.get_assignment(*((sig, osig) if i == 0 else (osig, sig))), curr_fingerprint_to_signals[oname][key])))
+                if not is_singular_class:
+                    clauses.append(list(map(lambda osig : signal_pair_encoder.get_assignment(*((sig, osig) if i == 0 else (osig, sig))), curr_fingerprint_to_signals[oname][key])))
 
                 if sig in inverse_nonlinear_part[name].keys():
                     for osig in curr_fingerprint_to_signals[oname][key]:
                         # correctness clauses
                         ## for every pair of potential signals
-                        ##      each sig in mult with lsig and val v is bijected to at least one such sig for rsig
+                        ##      each sig in mult with sig and val v is mapped to at least one such sig for osig and vice versa
 
                         pair_assignment = signal_pair_encoder.get_assignment(*((sig, osig) if i == 0 else (osig, sig)))
                         sigs = [sig, osig] if i == 0 else [osig, sig]
 
+                        # Index error should never happen here due to having the same fingerprint
                         clauses.extend(
                             [signal_pair_encoder.get_assignment(*((lopt, ropt) if i == 0 else (ropt, lopt))) for ropt in inverse_nonlinear_part[names[1-j]][sigs[1-j]][key]] + [-pair_assignment]
                             for j in range(2) for key in inverse_nonlinear_part[names[j]][sigs[j]].keys() for lopt in inverse_nonlinear_part[names[j]][sigs[j]][key]

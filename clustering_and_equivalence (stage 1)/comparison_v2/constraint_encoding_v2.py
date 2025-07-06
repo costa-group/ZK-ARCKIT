@@ -62,21 +62,25 @@ def encode_classes_v2(
     norm_pair_encoder   = Assignment(assignees=2)
     signal_pair_encoder = Assignment(assignees=2, link=norm_pair_encoder)
 
-    classes_to_encode = sorted(
-        filter(lambda key : len(fingerprint_to_normi[names[0]][key]) > 1, fingerprint_to_normi[names[0]].keys()), 
-        key = lambda k : len(fingerprint_to_normi[names[0]][k]
-        ))
-    
+    in_both_keys = set(fingerprint_to_normi[names[0]].keys()).intersection(fingerprint_to_normi[names[1]].keys())
+
+    singular_classes = []
+    nonsingular_classes = []
+
+    for key in in_both_keys:
+        if all(len(fingerprint_to_normi[name][key]) == 1 for name in names):
+            singular_classes.append(key)
+        else:
+            nonsingular_classes.append(key)
+
     ## NOTE: why is this necessary?
     #   norm pairs may be uniquely identifiable and incident to some reverted signal
     #       given the pair has been set, that signal must be constrained by the pair 
     #       but will not be by the fingerprinting w/ reverting. These clauses are
     #       then hard by necessity
-    if weighted_cnf:
+    if weighted_cnf or in_pair[0][1].singular_class_requires_additional_constraints():
 
-        in_both_keys = set(fingerprint_to_normi[names[0]].keys()).intersection(fingerprint_to_normi[names[1]].keys())
-
-        for key in filter(lambda key : all(len(fingerprint_to_normi[name][key]) == 1 for name in names), in_both_keys):
+        for key in singular_classes:
             
             norm = in_pair[0][1].normalised_constraints[fingerprint_to_normi[names[0]][key][0]]
             is_ordered = type(norm) == R1CSConstraint and ( not ( len(norm.A) > 0 and len(norm.B) > 0 and sorted(norm.A.values()) == sorted(norm.B.values()) ) )
@@ -87,13 +91,14 @@ def encode_classes_v2(
                 is_ordered,
                 signal_pair_encoder,
                 signal_to_fingerprint,
-                fingerprint_to_signals
+                fingerprint_to_signals,
+                is_singular_class = not weighted_cnf
             )
 
             formula.extend(viable_pairs)
 
     # Add clauses for classes of size > 1
-    for key in classes_to_encode:
+    for key in nonsingular_classes:
         encode_single_norm_class(
             names, in_pair , {name: fingerprint_to_normi[name][key] for name in names}, norm_pair_encoder,
             signal_pair_encoder, signal_to_fingerprint, fingerprint_to_signals, formula, weighted_cnf = weighted_cnf
