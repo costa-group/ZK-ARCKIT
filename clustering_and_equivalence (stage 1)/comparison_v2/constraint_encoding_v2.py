@@ -10,6 +10,7 @@ import itertools
 
 from circuits_and_constraints.abstract_circuit import Circuit
 from circuits_and_constraints.abstract_constraint import Constraint
+from circuits_and_constraints.r1cs.r1cs_constraint import R1CSConstraint
 
 from utilities.assignment import Assignment
 
@@ -78,7 +79,7 @@ def encode_classes_v2(
         for key in filter(lambda key : all(len(fingerprint_to_normi[name][key]) == 1 for name in names), in_both_keys):
             
             norm = in_pair[0][1].normalised_constraints[fingerprint_to_normi[names[0]][key][0]]
-            is_ordered = not ( len(norm.A) > 0 and len(norm.B) > 0 and sorted(norm.A.values()) == sorted(norm.B.values()) )
+            is_ordered = type(norm) == R1CSConstraint and ( not ( len(norm.A) > 0 and len(norm.B) > 0 and sorted(norm.A.values()) == sorted(norm.B.values()) ) )
 
             viable_pairs = in_pair[0][1].encode_single_norm_pair(
                 names,
@@ -155,7 +156,7 @@ def encode_single_norm_class(
         Function returns nothing, formula is mutated.
     """
     norm = in_pair[0][1].normalised_constraints[class_[names[0]][0]]
-    is_ordered = not ( len(norm.A) > 0 and len(norm.B) > 0 and sorted(norm.A.values()) == sorted(norm.B.values()) )
+    is_ordered = type(norm) == R1CSConstraint and ( not ( len(norm.A) > 0 and len(norm.B) > 0 and sorted(norm.A.values()) == sorted(norm.B.values()) ) )
 
     # for each norm pair we isolate the restriction clauses and add a if_pair -> clauses set to the clauses
     for normi in class_[names[0]]:
