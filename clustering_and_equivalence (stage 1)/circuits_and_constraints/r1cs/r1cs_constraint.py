@@ -115,3 +115,6 @@ class R1CSConstraint(Constraint):
 
     def __repr__(self):
         return f"R1CSConstraint(A: {self.A}, B: {self.B}, C: {self.C})"
+    
+    def get_coefficients(self) -> Hashable:
+        return tuple(map(lambda part: tuple(sorted(part.values())), [self.A, self.B, self.C])) # In general constraint values are sorted already since these are norms, but just to be careful

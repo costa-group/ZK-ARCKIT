@@ -17,3 +17,6 @@ class Constraint(ABC):
 
     @abstractmethod
     def is_nonlinear(self) -> bool: pass
+
+    @abstractmethod
+    def get_coefficients(self) -> Hashable: pass

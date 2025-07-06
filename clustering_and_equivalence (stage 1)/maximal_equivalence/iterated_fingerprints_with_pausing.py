@@ -21,16 +21,13 @@ from comparison_v2.fingerprinting_v2 import back_and_forth_fingerprinting
 
 # TODO: make part of constraint Class
 def coefficient_only_fingerprinting(names: List[str], normalised_constraints: Dict[str, List[Constraint]]) -> Dict[str, Dict[int, List[int]]]:
-    
-    def cons_to_coef(C: Constraint):
-        return tuple(map(lambda part: tuple(part.values()), [C.A, C.B, C.C]))
 
     classes = {name: {} for name in names}
     coef_hash = Assignment(assignees=1)
 
     deque(
         maxlen=0, 
-        iterable=itertools.starmap(lambda name, normi : classes[name].setdefault(coef_hash.get_assignment(cons_to_coef(normalised_constraints[name][normi])), []).append(normi), 
+        iterable=itertools.starmap(lambda name, normi : classes[name].setdefault(coef_hash.get_assignment(normalised_constraints[name][normi].get_coefficients()), []).append(normi), 
                                 itertools.chain(*map(lambda name: itertools.product([name], range(len(normalised_constraints[name]))), names)))
     )
 
