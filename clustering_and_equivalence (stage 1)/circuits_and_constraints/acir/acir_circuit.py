@@ -111,7 +111,7 @@ class ACIRCircuit(Circuit):
                 (normalised_constraint_fingerprints[normi], 
                     (
                     tuple(sorted(
-                        (prev_signal_to_fingerprint.get(osignal, -3), val)
+                        (prev_signal_to_fingerprint.get(osignal, (-3, -3)), val) # Needs to be a tuple as fingerprint is of formate (round_got, val)
 
                         for osignal, val in map(lambda tup : (tup[0][0] if tup[0][0] != signal else tup[0][1], tup[1]), filter(lambda tup : any(k == signal for k in tup[0]), constraints_to_fingerprint[normi].mult.items()))
                     )), ## mult coefficients
