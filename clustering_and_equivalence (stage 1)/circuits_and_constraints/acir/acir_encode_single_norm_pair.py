@@ -76,19 +76,19 @@ def encode_from_fingerprints(
         for i in range(2):
             name, oname = names[i], names[1-i]
 
-            for lsig in curr_fingerprint_to_signals[name][key]:
+            for sig in curr_fingerprint_to_signals[name][key]:
 
                 # at least one
-                clauses.append(list(map(lambda rsig : signal_pair_encoder.get_assignment(*((lsig, rsig) if i == 0 else (rsig, lsig))), curr_fingerprint_to_signals[oname][key])))
+                clauses.append(list(map(lambda osig : signal_pair_encoder.get_assignment(*((sig, osig) if i == 0 else (osig, sig))), curr_fingerprint_to_signals[oname][key])))
 
-                if lsig in inverse_nonlinear_part[name].keys():
-                    for rsig in curr_fingerprint_to_signals[oname][key]:
+                if sig in inverse_nonlinear_part[name].keys():
+                    for osig in curr_fingerprint_to_signals[oname][key]:
                         # correctness clauses
                         ## for every pair of potential signals
                         ##      each sig in mult with lsig and val v is bijected to at least one such sig for rsig
 
-                        pair_assignment = signal_pair_encoder.get_assignment(*((lsig, rsig) if i == 0 else (rsig, lsig)))
-                        sigs = [lsig, rsig]
+                        pair_assignment = signal_pair_encoder.get_assignment(*((sig, osig) if i == 0 else (osig, sig)))
+                        sigs = [sig, osig] if i == 0 else [osig, sig]
 
                         clauses.extend(
                             [signal_pair_encoder.get_assignment(*((lopt, ropt) if i == 0 else (ropt, lopt))) for ropt in inverse_nonlinear_part[names[1-j]][sigs[1-j]][key]] + [-pair_assignment]
