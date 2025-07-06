@@ -64,10 +64,7 @@ class Circuit(ABC):
     def fingerprint_signal(self, signal: int, constraints_to_fingerprint: List[Constraint], normalised_constraint_fingerprints: List[int], prev_signal_to_fingerprint: Dict[int, Hashable], signal_to_normi: List[List[int]]) -> Hashable: pass
 
     @abstractmethod
-    def remap_signal_subcircuit(self, constraint_subset: List[int], signal_map: Dict[int, int]) -> "Circuit": pass
-
-    @abstractmethod
-    def take_subcircuit(self, constraint_subset: List[int], input_signals: List[int], output_signals: List[int]): pass
+    def take_subcircuit(self, constraint_subset: List[int], input_signals: List[int] | None = None, output_signals: List[int] | None = None, signal_map: Dict[int, int] | None = None): pass
 
     @staticmethod
     @abstractmethod

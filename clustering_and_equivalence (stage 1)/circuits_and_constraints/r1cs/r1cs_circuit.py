@@ -1,4 +1,5 @@
 import itertools
+import warnings
 from functools import reduce
 from typing import Iterable, List, Dict, Tuple, Hashable
 
@@ -56,51 +57,51 @@ class R1CSCircuit(Circuit):
     def parse_file(self, file: str) -> None:
         parse_r1cs(file, self)
 
-    def remap_signal_subcircuit(self, constraint_subset: List[int], signal_map: Dict[int, int]):
-        # Signal_Map is assumed to give values 0...nWires, but in R1CS 0 is reserved for the constant signals.. Hence the +1 in value
+    def take_subcircuit(self, constraint_subset: List[int], input_signals: List[int] | None = None, output_signals: List[int] | None = None, signal_map: Dict[int, int] | None = None):
 
-        new_circ = R1CSCircuit()
-
-        for coni in constraint_subset:
-
-            cons = self.constraints[coni]
-
-            new_circ.constraints.append(R1CSConstraint(
-                *[{0 if sig == 0 else signal_map[sig]+1:value for sig, value in dict_.items()} for dict_ in
-                [cons.A, cons.B, cons.C]], cons.p))
-
-        in_next_circuit = lambda sig : signal_map.get(sig, None) is not None
-
-        new_circ.update_header(
-            self.field_size, self.prime_number, len(signal_map)+1,
-            nPubOut=len(list(filter(in_next_circuit, self.get_output_signals()))),
-            nPubIn=len(list(filter(in_next_circuit, self.get_input_signals()))),
-            nPrvIn=0, # TODO: may need to change if this becomes relevant..
-            nLabels=None, # ??
-            nConstraints=len(new_circ.constraints)
-            )
-
-        return new_circ
-    
-    def take_subcircuit(self, constraint_subset: List[int], input_signals: List[int], output_signals: List[int]):
+        if (input_signals is None and output_signals is not None) or (input_signals is not None and output_signals is None):
+            raise AssertionError("Gave only 1 of input and output signals to take_subcircuit")
 
         subcircuit = R1CSCircuit()
 
-        ordered_signals = list(itertools.chain(
-            [0],
-            output_signals.difference(input_signals), # TODO: how to handle signal being in input AND output?
-            input_signals,
-            set(itertools.chain(*map(lambda con : con.signals(), map(self.constraints.__getitem__, constraint_subset)))).difference(itertools.chain(output_signals, input_signals))
-        ))
+        if signal_map is None:
+            
+            if len(set(output_signals).intersection(input_signals)) > 0:
+                warnings.warn(f"Input and outputs of proposed subcircuit overlap: {input_signals}, {output_signals}")
 
-        sig_mapping = dict(zip(
-            ordered_signals,
-            range(len(ordered_signals))
-        ))
+            output_signals = set(output_signals).difference(input_signals) # Assumed that inputs/outputs do not crossover, but doing this
+
+            # not correct for R1CS but maintains consistency with how signal_map works
+            ordered_signals = list(itertools.chain(
+                output_signals, 
+                input_signals,
+                set(itertools.chain.from_iterable(map(lambda con : con.signals(), map(self.constraints.__getitem__, constraint_subset)))).difference(itertools.chain(output_signals, input_signals))
+            ))
+
+            signal_map = dict(zip(
+                ordered_signals,
+                range(len(ordered_signals))
+            ))
+
+            nInputs = len(input_signals)
+            nOutputs = len(output_signals)
+        
+        else: # Can turn off error checking if causing performance problems
+            if signal_map.get(0, None) is not None: raise AssertionError(f"Mapping given to R1CS take_circuit maps constant signal 0. This is handled within the function so simply pass a valid (0,nWires-1) mapping to this method")
+            if input_signals is not None:
+                if any(sig not in signal_map.keys() for sig in itertools.chain(input_signals, output_signals)):
+                    raise AssertionError(f"Proposed inputs/outputs not in given signal_map")
+                elif sorted(map(signal_map.__getitem__, output_signals)) != list(range(0,len(output_signals))):
+                    raise AssertionError(f"Proposed signal mapping does match R1CS values given proposed output signals")
+                elif sorted(map(signal_map.__getitem__, input_signals)) != list(range(len(output_signals),len(output_signals)+len(input_signals))):
+                    raise AssertionError(f"Proposed signal mapping does match R1CS values given proposed output and input signals")
+            else:
+                nInputs = sum(1 for _ in filter(lambda sig : signal_map.get(sig, None) is not None, self.get_input_signals()))
+                nOutputs = sum(1 for _ in filter(lambda sig : signal_map.get(sig, None) is not None, self.get_output_signals()))
 
         subcircuit._constraints = list(map(lambda con : 
             R1CSConstraint(
-                *[{sig_mapping[sig]: val for sig, val in dict_.items()} for dict_ in [con.A, con.B, con.C]],
+                *[{0 if sig == 0 else signal_map[sig]+1:val for sig, val in dict_.items()} for dict_ in [con.A, con.B, con.C]],
                 con.p
             ),
             map(self.constraints.__getitem__, constraint_subset)))
@@ -108,9 +109,9 @@ class R1CSCircuit(Circuit):
         subcircuit.update_header(
             self.field_size,
             self.prime_number,
-            len(sig_mapping),
-            len(output_signals.difference(input_signals)),
-            len(input_signals),
+            len(signal_map)+1,
+            nOutputs,
+            nInputs,
             0, # prv in doesn't matter
             None,
             len(constraint_subset)

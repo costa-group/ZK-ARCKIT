@@ -63,16 +63,32 @@ class ACIRCircuit(Circuit):
         self.input_signals = list(map(sigmapp.__getitem__, self.input_signals))
         self.output_signals = list(map(sigmapp.__getitem__, self.output_signals))
 
-    def remap_signal_subcircuit(self, constraint_subset: List[int], signal_map: List[int]):
+    def take_subcircuit(self, constraint_subset: List[int], input_signals: List[int] | None = None, output_signals: List[int] | None = None, signal_map: Dict[int, int] | None = None):
         
+        if (input_signals is None and output_signals is not None) or (input_signals is not None and output_signals is None):
+            raise AssertionError("Gave only 1 of input and output signals to take_subcircuit")
+        
+        if signal_map is None:
+            signals_in_subcirc = set(itertools.chain(
+                input_signals,
+                output_signals,
+                itertools.chain.from_iterable(map(lambda con : con.signals(), map(self.constraints.__getitem__, constraint_subset)))
+            ))
+
+            next_int = itertools.count().__next__
+            signal_map = {k : next_int() for k in signals_in_subcirc}
+        if input_signals is None:
+            input_signals = self.input_signals
+            output_signals = self.output_signals
+
         newcirc = ACIRCircuit()
 
         newcirc._constraints = [self.constraints[i].signal_map(signal_map) for i in constraint_subset]
 
         newcirc._prime = self.prime
         newcirc._nWires = sum(1 for _ in filter(lambda k: k is not None, signal_map))
-        newcirc.input_signals = [filter(lambda k: k is not None, map(lambda k : signal_map.get(k, None), self.input_signals))]
-        newcirc.output_signals = [filter(lambda k: k is not None, map(lambda k : signal_map.get(k, None), self.output_signals))]
+        newcirc.input_signals = list(filter(lambda k: k is not None, map(lambda k : signal_map.get(k, None), input_signals)))
+        newcirc.output_signals = list(filter(lambda k: k is not None, map(lambda k : signal_map.get(k, None), output_signals)))
 
         return newcirc
 
@@ -104,9 +120,6 @@ class ACIRCircuit(Circuit):
                 )
                 for normi in signal_to_normi[signal]
         ))
-    
-    def take_subcircuit(self, constraint_subset, input_signals, output_signals): # placeholder so that equivalence can still run
-        return NotImplementedError()
     
     @property
     def prime(self) -> int:
