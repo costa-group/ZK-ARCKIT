@@ -112,7 +112,7 @@ from structural_analysis.cluster_trees.dag_postprocessing import merge_passthrou
 from structural_analysis.clustering_methods.iterated_louvain import iterated_louvain
 from maximal_equivalence.applied_maximal_equivalence import maximally_equivalent_classes
 
-def r1cs_cluster(
+def circuit_cluster(
         input_filename: str,
         fileformat: str,
         output_directory: str,
@@ -137,7 +137,7 @@ def r1cs_cluster(
 
     if seed is None:
         seed = random.randint(0,25565)
-    
+
     match fileformat:
         case "r1cs": 
             if input_filename[input_filename.index(".")+1:] != "r1cs": warnings.warn(f"File {input_filename} provided is not of type .r1cs")
@@ -148,7 +148,7 @@ def r1cs_cluster(
 
     main_circ.parse_file(input_filename)
 
-    circs, sig_mapping, con_mapping = componentwise_preprocessing(main_circ) #NOTE: UPDATED SO NOW WON'T PUT (0,0) FOR R1CSCircuit
+    circs, sig_mapping, con_mapping = componentwise_preprocessing(main_circ)
     
     if main_circ.nOutputs == 0: warnings.warn("Your circuit has no outputs, this may cause undefined behaviour")
     if main_circ.nInputs == 0: warnings.warn("Your circuit has no inputs, this may cause undefined behaviour")
@@ -411,10 +411,10 @@ if __name__ == '__main__':
                 if sys.argv[i+1][0] == '-': raise SyntaxError(f"Invalid timeout value {sys.argv[i+1]}")
                 maxequiv_timeout, i = int(sys.argv[i+1]), i+2
             case "--maxequiv-tolerance": 
-                if sys.argv[i+1][0] == '-': raise SyntaxError(f"Invalid timeout value {sys.argv[i+1]}")
+                if sys.argv[i+1][0] == '-': raise SyntaxError(f"Invalid tolerance value {sys.argv[i+1]}")
                 maxequiv_tol, i = float(sys.argv[i+1]), i+2
             case "--maxequiv-merge": 
-                if sys.argv[i+1][0] == '-': raise SyntaxError(f"Invalid timeout value {sys.argv[i+1]}")
+                if sys.argv[i+1][0] == '-': raise SyntaxError(f"Invalid merge value {sys.argv[i+1]}")
                 maxequiv_merge, i = int(sys.argv[i+1]), i+2
             case "--r1cs": req_args[1], i = "r1cs", i+1
             case "--acir": req_args[1], i = "acir", i+1
@@ -428,7 +428,7 @@ if __name__ == '__main__':
     if req_args[4] is None: req_args[4] = "structural"
 
     with time_limit(timeout):
-        r1cs_cluster(*req_args, automerge_passthrough=automerge_passthrough, automerge_only_nonlinear=automerge_only_nonlinear, return_img=return_img, timing=timing, undo_remapping = undo_remapping, include_mappings=include_mappings, 
+        circuit_cluster(*req_args, automerge_passthrough=automerge_passthrough, automerge_only_nonlinear=automerge_only_nonlinear, return_img=return_img, timing=timing, undo_remapping = undo_remapping, include_mappings=include_mappings, 
             maxequiv=maxequiv, maxequiv_tol=maxequiv_tol, maxequiv_timeout=maxequiv_timeout, maxequiv_merge=maxequiv_merge, sanity_check=sanity_check, seed = seed)
 
     # python3 cluster.py r1cs_files/binsub_test.r1cs -o clustering_tests -e structural
