@@ -138,26 +138,29 @@ def dist_to_source_set(source_set: Iterable[int], adjacencies: List[List[int]]) 
 
     return distance
 
-def BFS_shortest_path(s: int, t: int, adjacencies: List[List[int]]) -> List[int]:
+def BFS_shortest_path(s: int, T: int | List[int], adjacencies: List[List[int]]) -> List[int]:
     """
     simple implementation of targeted BFS
     """
+    if type(T) == int : T = [T]
 
     parent = {s: None}
-    reached_t = t == s
+    reached_t = s in T
     queue = deque([s])
+
+    if reached_t: return [s]
 
     while not reached_t:
         curr = queue.popleft()
         to_add = list(filter(lambda adj : parent.setdefault(adj, curr) == curr, adjacencies[curr]))
 
         queue.extend(to_add)
-        reached_t = t in to_add
+        reached_t = any(t in to_add for t in T)
 
         if len(queue) == 0:
             return []
     
-    path = [t]
+    path = [next(filter(lambda t : parent.get(t, None) is not None, T))]
     while path[-1] != s:
         path.append(parent[path[-1]])
     return path[::-1]
