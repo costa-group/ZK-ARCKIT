@@ -4,7 +4,7 @@ Set of utility function used throughout the entire codebase
 
 from circuits_and_constraints.abstract_constraint import Constraint
 from typing import Iterable, Dict, List, Set, Tuple
-from itertools import chain
+import itertools
 from functools import reduce
 from collections import deque
 import heapq
@@ -137,6 +137,29 @@ def dist_to_source_set(source_set: Iterable[int], adjacencies: List[List[int]]) 
         for adj in unseen: distance[adj] = distance[curr] + 1
 
     return distance
+
+def DFS_can_path_to_T(s: int, T: int | List[int], adjacencies: List[List[int]]) -> List[int]:
+    if type(T) == int : T = [T]
+
+    memo = {t : True for t in T}
+
+    stack = [s]
+
+    while len(stack) > 0:
+
+        curr = stack.pop()
+        if memo.setdefault(curr, None) is not None:
+            continue
+
+        stack.extend(itertools.chain([curr] if memo[curr] != True else [], filter(lambda adj : memo.setdefault(adj, None) is None, adjacencies[curr])))
+        
+        if any(memo[adj] for adj in adjacencies[curr]): 
+            memo[curr] = True
+        elif all(not memo[adj] for adj in adjacencies[curr]):
+            memo[curr] = False
+
+    return list(filter(lambda k : k not in T, filter(memo.__getitem__, memo.keys())))
+
 
 def BFS_shortest_path(s: int, T: int | List[int], adjacencies: List[List[int]]) -> List[int]:
     """
