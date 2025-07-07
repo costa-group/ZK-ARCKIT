@@ -182,11 +182,34 @@ def circuit_cluster(
 
     for index, circ in enumerate(circs):
 
+        if index > 0:
+            seed = random.Random(seed).randint(0,25565)
+
         timing = {}
         data = {}
 
         start = time.time()
         last_time = start
+
+        if len(circ.constraints) == 0:
+
+            return_json = {
+                "seed": seed,
+                "timing": {"total": time.time() - start},
+                "data": {},
+                "nodes": [{"node_id": 0, "constraints": [], 
+                           "signals": list(map(sig_inverse[index].__getitem__, circ.get_signals())), 
+                           "input_signals": list(map(sig_inverse[index].__getitem__, circ.get_input_signals())), 
+                           "output_signals": list(map(sig_inverse[index].__getitem__, circ.get_output_signals())), 
+                           "successors": []}],
+                "equivalence": [[0]]
+            }
+
+            f = open(get_outfile(index, suffixes, "json"), "w")
+            json.dump(return_json, f, indent=4)
+            f.close()
+
+            continue
 
         match clustering_method:
             # This is mostly merging various output types, we could probably reformat everything to make this better
