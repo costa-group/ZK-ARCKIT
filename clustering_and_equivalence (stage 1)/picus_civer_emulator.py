@@ -128,7 +128,7 @@ def picus_civer_emulator(
     ## Data to maintain
     aux_data = {
         type_: {"total_duration": 0, "total_child_depth": 0, "total_size": 0, "total_parent_depth": 0}
-        for type_ in ["verified", "failed", "unknown", "verified with parent"]
+        for type_ in ["verified", "failed", "unknown", "verified_with_parent"]
     }
 
     # TODO: hacer esto de manera menos tonto.
