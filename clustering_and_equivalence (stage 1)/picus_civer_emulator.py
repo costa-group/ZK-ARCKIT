@@ -265,7 +265,7 @@ def picus_civer_emulator(
         else:
             raise ValueError(f"Unknown returncode: {returncode}")
     
-    means = ["Mean duration of verified nodes", "Mean rounds of verified nodes", "Mean number of predecessors of verified nodes", "Mean size of verified nodes"]
+    means = itertools.chain.from_iterable(map(lambda ntype : [f"Mean duration of {ntype} nodes", f"Mean rounds of {ntype} nodes", f"Mean number of predecessors of {ntype} nodes", f"Mean size of {ntype} nodes"], ["verified", "unknown", "failed", "verified with parent"]))
     totals = itertools.product(["verified", "unknown", "failed", "verified_with_parent"], ["total_duration", "total_child_depth", "total_parent_depth", "total_size"])
     divisors = itertools.chain.from_iterable(map( lambda x : itertools.repeat(x, 4), ["Number of verified nodes", "Number of unknown nodes", "Number of verified nodes with parent", "Number of failed nodes"]))
 
