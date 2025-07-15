@@ -20,9 +20,7 @@ from collections import deque
 import itertools
 import time
 
-from r1cs_scripts.circuit_representation import Circuit
-from r1cs_scripts.read_r1cs import parse_r1cs
-from r1cs_scripts.write_r1cs import write_r1cs
+from circuits_and_constraints.r1cs.r1cs_circuit import R1CSCircuit
 from structural_analysis.cluster_trees.dag_from_clusters import DAGNode
 from utilities.utilities import _signal_data_from_cons_list
 
@@ -48,11 +46,11 @@ def extend_dagnode(node: DAGNode, nodes: Dict[int, DAGNode], sig_to_coni: List[L
     
     circ = newnode.circ
     newnode.input_signals.update(filter(
-        lambda sig : circ.nPubOut < sig <= circ.nPubOut + circ.nPrvIn + circ.nPubIn or any(map(lambda coni : coni_to_node[coni] in newnode.predecessors, sig_to_coni[sig])),
+        lambda sig : circ.signal_is_input(sig) or any(map(lambda coni : coni_to_node[coni] in newnode.predecessors, sig_to_coni[sig])),
         itertools.chain.from_iterable(map(lambda id: nodes[id].input_signals, to_extend))
     ))
     newnode.output_signals.update(filter(
-        lambda sig : 0 < sig <= circ.nPubOut or any(map(lambda coni : coni_to_node[coni] in newnode.successors, sig_to_coni[sig])),
+        lambda sig : circ.signal_is_output(sig) or any(map(lambda coni : coni_to_node[coni] in newnode.successors, sig_to_coni[sig])),
         itertools.chain.from_iterable(map(lambda id: nodes[id].output_signals, to_extend)
     )))
 
@@ -68,7 +66,7 @@ def verify_extending_downwards(
     working_node = node
 
     r1cs = working_node.get_subcircuit()
-    write_r1cs(r1cs, "picus_emulator_temp.r1cs")
+    r1cs.write_file("picus_emulator_temp.r1cs")
     output = subprocess.run([PICUS_DIR_LOCATION + "run-picus", "--timeout", str(timeout), "--solver", "z3", "--truncate", "off", "picus_emulator_temp.r1cs"], capture_output=True)
 
     nrounds = 0
@@ -78,7 +76,7 @@ def verify_extending_downwards(
         nrounds += 1
 
         r1cs = working_node.get_subcircuit()
-        write_r1cs(r1cs, "picus_emulator_temp.r1cs")
+        r1cs.write_file("picus_emulator_temp.r1cs")
         output = subprocess.run([PICUS_DIR_LOCATION + "run-picus", "--timeout", str(timeout), "--solver", "z3", "--truncate", "off", "picus_emulator_temp.r1cs"], capture_output=True)
 
     ## clean up and return
@@ -282,8 +280,8 @@ def picus_civer_manager(r1csfile: str, jsonfile: str, outfile: str) -> None:
     clustering = json.load(fp)
     fp.close()
 
-    circ = Circuit()
-    parse_r1cs(r1csfile, circ)
+    circ = R1CSCircuit()
+    circ.parse_file(r1csfile)
 
     nodes = clustering["nodes"]
 

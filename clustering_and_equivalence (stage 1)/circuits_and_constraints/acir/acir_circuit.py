@@ -62,6 +62,9 @@ class ACIRCircuit(Circuit):
         self._nWires = len(circ_signals)
         self.input_signals = list(map(sigmapp.__getitem__, self.input_signals))
         self.output_signals = list(map(sigmapp.__getitem__, self.output_signals))
+    
+    def write_file(self, file: str) -> None:
+        raise NotImplementedError()
 
     def take_subcircuit(self, constraint_subset: List[int], input_signals: List[int] | None = None, output_signals: List[int] | None = None, signal_map: Dict[int, int] | None = None):
         

@@ -6,6 +6,7 @@ from typing import Iterable, List, Dict, Tuple, Hashable
 from circuits_and_constraints.abstract_circuit import Circuit
 from circuits_and_constraints.r1cs.r1cs_constraint import R1CSConstraint
 from circuits_and_constraints.r1cs.parse_r1cs import parse_r1cs
+from circuits_and_constraints.r1cs.write_r1cs import write_r1cs
 
 from utilities.assignment import Assignment
 from utilities.single_cons_options import _compare_norms_with_ordered_parts, _compare_norms_with_unordered_parts
@@ -56,6 +57,9 @@ class R1CSCircuit(Circuit):
     
     def parse_file(self, file: str) -> None:
         parse_r1cs(file, self)
+
+    def write_file(self, file: str) -> None:
+        write_r1cs(self, file, sym=False)
 
     def take_subcircuit(self, constraint_subset: List[int], input_signals: List[int] | None = None, output_signals: List[int] | None = None, signal_map: Dict[int, int] | None = None):
 

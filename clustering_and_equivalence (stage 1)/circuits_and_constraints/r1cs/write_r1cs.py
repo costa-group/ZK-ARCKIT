@@ -7,8 +7,6 @@ Functions to write a python Circuit object to a .r1cs file
 from collections import deque
 from typing import Dict, List
 
-from r1cs_scripts.circuit_representation import Circuit
-
 FIELD_SIZE = 32
 INT_SIZE = 4
 LONGLONG_SIZE = 2 * INT_SIZE
@@ -19,7 +17,7 @@ SIGNAL_SECTION = 3
 def encode_int(x: int, size: int = INT_SIZE) -> bytes:
     return x.to_bytes(size, 'little', signed=True)
 
-def write_r1cs(circ: Circuit, outfile: str, sym: bool = False) -> None:
+def write_r1cs(circ: "R1CSCircuit", outfile: str, sym: bool = False) -> None:
 
     # magic_value, version, n_section
     stream = [b"r1cs", encode_int(1), encode_int(3)]
@@ -37,7 +35,7 @@ def write_r1cs(circ: Circuit, outfile: str, sym: bool = False) -> None:
         deque(maxlen=0, iterable=map(lambda n : file.write(f"{n},{n},0,main.name{n}\n"), range(1,circ.nWires)))
         file.close()
 
-def write_header(circ: Circuit, stream: List[bytes]) -> None:
+def write_header(circ: "R1CSCircuit", stream: List[bytes]) -> None:
     section_type = encode_int(HEADER_SECTION)
     section_size = encode_int(6 * 4 + 1 * 8 + FIELD_SIZE, size=LONGLONG_SIZE)
     field_size = encode_int(FIELD_SIZE)
@@ -49,7 +47,7 @@ def write_header(circ: Circuit, stream: List[bytes]) -> None:
     for val, enctype in zip([circ.nWires, circ.nPubOut, circ.nPubIn, circ.nPrvIn, circ.nWires, circ.nConstraints], [LONGLONG_SIZE if i == 4 else INT_SIZE for i in range(6)]):
         stream.append(encode_int(val, size=enctype))
 
-def write_constraints(circ: Circuit, stream) -> None:
+def write_constraints(circ: "R1CSCircuit", stream) -> None:
     section_type = encode_int(CONSTRAINT_SECTION)
     section_size = None
 
@@ -69,37 +67,7 @@ def write_linear_expr(expr: Dict[int, int], stream: List[bytes]) -> None:
         stream.append(encode_int(key))
         stream.append(val.to_bytes(FIELD_SIZE, 'little')) #unsigned
 
-def write_signals(circ: Circuit, stream: List[bytes]) -> None:
+def write_signals(circ: "R1CSCircuit", stream: List[bytes]) -> None:
     stream.append(encode_int(SIGNAL_SECTION))
     stream.append(encode_int(circ.nWires * 8, size=LONGLONG_SIZE))
     stream.extend(map(lambda x : encode_int(x, size=LONGLONG_SIZE), range(circ.nWires)))
-
-if __name__ == '__main__':
-    "script to test writing"
-    from r1cs_scripts.read_r1cs import parse_r1cs
-
-    r1cs = "r1cs_files/PoseidonO1.r1cs"
-    outfile = "hello.r1cs"
-    circ = Circuit()
-
-    parse_r1cs(r1cs, circ)
-    write_r1cs(circ, outfile)
-
-    testcirc = Circuit()
-    parse_r1cs(outfile, testcirc)
-
-    print("nConstraints: ", circ.nConstraints, testcirc.nConstraints)
-    print("numCons: ", len(circ.constraints), len(testcirc.constraints))
-    print("nWires: ", circ.nWires, testcirc.nWires)
-    print("nLabels: ", circ.nLabels, testcirc.nLabels)
-    for i in range(len(circ.constraints)):
-        lcons, rcons = circ.constraints[i], testcirc.constraints[i]
-        different = False
-        for lpart, rpart in zip([lcons.A, lcons.B, lcons.C], [rcons.A, rcons.B, rcons.C]):
-            if len(set(lpart.keys()).symmetric_difference(rpart.keys())) > 0: different = True
-            for key in set(lpart.keys()).intersection(rpart.keys()):
-                if lpart[key] != rpart[key]: different = True
-        if different:
-            print(i)
-            lcons.print_constraint_terminal()
-            rcons.print_constraint_terminal()
