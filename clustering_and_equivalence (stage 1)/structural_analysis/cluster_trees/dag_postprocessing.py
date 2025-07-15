@@ -66,8 +66,6 @@ def merge_under_property(circ: Circuit, nodes: Dict[int, DAGNode],
 
         nkey = to_merge_queue.popleft()
 
-        print(len(to_merge_queue), nkey, first_unmerged)
-
         ## used to stop infinite looping when no viable merges available
         if nkey == first_unmerged: break
 
@@ -103,7 +101,6 @@ def merge_under_property(circ: Circuit, nodes: Dict[int, DAGNode],
 
         if property(nodes[to_merge[0]]) and to_merge[0] not in to_merge_queue: to_merge_queue.append(to_merge[0])
 
-    print('done', len(to_merge_queue))
     return nodes
 
 def merge_passthrough(circ: Circuit, nodes: Dict[int, DAGNode]) -> Dict[int, DAGNode]:
