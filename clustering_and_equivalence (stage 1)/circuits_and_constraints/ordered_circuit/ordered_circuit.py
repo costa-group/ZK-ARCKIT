@@ -10,43 +10,69 @@ from utilities.assignment import Assignment
 
 class OrderedCircuit(Circuit):
 
-    @property
-    def prime(self) -> int: pass
+    def __init__(self):
+        self._constraints = []
+        self._normalised_constraints = []
+        self._normi_to_coni = []
+
+        self._prime_number = None
+        self._nWires = None
+        self.inputs = []
+        self.outputs = []
+        self._nConstraints = None
 
     @property
-    def nConstraints(self) -> int: pass
+    def prime(self) -> int:
+        return self._prime_number
 
     @property
-    def nWires(self) -> int: pass
+    def nConstraints(self) -> int:
+        return self._nConstraints
 
     @property
-    def constraints(self) -> List[OrderedConstraint]: pass
+    def nWires(self) -> int:
+        return self._nWires
 
     @property
-    def normalised_constraints(self) -> List[OrderedConstraint]: pass
+    def constraints(self) -> List[OrderedConstraint]:
+        return self._constraints
+
+    @property
+    def normalised_constraints(self) -> List[OrderedConstraint]: 
+        return self._normalised_constraints
     
     @property
-    def normi_to_coni(self) -> List[int]: pass
+    def normi_to_coni(self) -> List[int]: 
+        return self._normi_to_coni
 
     @property
-    def nInputs(self) -> int: pass
+    def nInputs(self) -> int:
+        return len(self.inputs)
 
     @property
-    def nOutputs(self) -> int: pass
+    def nOutputs(self) -> int:
+        return len(self.outputs)
 
-    def signal_is_input(self, signal: int) -> bool: pass
+    def signal_is_input(self, signal: int) -> bool: 
+        return signal in self.inputs
 
-    def signal_is_output(self, signal: int) -> bool: pass
+    def signal_is_output(self, signal: int) -> bool: 
+        return signal in self.outputs
 
-    def get_signals(self) -> Iterable[int]: pass
+    def get_signals(self) -> Iterable[int]: 
+        return range(0, self.nWires)
 
-    def get_input_signals(self) -> Iterable[int]: pass
+    def get_input_signals(self) -> Iterable[int]: 
+        return self.inputs
 
-    def get_output_signals(self) -> Iterable[int]: pass
+    def get_output_signals(self) -> Iterable[int]: 
+        return self.outputs
 
-    def parse_file(self, file: str) -> None: pass
+    def parse_file(self, file: str) -> None:
+        raise NotImplementedError
 
-    def write_file(self, file: str) -> None: pass
+    def write_file(self, file: str) -> None:
+        raise NotImplementedError
 
     # now required constraints_to_fingerprint provided to be able to fingerprint on an aribtrary list of constraints not just the norms
     def fingerprint_signal(self, signal: int, constraints_to_fingerprint: List[OrderedConstraint], normalised_constraint_fingerprints: List[int], prev_signal_to_fingerprint: Dict[int, Hashable], signal_to_normi: List[List[int]]) -> Hashable: pass
