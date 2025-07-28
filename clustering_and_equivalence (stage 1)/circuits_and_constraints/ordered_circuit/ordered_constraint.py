@@ -39,3 +39,12 @@ class OrderedConstraint(Constraint):
 
     def get_coefficients(self) -> Hashable:
         return (tuple(self.values), self.constant)
+    
+    def signal_map(self, signal_map: List[int]) -> "OrderedConstraint":
+        return OrderedConstraint(
+            keys = [(list if self.ordered_signals else set)(map(signal_map.__getitem__, term)) for term in self.keys],
+            values = self.values,
+            constant = self.constant,
+            prime = self.p,
+            ordered_signals = self.ordered_signals
+        )
