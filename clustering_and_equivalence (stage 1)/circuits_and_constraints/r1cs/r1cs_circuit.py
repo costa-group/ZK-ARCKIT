@@ -123,7 +123,7 @@ class R1CSCircuit(Circuit):
 
         return subcircuit
 
-    def fingerprint_signal(self, signal: int, constraints_to_fingerprint: List[R1CSConstraint], normalised_constraint_fingerprints: List[int], prev_signal_to_fingerprint: Dict[int, Hashable], signal_to_normi: List[List[int]]) -> Hashable:
+    def fingerprint_signal(self, signal: int, index_to_constraint: List[R1CSConstraint], normalised_constraint_fingerprints: List[int], prev_signal_to_fingerprint: Dict[int, Hashable], signal_to_normi: List[List[int]]) -> Hashable:
         """
         Computes a fingerprint for a signal based on associated constraints and their fingerprints.
 
@@ -150,7 +150,7 @@ class R1CSCircuit(Circuit):
 
         for normi in signal_to_normi[signal]:
 
-            norm = constraints_to_fingerprint[normi]
+            norm = index_to_constraint[normi]
             is_ordered = sorted(norm.A.values()) != sorted(norm.B.values()) ## mayne have ordered lookup (more memory usage ...)
 
             if is_ordered:       

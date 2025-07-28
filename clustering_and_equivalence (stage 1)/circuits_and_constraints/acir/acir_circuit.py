@@ -95,7 +95,7 @@ class ACIRCircuit(Circuit):
 
         return newcirc
     
-    def fingerprint_signal(self, signal: int, constraints_to_fingerprint: List[ACIRConstraint], normalised_constraint_fingerprints: List[Hashable], prev_signal_to_fingerprint: Dict[int, Hashable], signal_to_normi: List[List[int]]) -> Hashable:
+    def fingerprint_signal(self, signal: int, index_to_constraint: List[ACIRConstraint], normalised_constraint_fingerprints: List[Hashable], prev_signal_to_fingerprint: Dict[int, Hashable], signal_to_normi: List[List[int]]) -> Hashable:
         ## for every norm that is in - convert norm to fingerprint
         ## for appearances in that norm (in mult each appearance) coeff needs to be the same
 
@@ -105,9 +105,9 @@ class ACIRCircuit(Circuit):
                     tuple(sorted(
                         (prev_signal_to_fingerprint.get(osignal, (-3, -3)), val) # Needs to be a tuple as fingerprint is of formate (round_got, val)
 
-                        for osignal, val in map(lambda tup : (tup[0][0] if tup[0][0] != signal else tup[0][1], tup[1]), filter(lambda tup : any(k == signal for k in tup[0]), constraints_to_fingerprint[normi].mult.items()))
+                        for osignal, val in map(lambda tup : (tup[0][0] if tup[0][0] != signal else tup[0][1], tup[1]), filter(lambda tup : any(k == signal for k in tup[0]), index_to_constraint[normi].mult.items()))
                     )), ## mult coefficients
-                    constraints_to_fingerprint[normi].linear.get(signal, 0) # linear coefficient   
+                    index_to_constraint[normi].linear.get(signal, 0) # linear coefficient   
                     )
                 )
                 for normi in signal_to_normi[signal]
