@@ -18,6 +18,9 @@
 !clustering_and_equivalence\ \(stage\ 1\)/circuits_and_constraints/acir
 !clustering_and_equivalence\ \(stage\ 1\)/circuits_and_constraints/acir/*.py
 
+!clustering_and_equivalence\ \(stage\ 1\)/circuits_and_constraints/ordered_circuit
+!clustering_and_equivalence\ \(stage\ 1\)/circuits_and_constraints/ordered_circuit/*.py
+
 !clustering_and_equivalence\ \(stage\ 1\)/utilities
 !clustering_and_equivalence\ \(stage\ 1\)/utilities/*.py
 
