@@ -27,7 +27,7 @@ The following flags alter the behaviour of the file
     
     -e equivalence_type
         defines the type of equivalence method utilised
-            options are: local, structural, total
+            options are: local, structural, total, none, naive
         : default 
             structural
         : alternative
@@ -301,6 +301,13 @@ def circuit_cluster(
                     "structural": full_mapp
                 }
 
+            case "naive":
+                equivalency = {"local": [[nkey] for nkey in nodes.keys()]}
+                mappings = {"local": [[] for _ in nodes]}
+
+            case "none":
+                pass
+
             case _ :
                 raise SyntaxError(f"{equivalence_method} is not a valid equivalence method")
 
@@ -308,6 +315,10 @@ def circuit_cluster(
         last_time = time.time()
 
         if maxequiv:
+
+            if equivalence_method == "none":
+                raise AssertionError("Can't do maxequiv without an equivalency method")
+
             nodes, equivalency, mappings = maximally_equivalent_classes(nodes, 
                                                                         equivalency['structural'] if equivalence_method == 'structural' else equivalency['local'], 
                                                                         mappings['structural'] if equivalence_method == 'structural' else mappings['local'], 
@@ -331,15 +342,16 @@ def circuit_cluster(
             "nodes": list(map(lambda n : n.to_dict(inverse_mapping = (coni_inverse[index], sig_inverse[index]) if undo_remapping else None ), nodes.values())) ,
             
         }
-        for equiv in equivalency:
-            return_json[f"equivalency_{equiv}"] = equivalency[equiv]
 
-        if include_mappings: 
-            for m in mappings:
-                return_json[f"equiv_mapping_{equiv}"] = mappings[m]
+        if equivalence_method != "none":
+            for equiv in equivalency:
+                return_json[f"equivalency_{equiv}"] = equivalency[equiv]
+
+            if include_mappings: 
+                for m in mappings:
+                    return_json[f"equiv_mapping_{equiv}"] = mappings[m]
 
         if sanity_check: return_json["sanity_check"] = sanity_check_maintanence
-
 
         suffixes = [clustering_method, equivalence_method]
         if maxequiv: suffixes.append('maxequiv')
