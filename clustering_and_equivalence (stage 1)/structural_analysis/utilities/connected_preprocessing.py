@@ -36,7 +36,8 @@ def connected_preprocessing(circ: Circuit, return_mapping: bool = False) -> Circ
     remapp = {k : next_int() for k in sorted(set(dist_from_inputs.keys()).union(dist_from_outputs.keys()))}
     cons_subset = list(filter(lambda coni : all(map(lambda sig : remapp.get(sig, None) != None, circ.constraints[coni].signals())), range(circ.nConstraints)))
 
-    new_circ = circ.take_subcircuit(cons_subset, signal_map=remapp)
+    new_circ, signal_map_changed, signal_map = circ.take_subcircuit(cons_subset, signal_map=remapp, return_signal_mapping=True)
+    if signal_map_changed: remapp = signal_map
 
     return new_circ if not return_mapping else (new_circ, remapp)
 
@@ -94,7 +95,9 @@ def componentwise_preprocessing(circ: Circuit) -> Tuple[List[Circuit], List[Tupl
         for cnt, sig in enumerate(signals): sigmapp[sig] = (i, cnt)
         for cnt, coni in enumerate(constraints): conmapp[coni] = (i, cnt)
 
-        next_circuit = circ.take_subcircuit(constraints, signal_map={sig: sigmapp[sig][1] for sig in signals})
+        next_circuit, signal_map_changed, signal_map = circ.take_subcircuit(constraints, signal_map={sig: sigmapp[sig][1] for sig in signals}, return_signal_mapping=True)
+        if signal_map_changed:
+            for sig in signals: sigmapp[sig] = (sigmapp[sig][0], signal_map[sig])
         circuits.append(next_circuit)
 
     return circuits, sigmapp, conmapp
