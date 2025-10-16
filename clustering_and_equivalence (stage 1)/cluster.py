@@ -434,7 +434,7 @@ if __name__ == '__main__':
             case "-i": return_img, i = True, i + 1
             case "-m": include_mappings, i = True, i+1
             case "--include-mappings": include_mappings, i = True, i+1
-            case "--dont-undo-mapping": undo_remapping, i = True, i+1
+            case "--dont-undo-mapping": undo_remapping, i = False, i+1
             case "--return_img": return_img, i = True, i + 1
             case "--dont-automerge-passthrough": automerge_passthrough, i = False, i + 1
             case "--automerge-only-nonlinear": automerge_only_nonlinear, i = True, i + 1
