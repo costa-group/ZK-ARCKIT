@@ -66,7 +66,7 @@ class ACIRCircuit(Circuit):
     def write_file(self, file: str) -> None:
         raise NotImplementedError()
 
-    def take_subcircuit(self, constraint_subset: List[int], input_signals: List[int] | None = None, output_signals: List[int] | None = None, signal_map: Dict[int, int] | None = None):
+    def take_subcircuit(self, constraint_subset: List[int], input_signals: List[int] | None = None, output_signals: List[int] | None = None, signal_map: Dict[int, int] | None = None, return_signal_mapping: bool = False):
         
         if (input_signals is None and output_signals is not None) or (input_signals is not None and output_signals is None):
             raise AssertionError("Gave only 1 of input and output signals to take_subcircuit")
@@ -93,7 +93,7 @@ class ACIRCircuit(Circuit):
         newcirc.input_signals = list(filter(lambda k: k is not None, map(lambda k : signal_map.get(k, None), input_signals)))
         newcirc.output_signals = list(filter(lambda k: k is not None, map(lambda k : signal_map.get(k, None), output_signals)))
 
-        return newcirc
+        return ( newcirc, False, None ) if return_signal_mapping else newcirc
     
     def fingerprint_signal(self, signal: int, constraints_to_fingerprint: List[ACIRConstraint], normalised_constraint_fingerprints: List[Hashable], prev_signal_to_fingerprint: Dict[int, Hashable], signal_to_normi: List[List[int]]) -> Hashable:
         ## for every norm that is in - convert norm to fingerprint

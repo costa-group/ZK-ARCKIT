@@ -61,7 +61,7 @@ class R1CSCircuit(Circuit):
     def write_file(self, file: str) -> None:
         write_r1cs(self, file, sym=False)
 
-    def take_subcircuit(self, constraint_subset: List[int], input_signals: List[int] | None = None, output_signals: List[int] | None = None, signal_map: Dict[int, int] | None = None):
+    def take_subcircuit(self, constraint_subset: List[int], input_signals: List[int] | None = None, output_signals: List[int] | None = None, signal_map: Dict[int, int] | None = None, return_signal_mapping: bool = False):
 
         if (input_signals is None and output_signals is not None) or (input_signals is not None and output_signals is None):
             raise AssertionError("Gave only 1 of input and output signals to take_subcircuit")
@@ -121,7 +121,7 @@ class R1CSCircuit(Circuit):
             len(constraint_subset)
         )
 
-        return subcircuit
+        return ( subcircuit, True, {sig: 0 if sig == 0 else signal_map[sig]+1 for sig in itertools.chain([0], signal_map.keys())} ) if return_signal_mapping else subcircuit
 
     def fingerprint_signal(self, signal: int, constraints_to_fingerprint: List[R1CSConstraint], normalised_constraint_fingerprints: List[int], prev_signal_to_fingerprint: Dict[int, Hashable], signal_to_normi: List[List[int]]) -> Hashable:
         """
