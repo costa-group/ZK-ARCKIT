@@ -258,16 +258,7 @@ def _distances_to_signal_set(cons: List[Constraint], source_set: Set[int], signa
         
         sig = queue.popleft()
 
-        adjacent = filter(
-            lambda sig : not checked.setdefault(sig, False),
-            reduce(
-                lambda acc, x : acc.union(x),
-                map(lambda coni: cons[coni].signals(), signal_to_conis.get(sig, [])),
-                set([])
-            )
-        )
-        
-        for adj in adjacent:
+        for adj in filter(lambda sig : not checked.get(sig, False), itertools.chain.from_iterable(map(lambda coni : cons[coni].signals(), signal_to_conis.get(sig, [])))):
             checked[adj] = True
             distances[adj] = distances[sig] + 1
             queue.append(adj)
