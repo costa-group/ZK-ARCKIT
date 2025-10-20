@@ -8,21 +8,20 @@ import itertools
 from functools import reduce
 
 from structural_analysis.clustering_methods.naive.clustering_from_list import cluster_by_ignore
-from r1cs_scripts.circuit_representation import Circuit
-from r1cs_scripts.constraint import Constraint
-from structural_analysis.utilities.signal_graph import shared_constraint_graph
-from structural_analysis.utilities.constraint_graph import shared_signal_graph, getvars
+from circuits_and_constraints.abstract_circuit import Circuit
+from circuits_and_constraints.r1cs.r1cs_constraint import R1CSConstraint
+from structural_analysis.utilities.constraint_graph import getvars
 from normalisation import r1cs_norm
 
-def is_signal_equivalence_constraint(con: Constraint) -> bool:
+def is_signal_equivalence_constraint(con: R1CSConstraint) -> bool:
     "Returns true for linear constraints that when normalised are of the form x = y"
-    return len(con.A) + len(con.B) == 0 and len(con.C) == 2 and sorted(r1cs_norm(con)[0].C.values()) == [1, con.p - 1]
+    return len(con.A) + len(con.B) == 0 and len(con.C) == 2 and sorted(con.normalise()[0].C.values()) == [1, con.p - 1]
 
-def nonorm_relaxes_signal_equivalence_constraint(con: Constraint) -> bool:
+def nonorm_relaxes_signal_equivalence_constraint(con: R1CSConstraint) -> bool:
     "Returns true for linear constraints that are of the form x = y + c for constant c"
-    return len(con.A) + len(con.B) == 0 and len(getvars(con)) == 2 and all(map(lambda sig : con.C[sig] in [1, con.p-1], getvars(con)))
+    return len(con.A) + len(con.B) == 0 and len(con.signals()) == 2 and all(map(lambda sig : con.C[sig] in [1, con.p-1], con.signals()))
 
-def naive_removal_clustering(circ: Circuit, clustering_method: int = 0, ignore_pattern: Callable[[Constraint], bool] = is_signal_equivalence_constraint, **kwargs) -> List[List[int]]:
+def naive_removal_clustering(circ: Circuit, clustering_method: int = 0, ignore_pattern: Callable[[R1CSConstraint], bool] = is_signal_equivalence_constraint, **kwargs) -> List[List[int]]:
     """
     Clustering Method
 
