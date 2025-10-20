@@ -278,6 +278,7 @@ def circuit_cluster(
                         resolution = circ.nConstraints ** 0.5,
                         n_iterations = -1
                     )
+                if debug: logging_lines([f"Modularity: {partition.modularity}"], [log, circuit_log])
 
             case "iterated_louvain":
                 circuit_graph = shared_signal_graph(circ.constraints)
@@ -297,6 +298,7 @@ def circuit_cluster(
             removed_coni = list(map(coni_inverse[index].__getitem__, set(range(circ.nConstraints)).difference(itertools.chain(*partition))))
             add_sanity_check(index, "post_clustering_removed", removed_coni)
 
+        if not return_img: circuit_graph = None
         timing['clustering'] = time.time() - last_time
         last_time = time.time()
 
@@ -304,6 +306,7 @@ def circuit_cluster(
 
         partition, arcs = dag_from_partition(circ, partition)
         nodes = dag_to_nodes(circ, partition, arcs)
+        partition = None
 
         timing['dag_construction'] = time.time() - last_time
         last_time = time.time()
@@ -312,7 +315,7 @@ def circuit_cluster(
 
         if sanity_check:
             # calculate which coni are not included in the partition
-            removed_coni = list(map(coni_inverse[index].__getitem__, set(range(circ.nConstraints)).difference(itertools.chain(*map(lambda node : node.constraints, nodes.values())))))
+            removed_coni = list(map(coni_inverse[index].__getitem__, set(range(circ.nConstraints)).difference(itertools.chain.from_iterable(map(lambda node : node.constraints, nodes.values())))))
             add_sanity_check(index, "post_dag_conversion", removed_coni)
 
         if automerge_passthrough: 
@@ -330,7 +333,7 @@ def circuit_cluster(
 
         if sanity_check:
             # calculate which coni are not included in the partition
-            removed_coni = list(map(coni_inverse[index].__getitem__, set(range(circ.nConstraints)).difference(itertools.chain(*map(lambda node : node.constraints, nodes.values())))))
+            removed_coni = list(map(coni_inverse[index].__getitem__, set(range(circ.nConstraints)).difference(itertools.chain.from_iterable(map(lambda node : node.constraints, nodes.values())))))
             add_sanity_check(index, "post_merge_postprocessing", removed_coni)
 
         if return_img:
