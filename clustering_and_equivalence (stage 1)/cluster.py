@@ -98,7 +98,6 @@ import random
 from circuits_and_constraints.abstract_circuit import Circuit
 from circuits_and_constraints.r1cs.r1cs_circuit import R1CSCircuit
 from circuits_and_constraints.acir.acir_circuit import ACIRCircuit
-from networkx.algorithms.community import louvain_communities
 from testing_harness import time_limit
 
 from structural_analysis.utilities.constraint_graph import shared_signal_graph
@@ -111,6 +110,7 @@ from structural_analysis.utilities.graph_to_img import dag_graph_to_img
 from structural_analysis.cluster_trees.dag_postprocessing import merge_passthrough, merge_only_nonlinear
 from structural_analysis.clustering_methods.iterated_louvain import iterated_louvain
 from maximal_equivalence.applied_maximal_equivalence import maximally_equivalent_classes
+from structural_analysis.cluster_trees.dag_from_clusters import DAGNode
 
 def circuit_cluster(
         input_filename: str,
@@ -130,6 +130,10 @@ def circuit_cluster(
         maxequiv_merge: int = 0,
         sanity_check: bool = False,
         seed = None,
+        minimum_circuit_size: int = 100,
+        output_automatic_clusters: bool = True,
+        skip_preprocessing: bool = False,
+        debug: bool = False
     ):
     """
     Manager function for handling the clustering methods, for a complete specification see `cluster.py'
@@ -137,6 +141,11 @@ def circuit_cluster(
 
     if seed is None:
         seed = random.randint(0,25565)
+
+    if debug:
+        log = []
+        debug_start_time = time.time()
+        debug_last_time = debug_start_time
 
     match fileformat:
         case "r1cs": 
@@ -148,8 +157,19 @@ def circuit_cluster(
 
     main_circ.parse_file(input_filename)
 
-    circs, sig_mapping, con_mapping = componentwise_preprocessing(main_circ)
-    
+    if debug:
+        
+        debug_parsing_time = time.time()
+        logging_lines([f"File Parsed: {debug_parsing_time - debug_last_time}s"], [log])
+        debug_last_time = debug_parsing_time
+
+    if not skip_preprocessing:
+        circs, minimum_size_clusterings, sig_mapping, con_mapping = componentwise_preprocessing(main_circ, minimum_circuit_size=minimum_circuit_size, output_automatic_clusters=output_automatic_clusters, debug=debug)
+    else:
+        undo_remapping = False
+        circs = [main_circ]
+        minimum_size_clusterings = []
+
     if main_circ.nOutputs == 0: warnings.warn("Your circuit has no outputs, this may cause undefined behaviour")
     if main_circ.nInputs == 0: warnings.warn("Your circuit has no inputs, this may cause undefined behaviour")
 
@@ -164,13 +184,28 @@ def circuit_cluster(
                 circ_index, new_val_index = value
                 inverse[circ_index][new_val_index] = val_index
 
-    g = None
+    if debug:
+        debug_preprocessing_time = time.time()
+        logging_lines([str(len(circs)), f"File Preprocessed: {debug_preprocessing_time - debug_last_time}s"], [log])
+        debug_last_time = debug_preprocessing_time
+
+    circuit_graph = None ## what's this?
 
     filename = input_filename[len(input_filename)-input_filename[::-1].index("/"):len(input_filename)-input_filename[::-1].index(".")-1]
+    suffixes = [clustering_method, equivalence_method]
+    
+    if maxequiv: suffixes.append('maxequiv')
+    match maxequiv_merge:
+        case 1: suffixes.append('unsafe_linear')
+        case 2: suffixes.append('single_linear')
+        case _: pass
+
+    get_outfile =  lambda index, ftype : f"{output_directory}/{filename + ('_' if len(suffixes) > 0 else '') + '_'.join(suffixes)}{'' if len(circs) == 0 or (len(circs) == 1 and len(minimum_size_clusterings) == 0) else ('/' + str(index))}.{ftype}"
 
     if len(circs) > 1:
         try:
-            os.mkdir(f"{output_directory}/{filename}")
+            output_path = get_outfile(0, "json")
+            os.mkdir(output_path[:len(output_path) - output_path[::-1].index("/") - 1])
         except FileExistsError:
             pass
 
@@ -178,7 +213,41 @@ def circuit_cluster(
         sanity_check_maintanence = {} if len(circs) == 0 else [{} for _ in range(len(circs))]
         add_sanity_check = lambda index, key, value : sanity_check_maintanence.__setitem__(key, value) if len(circs) == 0 else sanity_check_maintanence[index].__setitem__(key, value)
         
-    get_outfile =  lambda index, suffixes, ftype : f"{output_directory}/{filename if len(circs) == 1 else (filename + '/' + str(index))}{('_' if len(suffixes) > 0 else '') + '_'.join(suffixes)}.{ftype}"
+    if len(minimum_size_clusterings) > 0 and output_automatic_clusters:
+
+        if debug: print("################### Dealing with Auto-Clusters ###################")
+        
+        start = time.time()
+        equivalency = {}
+        mappings = {}
+        nodes = {index : DAGNode(main_circ, index, constraints, signals.intersection(main_circ.get_input_signals()), signals.intersection(main_circ.get_output_signals()))
+            for index, constraints, signals in itertools.starmap(lambda index, cluster : (index, cluster, set(itertools.chain.from_iterable(map(lambda coni : main_circ.constraints[coni].signals(), cluster)))), enumerate(minimum_size_clusterings))}
+        dagnode_conversion_time = time.time()
+
+        # TODO: need to check input here
+        if equivalence_method == 'naive':
+            equivalency = [[nkey] for nkey in nodes.keys()]
+            mappings = [[] for _ in nodes]
+
+        elif equivalence_method != "none":
+            equivalency, mappings = subcircuit_fingerprinting_equivalency(nodes)
+        equivalency_timing = time.time()
+
+        return_json = {
+            "seed": seed,
+            "timing": {"format_conversion_time": dagnode_conversion_time - start, "equivalency_time": equivalency_timing - dagnode_conversion_time, "total": equivalency_timing - start},
+            "data": {"note": "the following connected components were clustered automatically due to having too small a size"},
+            "nodes": list(map(lambda n : n.to_dict(inverse_mapping = None), nodes.values()))
+        }
+
+        if equivalency != {}: return_json[f"equivalency_{equivalence_method}"] = equivalency
+        if mappings != {} and include_mappings: return_json[f"equivalency_{equivalence_method}"] = mappings
+
+        if debug: print("------------------- Writing Auto-Clusters To File -------------------")
+
+        f = open(get_outfile("automatic", [clustering_method, equivalence_method], "json"), "w")
+        json.dump(return_json, f, indent=4)
+        f.close()
 
     for index, circ in enumerate(circs):
 
@@ -190,26 +259,10 @@ def circuit_cluster(
 
         start = time.time()
         last_time = start
-
-        if len(circ.constraints) == 0:
-
-            return_json = {
-                "seed": seed,
-                "timing": {"total": time.time() - start},
-                "data": {},
-                "nodes": [{"node_id": 0, "constraints": [], 
-                           "signals": list(map(sig_inverse[index].__getitem__, circ.get_signals())), 
-                           "input_signals": list(map(sig_inverse[index].__getitem__, circ.get_input_signals())), 
-                           "output_signals": list(map(sig_inverse[index].__getitem__, circ.get_output_signals())), 
-                           "successors": []}],
-                "equivalence": [[0]]
-            }
-
-            f = open(get_outfile(index, suffixes, "json"), "w")
-            json.dump(return_json, f, indent=4)
-            f.close()
-
-            continue
+    
+        if debug:
+            logging_lines([f"################################# clustering {index} #################################", f"nConstraints {circ.nConstraints}, nWires {circ.nWires}"], [log])
+            circuit_log = []
 
         match clustering_method:
             # This is mostly merging various output types, we could probably reformat everything to make this better
@@ -219,12 +272,16 @@ def circuit_cluster(
                 partition = partition_from_partial_clustering(circ, clusters.values(), remaining=remaining)
 
             case "louvain":
-                g = shared_signal_graph(circ.constraints)
-                partition = list(map(list, louvain_communities(g, resolution=circ.nConstraints ** 0.5, seed=seed)))
+                circuit_graph = shared_signal_graph(circ.constraints)
+                partition = circuit_graph.community_leiden(
+                        objective_function = 'modularity',
+                        resolution = circ.nConstraints ** 0.5,
+                        n_iterations = -1
+                    )
 
             case "iterated_louvain":
-                g = shared_signal_graph(circ.constraints)
-                partition, resolution = iterated_louvain(g, init_resolution=circ.nConstraints ** 0.5, seed=seed)
+                circuit_graph = shared_signal_graph(circ.constraints)
+                partition, resolution = iterated_louvain(circuit_graph, init_resolution=circ.nConstraints ** 0.5, seed=seed)
                 partition = list(map(list, partition))
                 data["final_resolution"] = resolution
             
@@ -241,13 +298,17 @@ def circuit_cluster(
             add_sanity_check(index, "post_clustering_removed", removed_coni)
 
         timing['clustering'] = time.time() - last_time
-        last_time = time.time()      
+        last_time = time.time()
+
+        if debug: logging_lines([f"File Clustered: {timing['clustering']}s", f"Num Clusters: {len(partition)}"], [log, circuit_log])
 
         partition, arcs = dag_from_partition(circ, partition)
         nodes = dag_to_nodes(circ, partition, arcs)
 
         timing['dag_construction'] = time.time() - last_time
         last_time = time.time()
+
+        if debug: logging_lines([f"Dag Consructed: {timing['dag_construction']}s"], [log, circuit_log])
 
         if sanity_check:
             # calculate which coni are not included in the partition
@@ -258,10 +319,14 @@ def circuit_cluster(
             nodes = merge_passthrough(circ, nodes)
             timing['passthrough_merge'] = time.time() - last_time
             last_time = time.time()
+            if debug: logging_lines([f"Passthrough Merging Done: {timing['passthrough_merge']}s", f"Num Nodes: {len(nodes)}"], [log, circuit_log])
+                
+
         if automerge_only_nonlinear: 
             nodes = merge_only_nonlinear(circ, nodes)
             timing['nonlinear_merge'] = time.time() - last_time
             last_time = time.time()
+            if debug: logging_lines([f"Only Nonlinear Merging Done: {timing['nonlinear_merge']}s", f"Num Nodes: {len(nodes)}"], [log, circuit_log])
 
         if sanity_check:
             # calculate which coni are not included in the partition
@@ -269,8 +334,8 @@ def circuit_cluster(
             add_sanity_check(index, "post_merge_postprocessing", removed_coni)
 
         if return_img:
-            if g is None: g = shared_signal_graph(circ.constraints)
-            dag_graph_to_img(circ, g, nodes, get_outfile(index, clustering_method, "png"))
+            if circuit_graph is None: circuit_graph = shared_signal_graph(circ.constraints)
+            dag_graph_to_img(circ, circuit_graph, nodes, get_outfile(index, clustering_method, "png"))
 
         match equivalence_method:
 
@@ -314,6 +379,8 @@ def circuit_cluster(
         timing['equivalency'] = time.time() - last_time
         last_time = time.time()
 
+        if equivalence_method != "none" and debug: logging_lines([f"Equivalency Done: {timing['equivalency']}s", f"Number of Classes: {','.join(str(len(equiv)) for equiv in equivalency.values())}"], [log, circuit_log])
+
         if maxequiv:
 
             if equivalence_method == "none":
@@ -328,6 +395,7 @@ def circuit_cluster(
             timing["maxequiv"] = time.time() - last_time
             last_time = time.time()
 
+            if debug: logging_lines([f"Equivalency Done: {timing['equivalency']}s", f"Num Nodes: {len(nodes)}", f"Number of Classes: {','.join(str(len(equiv)) for equiv in equivalency.values())}"], [log, circuit_log])
             if sanity_check:
                 # calculate which coni are not included in the partition
                 removed_coni = list(map(coni_inverse[index].__getitem__, set(range(circ.nConstraints)).difference(itertools.chain(*map(lambda node : node.constraints, nodes.values())))))
@@ -339,10 +407,10 @@ def circuit_cluster(
             "seed": seed,
             "timing": timing,
             "data": data,
-            "nodes": list(map(lambda n : n.to_dict(inverse_mapping = (coni_inverse[index], sig_inverse[index]) if undo_remapping else None ), nodes.values())) ,
-            
+            "nodes": list(map(lambda n : n.to_dict(inverse_mapping = (coni_inverse[index], sig_inverse[index]) if undo_remapping else None ), nodes.values()))
         }
 
+        if debug: data["log"] = circuit_log
         if equivalence_method != "none":
             for equiv in equivalency:
                 return_json[f"equivalency_{equiv}"] = equivalency[equiv]
@@ -353,17 +421,19 @@ def circuit_cluster(
 
         if sanity_check: return_json["sanity_check"] = sanity_check_maintanence
 
-        suffixes = [clustering_method, equivalence_method]
-        if maxequiv: suffixes.append('maxequiv')
-        match maxequiv_merge:
-            case 1: suffixes.append('unsafe_linear')
-            case 2: suffixes.append('single_linear')
-            case _: pass
-
-        f = open(get_outfile(index, suffixes, "json"), "w")
+        f = open(get_outfile(index, "json"), "w")
         json.dump(return_json, f, indent=4)
         f.close()
 
+    if debug:
+        f = open(get_outfile("log", "txt"), "w")
+        f.writelines(f"{line}\n" for line in log)
+        f.close()
+
+def logging_lines(lines: List[str], logs: List[List[str]]) -> None:
+    for line in lines:
+        for log in logs: log.append(line)
+        print(line)
 
 
 if __name__ == '__main__':
@@ -371,7 +441,8 @@ if __name__ == '__main__':
     req_args = [None, None, None, None, None]
     timeout = 0
     automerge_passthrough, automerge_only_nonlinear, return_img , timing, undo_remapping, include_mappings = True, False, False, True, True, False
-    maxequiv, maxequiv_timeout, maxequiv_tol, maxequiv_merge, sanity_check, seed = False, 5, 0.8, 0, False, None
+    maxequiv, maxequiv_timeout, maxequiv_tol, maxequiv_merge, sanity_check, seed, debug, minimum_circuit_size = False, 5, 0.8, 0, False, None, False, 100
+    output_automatic_clusters, skip_preprocessing = False, False
 
     def set_file(index: int, filename: str):
         if filename[0] == '-': raise SyntaxError(f"Invalid {'input' if not index else 'outout'} filename {filename}")
@@ -431,6 +502,10 @@ if __name__ == '__main__':
                 if sys.argv[i+1][0] == '-': raise SyntaxError(f"Invalid seed value {sys.argv[i+1]}")
                 seed = int(sys.argv[i+1])
                 i += 2
+            case "--minimum-circuit-size":
+                if sys.argv[i+1][0] == '-': raise SyntaxError(f"Invalid minimum circuit size value value {sys.argv[i+1]}")
+                minimum_circuit_size = int(sys.argv[i+1])
+                i += 2
             case "-i": return_img, i = True, i + 1
             case "-m": include_mappings, i = True, i+1
             case "--include-mappings": include_mappings, i = True, i+1
@@ -438,9 +513,13 @@ if __name__ == '__main__':
             case "--return_img": return_img, i = True, i + 1
             case "--dont-automerge-passthrough": automerge_passthrough, i = False, i + 1
             case "--automerge-only-nonlinear": automerge_only_nonlinear, i = True, i + 1
+            case "--dont-output-automatic-clusters": output_automatic_clusters, i = False, i + 1,
+            case "--skip-preprocessing": skip_preprocessing, i = True, i + 1,
             case "--no-timing-information": timing, i = False, i+1
             case "--maximal-equivalence": maxequiv, i = True, i+1
             case "--sanity-check": sanity_check, i = True, i+1
+            case "--debug": debug, i = True, i+1
+            case "-d": debug, i = True, i+1
             case "-M": maxequiv, i = True, i+1
             case "--maxequiv-timeout": 
                 if sys.argv[i+1][0] == '-': raise SyntaxError(f"Invalid timeout value {sys.argv[i+1]}")
@@ -464,6 +543,7 @@ if __name__ == '__main__':
 
     with time_limit(timeout):
         circuit_cluster(*req_args, automerge_passthrough=automerge_passthrough, automerge_only_nonlinear=automerge_only_nonlinear, return_img=return_img, timing=timing, undo_remapping = undo_remapping, include_mappings=include_mappings, 
-            maxequiv=maxequiv, maxequiv_tol=maxequiv_tol, maxequiv_timeout=maxequiv_timeout, maxequiv_merge=maxequiv_merge, sanity_check=sanity_check, seed = seed)
+            maxequiv=maxequiv, maxequiv_tol=maxequiv_tol, maxequiv_timeout=maxequiv_timeout, maxequiv_merge=maxequiv_merge, sanity_check=sanity_check, seed = seed, minimum_circuit_size=minimum_circuit_size, 
+            output_automatic_clusters=output_automatic_clusters, skip_preprocessing=skip_preprocessing, debug=debug)
 
     # python3 cluster.py r1cs_files/binsub_test.r1cs -o clustering_tests -e structural

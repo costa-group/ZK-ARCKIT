@@ -5,6 +5,7 @@ Fixes compiler bug where some circuits aren't a single connected component
 """
 from typing import List, Tuple
 import itertools
+from collections import deque
 
 from circuits_and_constraints.abstract_circuit import Circuit
 from circuits_and_constraints.abstract_constraint import Constraint
@@ -41,7 +42,7 @@ def connected_preprocessing(circ: Circuit, return_mapping: bool = False) -> Circ
 
     return new_circ if not return_mapping else (new_circ, remapp)
 
-def componentwise_preprocessing(circ: Circuit) -> Tuple[List[Circuit], List[Tuple[int,int] | None], List[Tuple[int,int] | None]]:
+def componentwise_preprocessing(circ: Circuit, minimum_circuit_size: int = 100, output_automatic_clusters: bool = True, debug: False = False) -> Tuple[List[Circuit], List[Tuple[int,int] | None], List[Tuple[int,int] | None]]:
     """
     Like connected_preprocessing but additionally splits circuit up into different circuits connected components
     Does not modify input circuit
@@ -65,6 +66,8 @@ def componentwise_preprocessing(circ: Circuit) -> Tuple[List[Circuit], List[Tupl
             a list of where each constraint was mapped to (form (i,j): circuit i, new constraint j)
     """
 
+    if debug: print("------------------ preprocessing --------------------")
+
     signal_to_conis = _signal_data_from_cons_list(circ.constraints)
     signals = set(circ.get_signals())
 
@@ -72,6 +75,7 @@ def componentwise_preprocessing(circ: Circuit) -> Tuple[List[Circuit], List[Tupl
 
     # TODO: sets? anything better?
     while len(signals) > 0:
+        if debug: print(len(signals), "           ", end='\r')
         next_signal = next(iter(signals))
 
         dist_from_signal = _distances_to_signal_set(circ.constraints, [next_signal], signal_to_conis)
@@ -80,17 +84,19 @@ def componentwise_preprocessing(circ: Circuit) -> Tuple[List[Circuit], List[Tupl
         signals.difference_update(dist_from_signal.keys())
 
     circuits = []
+    minimum_size_clusterings = []
     conmapp = [None for _ in range(circ.nConstraints)]
     sigmapp = [None for _ in range(circ.nWires)]
 
     i = -1
-    for signals in signals_by_component:
-
-        if all(map(lambda sig : not circ.signal_is_input(sig) and not circ.signal_is_output(sig), signals)):
-            continue
+    for signals in filter(lambda signals: any(map(lambda sig : circ.signal_is_input(sig) or circ.signal_is_output(sig), signals)), signals_by_component):
+        if debug: print(f"processing component {i+1} of {len(signals_by_component)}", "           ", end='\r')
         
         constraints = list(set(itertools.chain.from_iterable(map(lambda sig : signal_to_conis.get(sig, []), signals))))
         if len(constraints) == 0: continue
+        elif len(constraints) <= minimum_circuit_size: 
+            if output_automatic_clusters: minimum_size_clusterings.append(constraints)
+            continue
         i += 1
         for cnt, sig in enumerate(signals): sigmapp[sig] = (i, cnt)
         for cnt, coni in enumerate(constraints): conmapp[coni] = (i, cnt)
@@ -100,7 +106,9 @@ def componentwise_preprocessing(circ: Circuit) -> Tuple[List[Circuit], List[Tupl
             for sig in signals: sigmapp[sig] = (sigmapp[sig][0], signal_map[sig])
         circuits.append(next_circuit)
 
-    return circuits, sigmapp, conmapp
+    if debug: print("------------------ end preprocessing --------------------")
+
+    return circuits, minimum_size_clusterings, sigmapp, conmapp
         
 
 
