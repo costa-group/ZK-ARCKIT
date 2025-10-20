@@ -5,6 +5,7 @@ Functions for converting clusters into Directed Acyclic Graphs (DAG)
 from typing import List, Dict, Set, Tuple, Iterable
 import itertools
 import json
+import warnings
 
 from utilities.utilities import UnionFind, _signal_data_from_cons_list, dist_to_source_set, _distances_to_signal_set
 from circuits_and_constraints.abstract_circuit import Circuit
@@ -105,14 +106,14 @@ def dag_from_partition(circ: Circuit, partition: List[List[int]]) -> "directed_a
 
     partition: Dict[int, List[int]] = {i : part for i, part in enumerate(partition)}
 
-    part_to_sigs = lambda part : itertools.chain(*map(lambda coni : circ.constraints[coni].signals(), part))
+    part_to_sigs = lambda part : itertools.chain.from_iterable(map(lambda coni : circ.constraints[coni].signals(), part))
     input_parts = set(filter(lambda i : any(map(circ.signal_is_input, part_to_sigs(partition[i]))),partition.keys()))
     output_parts = set(filter(lambda i : any(map(circ.signal_is_output, part_to_sigs(partition[i]))),partition.keys()))
 
     coni_to_part = [None for _ in range(circ.nConstraints)]
     for i, part in partition.items():
         for coni in part: 
-            if coni_to_part[coni] is not None: print(f'WARNING: coni {coni} is in {i} and {coni_to_part[coni]}')
+            if coni_to_part[coni] is not None: warnings.warn(f"NOT PARTITION: coni {coni} is in {i} and {coni_to_part[coni]}")
             coni_to_part[coni] = i
 
     sig_to_coni = _signal_data_from_cons_list(circ.constraints)
@@ -120,7 +121,7 @@ def dag_from_partition(circ: Circuit, partition: List[List[int]]) -> "directed_a
     adj_parts = lambda part_id, part : set(
         filter(lambda opair_id : opair_id != part_id, 
         map(coni_to_part.__getitem__, 
-        itertools.chain(*map(sig_to_coni.__getitem__, 
+        itertools.chain.from_iterable(map(sig_to_coni.__getitem__, 
         part_to_sigs(part))))))
 
     adjacencies = {i: adj_parts(i, part) for i, part in partition.items() }
