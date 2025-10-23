@@ -226,11 +226,18 @@ def circuit_cluster(
 
         # TODO: need to check input here
         if equivalence_method == 'naive':
-            equivalency = [[nkey] for nkey in nodes.keys()]
-            mappings = [[] for _ in nodes]
+            equivalency = { 'local': [[nkey] for nkey in nodes.keys()] }
+            mappings = { 'local': [[] for _ in nodes] }
 
         elif equivalence_method != "none":
-            equivalency, mappings = subcircuit_fingerprinting_equivalency(nodes)
+            equivalency_list, mappings_list = subcircuit_fingerprinting_equivalency(nodes)
+            equivalency, mappings = {}, {}
+            if equivalence_method in ['local', 'total']:
+                equivalency['local'] = equivalency_list
+                mappings['local'] = mappings_list
+            if equivalence_method in ['structural', 'total']:
+                equivalency['structural'] = equivalency_list
+                mappings['structural'] = mappings_list
         equivalency_timing = time.time()
 
         return_json = {
@@ -240,12 +247,14 @@ def circuit_cluster(
             "nodes": list(map(lambda n : n.to_dict(inverse_mapping = None), nodes.values()))
         }
 
-        if equivalency != {}: return_json[f"equivalency_{equivalence_method}"] = equivalency
-        if mappings != {} and include_mappings: return_json[f"equivalency_{equivalence_method}"] = mappings
+        if equivalency != {}: 
+            for equiv in equivalency: return_json[f"equivalency_{equiv}"] = equivalency[equiv]
+        if mappings != {} and include_mappings: 
+            for equiv in mappings: return_json[f"equivalency_{equiv}"] = mappings[equiv]
 
         if debug: print("------------------- Writing Auto-Clusters To File -------------------")
 
-        f = open(get_outfile("automatic", [clustering_method, equivalence_method], "json"), "w")
+        f = open(get_outfile("automatic", "json"), "w")
         json.dump(return_json, f, indent=4)
         f.close()
 
@@ -445,7 +454,7 @@ if __name__ == '__main__':
     timeout = 0
     automerge_passthrough, automerge_only_nonlinear, return_img , timing, undo_remapping, include_mappings = True, False, False, True, True, False
     maxequiv, maxequiv_timeout, maxequiv_tol, maxequiv_merge, sanity_check, seed, debug, minimum_circuit_size = False, 5, 0.8, 0, False, None, False, 100
-    output_automatic_clusters, skip_preprocessing = False, False
+    output_automatic_clusters, skip_preprocessing = True, False
 
     def set_file(index: int, filename: str):
         if filename[0] == '-': raise SyntaxError(f"Invalid {'input' if not index else 'outout'} filename {filename}")
