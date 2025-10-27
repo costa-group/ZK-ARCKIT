@@ -4,9 +4,11 @@ import igraph as ig
 from itertools import combinations
 
 from circuits_and_constraints.abstract_constraint import Constraint
+from circuits_and_constraints.abstract_circuit import Circuit
+
 from utilities.utilities import _signal_data_from_cons_list
 
-def shared_signal_graph(cons: List[Constraint]) -> ig.Graph:
+def shared_signal_graph(circ: Circuit) -> ig.Graph:
     """
     Given an input list of constraints, returns a igraph graph.
     Vertices in the graph are constraint, edges are between constraints with a shared non-constant signal
@@ -22,20 +24,19 @@ def shared_signal_graph(cons: List[Constraint]) -> ig.Graph:
     """
 
     graph = ig.Graph()
-    signal_to_coni = _signal_data_from_cons_list(cons)
+    signal_to_coni = _signal_data_from_cons_list(circ.constraints)
+
+    graph.add_vertices(len(circ.constraints))
 
     weights = {}
-
-    graph.add_vertices(len(cons))
-    graph.add_edges
+    pair_to_num = lambda pair : pair[0] * circ.nConstraints + pair[1]
+    num_to_pair = lambda num : (num // circ.nConstraints, num % circ.nConstraints)
 
     for signal in signal_to_coni.keys():
+        for pair in map(pair_to_num, combinations(signal_to_coni[signal], r = 2)):
+            weights[pair] = weights.get(pair, 0) + 1
 
-        for i, j in combinations(signal_to_coni[signal], r = 2):
-            i, j = min(i,j), max(i,j)
-            weights[(i, j)] = weights.get((i, j), 0) + 1
-
-    graph.add_edges([(i, j) for i, j in weights.keys()], attributes={"weight": weights.values()})
+    graph.add_edges(map(num_to_pair, weights.keys()), attributes={"weight": weights.values()})
 
     return graph
 

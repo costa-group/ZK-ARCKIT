@@ -301,7 +301,8 @@ def circuit_cluster(
                 partition = partition_from_partial_clustering(circ, clusters.values(), remaining=remaining)
 
             case "louvain":
-                circuit_graph = shared_signal_graph(circ.constraints)
+                circuit_graph = shared_signal_graph(circ)
+                if debug: logging_lines([f"Graph Created in: {time.time() - last_time}"], [log, circuit_log])
                 partition = circuit_graph.community_leiden(
                         objective_function = 'modularity',
                         resolution = circ.nConstraints ** 0.5,
@@ -310,7 +311,7 @@ def circuit_cluster(
                 if debug: logging_lines([f"Modularity: {partition.modularity}"], [log, circuit_log])
 
             case "iterated_louvain":
-                circuit_graph = shared_signal_graph(circ.constraints)
+                circuit_graph = shared_signal_graph(circ)
                 partition, resolution = iterated_louvain(circuit_graph, init_resolution=circ.nConstraints ** 0.5, seed=seed)
                 partition = list(map(list, partition))
                 data["final_resolution"] = resolution
@@ -366,7 +367,7 @@ def circuit_cluster(
             add_sanity_check(index, "post_merge_postprocessing", removed_coni)
 
         if return_img:
-            if circuit_graph is None: circuit_graph = shared_signal_graph(circ.constraints)
+            if circuit_graph is None: circuit_graph = shared_signal_graph(circ)
             dag_graph_to_img(circ, circuit_graph, nodes, get_outfile(index, clustering_method, "png"))
 
         match equivalence_method:
