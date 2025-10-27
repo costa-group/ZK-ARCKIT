@@ -121,7 +121,7 @@ class R1CSCircuit(Circuit):
             len(constraint_subset)
         )
 
-        return ( subcircuit, True, {sig: 0 if sig == 0 else signal_map[sig]+1 for sig in itertools.chain([0], signal_map.keys())} ) if return_signal_mapping else subcircuit
+        return ( subcircuit, {sig: 0 if sig == 0 else signal_map[sig]+1 for sig in itertools.chain([0], signal_map.keys())} ) if return_signal_mapping else subcircuit
 
     def fingerprint_signal(self, signal: int, constraints_to_fingerprint: List[R1CSConstraint], normalised_constraint_fingerprints: List[int], prev_signal_to_fingerprint: Dict[int, Hashable], signal_to_normi: List[List[int]]) -> Hashable:
         """
