@@ -112,7 +112,7 @@ from structural_analysis.clustering_methods.iterated_louvain import iterated_lou
 from maximal_equivalence.applied_maximal_equivalence import maximally_equivalent_classes
 from structural_analysis.cluster_trees.dag_from_clusters import DAGNode
 
-LEIDEN_STABLE_MINIMUM_SIZE = 100
+LEIDEN_NUMBER_ITERATIONS = 2
 
 def circuit_cluster(
         input_filename: str,
@@ -305,7 +305,7 @@ def circuit_cluster(
                 partition = circuit_graph.community_leiden(
                         objective_function = 'modularity',
                         resolution = circ.nConstraints ** 0.5,
-                        n_iterations = -1 if circ.nConstraints >= LEIDEN_STABLE_MINIMUM_SIZE else 10**3
+                        n_iterations = LEIDEN_NUMBER_ITERATIONS
                     )
                 if debug: logging_lines([f"Modularity: {partition.modularity}"], [log, circuit_log])
 
