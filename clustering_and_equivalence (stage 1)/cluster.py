@@ -151,7 +151,7 @@ def circuit_cluster(
 
     match fileformat:
         case "r1cs": 
-            if input_filename[input_filename.index(".")+1:] != "r1cs": warnings.warn(f"File {input_filename} provided is not of type .r1cs")
+            if input_filename[len(input_filename) - input_filename[::-1].index("."):] != "r1cs": warnings.warn(f"File {input_filename} provided is not of type .r1cs")
             main_circ = R1CSCircuit()
         case "acir": main_circ = ACIRCircuit()
         case _:
