@@ -112,8 +112,6 @@ from structural_analysis.clustering_methods.iterated_louvain import iterated_lou
 from maximal_equivalence.applied_maximal_equivalence import maximally_equivalent_classes
 from structural_analysis.cluster_trees.dag_from_clusters import DAGNode
 
-LEIDEN_NUMBER_ITERATIONS = 2
-
 def circuit_cluster(
         input_filename: str,
         fileformat: str,
@@ -136,6 +134,7 @@ def circuit_cluster(
         output_automatic_clusters: bool = True,
         skip_preprocessing: bool = False,
         preclustering_file: str | None = None,
+        leiden_iterations: int = -1,
         debug: bool = False,
     ):
     """
@@ -306,7 +305,7 @@ def circuit_cluster(
                 partition = circuit_graph.community_leiden(
                         objective_function = 'modularity',
                         resolution = circ.nConstraints ** 0.5,
-                        n_iterations = LEIDEN_NUMBER_ITERATIONS
+                        n_iterations = leiden_iterations
                     )
                 if debug: logging_lines([f"Modularity: {partition.modularity}"], [log, circuit_log])
 
@@ -475,7 +474,7 @@ if __name__ == '__main__':
     timeout = 0
     automerge_passthrough, automerge_only_nonlinear, return_img , timing, undo_remapping, include_mappings = True, False, False, True, True, False
     maxequiv, maxequiv_timeout, maxequiv_tol, maxequiv_merge, sanity_check, seed, debug, minimum_circuit_size = False, 5, 0.8, 0, False, None, False, 100
-    output_automatic_clusters, skip_preprocessing, preclustering_file = True, False, None
+    output_automatic_clusters, skip_preprocessing, preclustering_file, leiden_iterations = True, False, None, -1
 
     def set_file(index: int, filename: str):
         if filename[0] == '-': raise SyntaxError(f"Invalid {'input' if not index else 'outout'} filename {filename}")
@@ -547,6 +546,10 @@ if __name__ == '__main__':
                 if sys.argv[i+1][0] == '-': raise SyntaxError(f"Invalid minimum circuit size value value {sys.argv[i+1]}")
                 minimum_circuit_size = int(sys.argv[i+1])
                 i += 2
+            case "--leiden-iterations":
+                if sys.argv[i+1][0] == '-': raise SyntaxError(f"Invalid minimum circuit size value value {sys.argv[i+1]}")
+                leiden_iterations = int(sys.argv[i+1])
+                i += 2
             case "-i": return_img, i = True, i + 1
             case "-m": include_mappings, i = True, i+1
             case "--include-mappings": include_mappings, i = True, i+1
@@ -585,6 +588,6 @@ if __name__ == '__main__':
     with time_limit(timeout):
         circuit_cluster(*req_args, automerge_passthrough=automerge_passthrough, automerge_only_nonlinear=automerge_only_nonlinear, return_img=return_img, timing=timing, undo_remapping = undo_remapping, include_mappings=include_mappings, 
             maxequiv=maxequiv, maxequiv_tol=maxequiv_tol, maxequiv_timeout=maxequiv_timeout, maxequiv_merge=maxequiv_merge, sanity_check=sanity_check, seed = seed, minimum_circuit_size=minimum_circuit_size, 
-            output_automatic_clusters=output_automatic_clusters, skip_preprocessing=skip_preprocessing, preclustering_file=preclustering_file, debug=debug)
+            output_automatic_clusters=output_automatic_clusters, skip_preprocessing=skip_preprocessing, preclustering_file=preclustering_file, leiden_iterations=leiden_iterations, debug=debug)
 
     # python3 cluster.py r1cs_files/binsub_test.r1cs -o clustering_tests -e structural
