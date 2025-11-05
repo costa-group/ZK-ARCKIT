@@ -62,7 +62,11 @@ def parse_circuit(circuit):
         mul, linear = parse_air_constraint(c, signals)
         parsed_mul_coefficients.append(mul)
         parsed_linear_coefficients.append(linear)
-    return parsed_mul_coefficients, parsed_linear_coefficients, len(signals)
+    n_inputs = circuit["inputs"]
+    n_outputs = circuit["outputs"]
+    n_field = circuit["field"]
+    n_signals = circuit["number_of_signals"] 
+    return parsed_mul_coefficients, parsed_linear_coefficients, len(signals), len(n_inputs), len(n_outputs), n_field, n_signals
     
 
 
@@ -71,13 +75,18 @@ def build_constraint_aux(signals_A, signals_B, n_aux):
     map_B = {}
     map_C = {}
     for i in signals_A:
-        map_A[i + 1] = 1
+        map_A[i + 1] = "1"
     for i in signals_B:
-        map_B[i + 1] = 1
-    map_C[n_aux + 1] = -1
+        map_B[i + 1] = "1"
+    map_C[n_aux + 1] = coef_to_string(-1)
     return (map_A, map_B, map_C)
     
 
+def coef_to_string(coef):
+    if coef >= 0:
+        return str(coef)
+    else:
+        return str(coef+ prime)
 
 def build_previous_constraint(A, B, linear, extra_coefs):
     map_A = {}
@@ -85,16 +94,16 @@ def build_previous_constraint(A, B, linear, extra_coefs):
     map_C = {}
     
     for s in A:
-        map_A[s + 1] = 1
+        map_A[s + 1] = "1"
     for s in B:
-        map_B[s + 1] = 1
+        map_B[s + 1] = "1"
         
     for (s, coef) in linear.items():
-        map_C[s + 1] = coef
+        map_C[s + 1] = coef_to_string(coef)
     
     for (s, coef) in extra_coefs.items():
-        map_C[s + 1] = coef
-    
+        map_C[s + 1] = coef_to_string(coef)
+
     return (map_A, map_B, map_C)
 
 
@@ -238,8 +247,8 @@ verbose = False
 
 
 # Parse the input file and generate the needed non linear coefficients
-non_linear_part_constraints, linear_part_constraints, n_signals = parse_circuit(data)
-
+non_linear_part_constraints, linear_part_constraints, n_signals, n_inputs, n_outputs, prime, number_of_signals = parse_circuit(data)
+prime = int(prime)
 #######              Hust for texting, get the number of different monomials that the naive approach would add
 
 naive_added_monomials = set()
@@ -365,7 +374,7 @@ for (n_clus, constraints) in clusters.items():
             coefs_for_difs[index] = {}
         
         for (s, coef) in coefs_index.items():    
-            coefs_for_difs[index][s] = coefs
+            coefs_for_difs[index][s] = coef
     
     total_number_of_aux += naux
 
@@ -377,7 +386,11 @@ print("#################### FINISHED PHASE 2 ####################")
 
 constraints = build_constraints(choosen_AB, linear_part_constraints, auxiliar_signals, coefs_for_difs, n_signals)
 map_result = {}
+map_result["prime"] = str(prime)
 map_result["constraints"] = constraints
+map_result["n_inputs"] = n_inputs
+map_result["n_outputs"] = n_outputs
+map_result["n_signals"] = number_of_signals
 json_object = json.dumps(map_result, indent = 4, sort_keys=True) 
 file = open(args.fileout, "w")
 file.write(json_object)
