@@ -62,7 +62,10 @@ def parse_circuit(circuit):
         mul, linear = parse_air_constraint(c, signals)
         parsed_mul_coefficients.append(mul)
         parsed_linear_coefficients.append(linear)
-    return parsed_mul_coefficients, parsed_linear_coefficients, len(signals)
+    n_inputs = circuit["inputs"]
+    n_outputs = circuit["outputs"]
+    n_signals = circuit["number_of_signals"] 
+    return parsed_mul_coefficients, parsed_linear_coefficients, (n_inputs), (n_outputs), (n_signals)
     
 
 
@@ -71,13 +74,18 @@ def build_constraint_aux(signals_A, signals_B, n_aux):
     map_B = {}
     map_C = {}
     for i in signals_A:
-        map_A[i + 1] = 1
+        map_A[i + 1] = "1"
     for i in signals_B:
-        map_B[i + 1] = 1
-    map_C[n_aux + 1] = -1
+        map_B[i + 1] = "1"
+    map_C[n_aux + 1] = coef_to_string(-1)
     return (map_A, map_B, map_C)
     
 
+def coef_to_string(coef):
+    if coef >= 0:
+        return str(coef)
+    else:
+        return str(coef+ prime)
 
 def build_previous_constraint(A, B, linear, extra_coefs):
     map_A = {}
@@ -85,16 +93,16 @@ def build_previous_constraint(A, B, linear, extra_coefs):
     map_C = {}
     
     for s in A:
-        map_A[s + 1] = 1
+        map_A[s + 1] = "1"
     for s in B:
-        map_B[s + 1] = 1
+        map_B[s + 1] = "1"
         
     for (s, coef) in linear.items():
-        map_C[s + 1] = coef
+        map_C[s + 1] = coef_to_string(coef)
     
     for (s, coef) in extra_coefs.items():
-        map_C[s + 1] = coef
-    
+        map_C[s + 1] = coef_to_string(coef)
+
     return (map_A, map_B, map_C)
 
 
@@ -236,10 +244,17 @@ data = json.load(f)
 verbose = False
 
 
+prime = int(data["prime"])
+number_of_functions = data["num_functions"]
+if number_of_functions != 1:
+    print("The current version only supports circuits with one function")
+    exit(1)
+else:
+    data = data["functions"][0]
 
 # Parse the input file and generate the needed non linear coefficients
-non_linear_part_constraints, linear_part_constraints, n_signals = parse_circuit(data)
-
+non_linear_part_constraints, linear_part_constraints, n_inputs, n_outputs, n_signals = parse_circuit(data)
+prime = int(prime)
 #######              Hust for texting, get the number of different monomials that the naive approach would add
 
 naive_added_monomials = set()
@@ -365,19 +380,73 @@ for (n_clus, constraints) in clusters.items():
             coefs_for_difs[index] = {}
         
         for (s, coef) in coefs_index.items():    
-            coefs_for_difs[index][s] = coefs
+            coefs_for_difs[index][s] = coef
     
     total_number_of_aux += naux
 
 print("#################### FINISHED PHASE 2 ####################")
       
-      
+
+  
       
 #######               Rebuild the constraints
 
 constraints = build_constraints(choosen_AB, linear_part_constraints, auxiliar_signals, coefs_for_difs, n_signals)
+
+
+def apply_correspondence(constraint, renaming):
+    new_A = {}
+    new_B = {}
+    new_C = {}
+    
+    for (s, coef) in constraint[0].items():
+        new_s = renaming[s]
+        new_A[new_s] = coef
+    for (s, coef) in constraint[1].items():
+        new_s = renaming[s]
+        new_B[new_s] = coef
+    for (s, coef) in constraint[2].items():
+        new_s = renaming[s]
+        new_C[new_s] = coef
+    
+    return (new_A, new_B, new_C)
+
+def apply_renaming_signals(constraints, inputs, outputs, signals):
+    """
+    Aplica un renombrado de señales:
+    - outputs → primeras posiciones
+    - inputs → siguientes posiciones
+    - signals auxiliares → después
+    """
+    # renaming: diccionario de señal original -> nueva posición
+    renaming = {}
+    renaming[0] = 0  # La señal 0 siempre mapea a 0
+    #print(renaming)
+    #print("Outputs: ", outputs)
+    #print("Inputs: ", inputs)
+    for s in outputs:
+        renaming[s+1] = len(renaming)
+    for s in inputs:
+        renaming[s+1] = len(renaming)
+    for s in signals:
+        if s not in renaming:
+            renaming[s] = len(renaming)
+    #print(renaming)
+    # Aplicar el renombrado a cada restricción
+    for i, c in enumerate(constraints):
+        #print("Applying renaming to constraint ", i)
+        #print("Before: ", c)
+        constraints[i] = apply_correspondence(c, renaming)
+        #print("After: ", constraints[i])
+
+apply_renaming_signals(constraints, n_inputs, n_outputs, list(range(1, n_signals + len(auxiliar_signals)+1)))
+
 map_result = {}
+map_result["prime"] = str(prime)
 map_result["constraints"] = constraints
+map_result["n_inputs"] = len(n_inputs)
+map_result["n_outputs"] = len(n_outputs)
+map_result["n_signals"] = n_signals + len(auxiliar_signals) + 1
 json_object = json.dumps(map_result, indent = 4, sort_keys=True) 
 file = open(args.fileout, "w")
 file.write(json_object)
