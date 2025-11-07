@@ -135,6 +135,7 @@ def circuit_cluster(
         minimum_circuit_size: int = 100,
         output_automatic_clusters: bool = True,
         skip_preprocessing: bool = False,
+        single_json: bool = False,
         debug: bool = False
     ):
     """
@@ -201,8 +202,11 @@ def circuit_cluster(
         case 1: suffixes.append('unsafe_linear')
         case 2: suffixes.append('single_linear')
         case _: pass
+    
+    would_output_single_file: bool = len(circs) == 0 or (len(circs) == 1 and ( len(minimum_size_clusterings) == 0 or not output_automatic_clusters )) 
+    print(would_output_single_file)
 
-    get_outfile =  lambda index, ftype : f"{output_directory}/{filename + ('_' if len(suffixes) > 0 else '') + '_'.join(suffixes)}{'' if len(circs) == 0 or (len(circs) == 1 and len(minimum_size_clusterings) == 0) else ('/' + str(index))}.{ftype}"
+    get_outfile =  lambda index, ftype : f"{output_directory}/{filename + ('_' if len(suffixes) > 0 else '') + '_'.join(suffixes)}{'' if would_output_single_file or single_json else ('/' + str(index))}.{ftype}"
 
     if len(circs) > 1:
         try:
@@ -214,7 +218,21 @@ def circuit_cluster(
     if sanity_check:
         sanity_check_maintanence = {} if len(circs) == 0 else [{} for _ in range(len(circs))]
         add_sanity_check = lambda index, key, value : sanity_check_maintanence.__setitem__(key, value) if len(circs) == 0 else sanity_check_maintanence[index].__setitem__(key, value)
-        
+    
+    index_offset = 0
+    if single_json and not would_output_single_file:
+        return_json = {
+            "seed": seed,
+            "timing": {},
+            "data": {
+                "seeds_list": [],
+                "timings_list": [],
+                "datas_list": []
+            },
+            "circuit_sizes": [],
+            "nodes": []
+        }
+
     if len(minimum_size_clusterings) > 0 and output_automatic_clusters:
 
         if debug: print("################### Dealing with Auto-Clusters ###################")
@@ -242,23 +260,40 @@ def circuit_cluster(
                 mappings['structural'] = mappings_list
         equivalency_timing = time.time()
 
-        return_json = {
-            "seed": seed,
-            "timing": {"format_conversion_time": dagnode_conversion_time - start, "equivalency_time": equivalency_timing - dagnode_conversion_time, "total": equivalency_timing - start},
-            "data": {"note": "the following connected components were clustered automatically due to having too small a size"},
-            "nodes": list(map(lambda n : n.to_dict(inverse_mapping = None), nodes.values()))
-        }
+        timing = {"format_conversion_time": dagnode_conversion_time - start, "equivalency_time": equivalency_timing - dagnode_conversion_time, "total": equivalency_timing - start}
+        nodes_to_dict_iterator = map(lambda n : n.to_dict(inverse_mapping = None), nodes.values())
 
-        if equivalency != {}: 
-            for equiv in equivalency: return_json[f"equivalency_{equiv}"] = equivalency[equiv]
-        if mappings != {} and include_mappings: 
-            for equiv in mappings: return_json[f"equivalency_{equiv}"] = mappings[equiv]
+        if single_json:
+            index_offset += len(nodes)
+            return_json["circuit_sizes"].append(len(nodes))
 
-        if debug: print("------------------- Writing Auto-Clusters To File -------------------")
+            return_json["data"]["seeds_list"].append(None)
+            return_json["data"]["timings_list"].append(timing)
+            return_json["data"]["datas_list"].append(f"The first {len(nodes)} nodes in this are automatically clustered isolated connected components, due to having less than {minimum_circuit_size} constraints")
+            return_json["nodes"].extend(nodes_to_dict_iterator)
+            if equivalency != {}: 
+                for equiv in equivalency: return_json.setdefault(f"equivalency_{equiv}", []).extend(equivalency[equiv])
+            if mappings != {} and include_mappings: 
+                for equiv in mappings: return_json.setdefault(f"equiv_mapping_{equiv}", []).extend(mappings[equiv])
+        else:
 
-        f = open(get_outfile("automatic", "json"), "w")
-        json.dump(return_json, f, indent=4)
-        f.close()
+            return_json = {
+                "seed": seed,
+                "timing": timing,
+                "data": {"note": "the following connected components were clustered automatically due to having too small a size"},
+                "nodes": list(nodes_to_dict_iterator)
+            }
+
+            if equivalency != {}: 
+                for equiv in equivalency: return_json[f"equivalency_{equiv}"] = equivalency[equiv]
+            if mappings != {} and include_mappings: 
+                for equiv in mappings: return_json[f"equiv_mapping_{equiv}"] = mappings[equiv]
+
+            if debug: print("------------------- Writing Auto-Clusters To File -------------------")
+
+            f = open(get_outfile("automatic", "json"), "w")
+            json.dump(return_json, f, indent=4)
+            f.close()
 
     for index, circ in enumerate(circs):
 
@@ -283,6 +318,8 @@ def circuit_cluster(
                 partition = partition_from_partial_clustering(circ, clusters.values(), remaining=remaining)
 
             case "louvain":
+                random.seed(seed)
+
                 circuit_graph = shared_signal_graph(circ.constraints)
                 partition = circuit_graph.community_leiden(
                         objective_function = 'modularity',
@@ -316,8 +353,10 @@ def circuit_cluster(
         if debug: logging_lines([f"File Clustered: {timing['clustering']}s", f"Num Clusters: {len(partition)}"], [log, circuit_log])
 
         partition, arcs = dag_from_partition(circ, partition)
-        nodes = dag_to_nodes(circ, partition, arcs)
+        nodes = dag_to_nodes(circ, partition, arcs, index_offset=index_offset)
         partition = None
+
+        if single_json: index_offset += len(nodes)
 
         timing['dag_construction'] = time.time() - last_time
         last_time = time.time()
@@ -412,32 +451,55 @@ def circuit_cluster(
             if debug: logging_lines([f"Equivalency Done: {timing['equivalency']}s", f"Num Nodes: {len(nodes)}", f"Number of Classes: {','.join(str(len(equiv)) for equiv in equivalency.values())}"], [log, circuit_log])
             if sanity_check:
                 # calculate which coni are not included in the partition
-                removed_coni = list(map(coni_inverse[index].__getitem__, set(range(circ.nConstraints)).difference(itertools.chain(*map(lambda node : node.constraints, nodes.values())))))
+                removed_coni = list(map(coni_inverse[index].__getitem__, set(range(circ.nConstraints)).difference(itertools.chain.from_iterable(map(lambda node : node.constraints, nodes.values())))))
                 add_sanity_check(index, "post_maxequiv", removed_coni)
 
         timing['total'] = time.time() - start
 
-        return_json = {
-            "seed": seed,
-            "timing": timing,
-            "data": data,
-            "nodes": list(map(lambda n : n.to_dict(inverse_mapping = (coni_inverse[index], sig_inverse[index]) if undo_remapping else None ), nodes.values()))
-        }
+        ### FINAL STEPS TO WRITE TO FILE ###
 
-        if debug: data["log"] = circuit_log
-        if equivalence_method != "none":
-            for equiv in equivalency:
-                return_json[f"equivalency_{equiv}"] = equivalency[equiv]
+        if single_json and not would_output_single_file:
 
-            if include_mappings: 
-                for m in mappings:
-                    return_json[f"equiv_mapping_{equiv}"] = mappings[m]
+            for timeslot, timeval in timing.items():
+                return_json["timing"][timeslot] = return_json["timing"].get(timeslot, 0) + timeval
+            
+            return_json["data"]["seeds_list"].append(seed)
+            return_json["data"]["timings_list"].append(timing)
+            return_json["circuit_sizes"].append(len(nodes))
+            if data != {}: return_json["data"]["datas_list"].append(data)
 
-        if sanity_check: return_json["sanity_check"] = sanity_check_maintanence
+            return_json["nodes"].extend(map(lambda n : n.to_dict(inverse_mapping = (coni_inverse[index], sig_inverse[index]) if undo_remapping else None ), nodes.values()))
+            if equivalence_method != "none":
+                for equiv in equivalency:
+                    return_json.setdefault(f"equivalency_{equiv}", []).extend(equivalency[equiv])
+                if include_mappings: 
+                    for equiv in mappings:
+                        return_json.setdefault(f"equiv_mapping_{equiv}", []).extend(mappings[equiv])
+                
 
-        f = open(get_outfile(index, "json"), "w")
-        json.dump(return_json, f, indent=4)
-        f.close()
+        else:
+            return_json = {
+                "seed": seed,
+                "timing": timing,
+                "data": data,
+                "nodes": list(map(lambda n : n.to_dict(inverse_mapping = (coni_inverse[index], sig_inverse[index]) if undo_remapping else None ), nodes.values()))
+            }
+
+            if debug: data["log"] = circuit_log
+            if equivalence_method != "none":
+                for equiv in equivalency:
+                    return_json[f"equivalency_{equiv}"] = equivalency[equiv]
+
+                if include_mappings: 
+                    for equiv in mappings:
+                        return_json[f"equiv_mapping_{equiv}"] = mappings[equiv]
+
+            if sanity_check: return_json["sanity_check"] = sanity_check_maintanence
+
+            with open(get_outfile(index, "json"), "w") as f: json.dump(return_json, f, indent=4)
+
+    if single_json and not would_output_single_file:
+        with open(get_outfile(index, "json"), "w") as f: json.dump(return_json, f, indent=4)
 
     if debug:
         f = open(get_outfile("log", "txt"), "w")
@@ -450,13 +512,14 @@ def logging_lines(lines: List[str], logs: List[List[str]]) -> None:
         print(line)
 
 
+
 if __name__ == '__main__':
 
     req_args = [None, None, None, None, None]
     timeout = 0
     automerge_passthrough, automerge_only_nonlinear, return_img , timing, undo_remapping, include_mappings = True, False, False, True, True, False
     maxequiv, maxequiv_timeout, maxequiv_tol, maxequiv_merge, sanity_check, seed, debug, minimum_circuit_size = False, 5, 0.8, 0, False, None, False, 100
-    output_automatic_clusters, skip_preprocessing = True, False
+    output_automatic_clusters, skip_preprocessing, single_json = True, False, False
 
     def set_file(index: int, filename: str):
         if filename[0] == '-': raise SyntaxError(f"Invalid {'input' if not index else 'outout'} filename {filename}")
@@ -524,6 +587,7 @@ if __name__ == '__main__':
             case "-m": include_mappings, i = True, i+1
             case "--include-mappings": include_mappings, i = True, i+1
             case "--dont-undo-mapping": undo_remapping, i = False, i+1
+            case "--single-json": single_json, i = True, i+1
             case "--return_img": return_img, i = True, i + 1
             case "--dont-automerge-passthrough": automerge_passthrough, i = False, i + 1
             case "--automerge-only-nonlinear": automerge_only_nonlinear, i = True, i + 1
@@ -558,6 +622,6 @@ if __name__ == '__main__':
     with time_limit(timeout):
         circuit_cluster(*req_args, automerge_passthrough=automerge_passthrough, automerge_only_nonlinear=automerge_only_nonlinear, return_img=return_img, timing=timing, undo_remapping = undo_remapping, include_mappings=include_mappings, 
             maxequiv=maxequiv, maxequiv_tol=maxequiv_tol, maxequiv_timeout=maxequiv_timeout, maxequiv_merge=maxequiv_merge, sanity_check=sanity_check, seed = seed, minimum_circuit_size=minimum_circuit_size, 
-            output_automatic_clusters=output_automatic_clusters, skip_preprocessing=skip_preprocessing, debug=debug)
+            output_automatic_clusters=output_automatic_clusters, skip_preprocessing=skip_preprocessing, single_json=single_json, debug=debug)
 
     # python3 cluster.py r1cs_files/binsub_test.r1cs -o clustering_tests -e structural

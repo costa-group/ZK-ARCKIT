@@ -283,7 +283,7 @@ class DAGNode():
             ]
         }
 
-def dag_to_nodes(circ: Circuit, partition: List[List[int]], arcs: List[Tuple[int, int]]) -> Dict[int, DAGNode]:
+def dag_to_nodes(circ: Circuit, partition: List[List[int]], arcs: List[Tuple[int, int]], index_offset: int = 0) -> Dict[int, DAGNode]:
     """
     Given a circ and DAG, returns a dictionary of nodes populated with data, indexes by the node_id.
 
@@ -301,8 +301,8 @@ def dag_to_nodes(circ: Circuit, partition: List[List[int]], arcs: List[Tuple[int
     part_to_signals = list(map(lambda part : set(itertools.chain.from_iterable(map(lambda coni : circ.constraints[coni].signals(), part))), partition))
 
     nodes: List[DAGNode] = {
-        i : DAGNode(
-            circ, i, part,
+        i + index_offset : DAGNode(
+            circ, i + index_offset, part,
             set(filter(circ.signal_is_input, part_to_signals[i])),
             set(filter(circ.signal_is_output, part_to_signals[i]))
         )
