@@ -446,7 +446,7 @@ map_result["prime"] = str(prime)
 map_result["constraints"] = constraints
 map_result["n_inputs"] = len(n_inputs)
 map_result["n_outputs"] = len(n_outputs)
-map_result["n_signals"] = n_signals + len(auxiliar_signals) + 1
+map_result["n_signals"] = n_signals + len(auxiliar_signals) 
 json_object = json.dumps(map_result, indent = 4, sort_keys=True) 
 file = open(args.fileout, "w")
 file.write(json_object)
