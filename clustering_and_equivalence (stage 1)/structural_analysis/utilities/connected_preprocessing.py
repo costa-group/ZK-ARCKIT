@@ -5,6 +5,7 @@ Fixes compiler bug where some circuits aren't a single connected component
 """
 from typing import List, Tuple
 import itertools
+import json
 from collections import deque
 
 from circuits_and_constraints.abstract_circuit import Circuit
@@ -85,8 +86,8 @@ def componentwise_preprocessing(circ: Circuit, minimum_circuit_size: int = 100, 
 
     circuits = []
     minimum_size_clusterings = []
-    conmapp = [None for _ in range(circ.nConstraints)]
-    sigmapp = [None for _ in range(circ.nWires)]
+    coni_inverse = []
+    sig_inverse = []
 
     i = -1
     for signals in filter(lambda signals: any(map(lambda sig : circ.signal_is_input(sig) or circ.signal_is_output(sig), signals)), signals_by_component):
@@ -98,17 +99,44 @@ def componentwise_preprocessing(circ: Circuit, minimum_circuit_size: int = 100, 
             if output_automatic_clusters: minimum_size_clusterings.append(constraints)
             continue
         i += 1
-        for cnt, sig in enumerate(signals): sigmapp[sig] = (i, cnt)
-        for cnt, coni in enumerate(constraints): conmapp[coni] = (i, cnt)
 
-        next_circuit, signal_map_changed, signal_map = circ.take_subcircuit(constraints, signal_map={sig: sigmapp[sig][1] for sig in signals}, return_signal_mapping=True)
-        if signal_map_changed:
-            for sig in signals: sigmapp[sig] = (sigmapp[sig][0], signal_map[sig])
+        next_circuit, signal_map = circ.take_subcircuit(constraints, signal_map={sig: cnt for cnt, sig in enumerate(signals)}, return_signal_mapping=True)
+        
+        sig_inverse.append({val : key for key, val in signal_map.items()})
+        coni_inverse.append(constraints)
         circuits.append(next_circuit)
 
     if debug: print("------------------ end preprocessing --------------------")
 
-    return circuits, minimum_size_clusterings, sigmapp, conmapp
+    return circuits, minimum_size_clusterings, sig_inverse, coni_inverse
         
+def preclustering(circ: Circuit, preclustering_file: str, minimum_circuit_size: int = 100, output_automatic_clusters: bool = True, debug: False = False):
 
+    jsonfile = open(preclustering_file, 'r')
+    clustering = json.load(jsonfile)
+    jsonfile.close()
+
+    minimum_size_clusterings = []
+    circuits = []
+    coni_inverse = []
+    sig_inverse = []
+
+    i = -1
+    for node in clustering["nodes"]:
+
+        if len(node["constraints"]) <= minimum_circuit_size:
+            if output_automatic_clusters: minimum_size_clusterings.append(node["constraints"])
+            continue
+
+        if any(coni < 0 or circ.nConstraints <= coni for coni in node["constraints"]):
+            print(circ.nConstraints)
+            print(node["node_id"], node["constraints"])
+
+        i += 1
+        next_circuit, signal_map = circ.take_subcircuit(constraint_subset=node["constraints"], input_signals=node["input_signals"], output_signals=node["output_signals"], return_signal_mapping=True)
+        sig_inverse.append({val : key for key, val in signal_map.items()})
+        coni_inverse.append(node["constraints"])
+        circuits.append(next_circuit)
+    
+    return circuits, minimum_size_clusterings, sig_inverse, coni_inverse
 

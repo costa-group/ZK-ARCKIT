@@ -101,7 +101,7 @@ from circuits_and_constraints.acir.acir_circuit import ACIRCircuit
 from testing_harness import time_limit
 
 from structural_analysis.utilities.constraint_graph import shared_signal_graph
-from structural_analysis.utilities.connected_preprocessing import componentwise_preprocessing
+from structural_analysis.utilities.connected_preprocessing import componentwise_preprocessing, preclustering
 from structural_analysis.clustering_methods.nonlinear_attract import nonlinear_attract_clustering
 # from structural_analysis.clustering_methods.linear_coefficient import cluster_by_linear_coefficient #TODO: maybe refactor but not promising enough to spend time on
 from structural_analysis.cluster_trees.dag_from_clusters import dag_from_partition, partition_from_partial_clustering, dag_to_nodes
@@ -111,8 +111,6 @@ from structural_analysis.cluster_trees.dag_postprocessing import merge_passthrou
 from structural_analysis.clustering_methods.iterated_louvain import iterated_louvain
 from maximal_equivalence.applied_maximal_equivalence import maximally_equivalent_classes
 from structural_analysis.cluster_trees.dag_from_clusters import DAGNode
-
-LEIDEN_STABLE_MINIMUM_SIZE = 100
 
 def circuit_cluster(
         input_filename: str,
@@ -135,8 +133,10 @@ def circuit_cluster(
         minimum_circuit_size: int = 100,
         output_automatic_clusters: bool = True,
         skip_preprocessing: bool = False,
+        preclustering_file: str | None = None,
+        leiden_iterations: int = -1,
         single_json: bool = False,
-        debug: bool = False
+        debug: bool = False,
     ):
     """
     Manager function for handling the clustering methods, for a complete specification see `cluster.py'
@@ -166,26 +166,41 @@ def circuit_cluster(
         logging_lines([f"File Parsed: {debug_parsing_time - debug_last_time}s"], [log])
         debug_last_time = debug_parsing_time
 
-    if not skip_preprocessing:
-        circs, minimum_size_clusterings, sig_mapping, con_mapping = componentwise_preprocessing(main_circ, minimum_circuit_size=minimum_circuit_size, output_automatic_clusters=output_automatic_clusters, debug=debug)
+    if preclustering_file is not None:
+        circs, minimum_size_clusterings, sig_inverse, coni_inverse = preclustering(main_circ, preclustering_file, minimum_circuit_size=minimum_circuit_size, output_automatic_clusters=output_automatic_clusters, debug=debug)
+
+        if debug:
+            debug_preclustering_time = time.time()
+            logging_lines([str(len(circs)), f"File Preclustered: {debug_preclustering_time - debug_last_time}s"], [log])
+            debug_last_time = debug_preclustering_time
+
+        if not skip_preprocessing:
+            iterable = zip(circs, sig_inverse, coni_inverse)
+            circs = []
+            sig_inverse = []
+            coni_inverse = []
+
+            for circ, sig_inv, coni_inv in iterable:
+                circs_, minimum_size_clusterings_, sig_inverse_, coni_inverse_ = componentwise_preprocessing(circ, minimum_circuit_size=minimum_circuit_size, output_automatic_clusters=output_automatic_clusters, debug=False)
+                circs.extend(circs_)
+                minimum_size_clusterings.extend(minimum_size_clusterings_)
+                sig_inverse.extend([{key: sig_inv[val] for key, val in sig_inv_.items()} for sig_inv_ in sig_inverse_])
+                coni_inverse.extend([list(map(coni_inv.__getitem__, coni_inv_)) for coni_inv_ in coni_inverse_])
+
+    elif not skip_preprocessing:
+        circs, minimum_size_clusterings, sig_inverse, coni_inverse = componentwise_preprocessing(main_circ, minimum_circuit_size=minimum_circuit_size, output_automatic_clusters=output_automatic_clusters, debug=debug)
     else:
         undo_remapping = False
         circs = [main_circ]
         minimum_size_clusterings = []
+    
+    if not undo_remapping: sig_inverse, coni_inverse = None, None
 
     if main_circ.nOutputs == 0: warnings.warn("Your circuit has no outputs, this may cause undefined behaviour")
     if main_circ.nInputs == 0: warnings.warn("Your circuit has no inputs, this may cause undefined behaviour")
 
     # TODO: pass mapping data to output json
     # TODO: add timing information for utility/debugging
-
-    if undo_remapping:
-        coni_inverse, sig_inverse = [[None for _ in range(circ.nConstraints)] for circ in circs], [[None for _ in range(circ.nWires)] for circ in circs]
-        for mapping, inverse in zip([sig_mapping, con_mapping], [sig_inverse, coni_inverse]):
-            for val_index, value in enumerate(mapping):
-                if value is None: continue
-                circ_index, new_val_index = value
-                inverse[circ_index][new_val_index] = val_index
 
     if debug:
         debug_preprocessing_time = time.time()
@@ -208,7 +223,7 @@ def circuit_cluster(
 
     get_outfile =  lambda index, ftype : f"{output_directory}/{filename + ('_' if len(suffixes) > 0 else '') + '_'.join(suffixes)}{'' if would_output_single_file or single_json else ('/' + str(index))}.{ftype}"
 
-    if len(circs) > 1:
+    if len(circs) > 0 and (len(circs) > 1 or len(minimum_size_clusterings) != 0):
         try:
             output_path = get_outfile(0, "json")
             os.mkdir(output_path[:len(output_path) - output_path[::-1].index("/") - 1])
@@ -295,6 +310,8 @@ def circuit_cluster(
             json.dump(return_json, f, indent=4)
             f.close()
 
+        minimum_size_clusterings = None
+
     for index, circ in enumerate(circs):
 
         if index > 0:
@@ -319,17 +336,17 @@ def circuit_cluster(
 
             case "louvain":
                 random.seed(seed)
-
-                circuit_graph = shared_signal_graph(circ.constraints)
+                circuit_graph = shared_signal_graph(circ)
+                if debug: logging_lines([f"Graph Created in: {time.time() - last_time}"], [log, circuit_log])
                 partition = circuit_graph.community_leiden(
                         objective_function = 'modularity',
                         resolution = circ.nConstraints ** 0.5,
-                        n_iterations = -1 if circ.nConstraints >= LEIDEN_STABLE_MINIMUM_SIZE else 10**3
+                        n_iterations = leiden_iterations
                     )
                 if debug: logging_lines([f"Modularity: {partition.modularity}"], [log, circuit_log])
 
             case "iterated_louvain":
-                circuit_graph = shared_signal_graph(circ.constraints)
+                circuit_graph = shared_signal_graph(circ)
                 partition, resolution = iterated_louvain(circuit_graph, init_resolution=circ.nConstraints ** 0.5, seed=seed)
                 partition = list(map(list, partition))
                 data["final_resolution"] = resolution
@@ -387,7 +404,7 @@ def circuit_cluster(
             add_sanity_check(index, "post_merge_postprocessing", removed_coni)
 
         if return_img:
-            if circuit_graph is None: circuit_graph = shared_signal_graph(circ.constraints)
+            if circuit_graph is None: circuit_graph = shared_signal_graph(circ)
             dag_graph_to_img(circ, circuit_graph, nodes, get_outfile(index, clustering_method, "png"))
 
         match equivalence_method:
@@ -519,7 +536,7 @@ if __name__ == '__main__':
     timeout = 0
     automerge_passthrough, automerge_only_nonlinear, return_img , timing, undo_remapping, include_mappings = True, False, False, True, True, False
     maxequiv, maxequiv_timeout, maxequiv_tol, maxequiv_merge, sanity_check, seed, debug, minimum_circuit_size = False, 5, 0.8, 0, False, None, False, 100
-    output_automatic_clusters, skip_preprocessing, single_json = True, False, False
+    output_automatic_clusters, skip_preprocessing, preclustering_file, leiden_iterations, single_json = True, False, None, -1, False
 
     def set_file(index: int, filename: str):
         if filename[0] == '-': raise SyntaxError(f"Invalid {'input' if not index else 'outout'} filename {filename}")
@@ -579,9 +596,21 @@ if __name__ == '__main__':
                 if sys.argv[i+1][0] == '-': raise SyntaxError(f"Invalid seed value {sys.argv[i+1]}")
                 seed = int(sys.argv[i+1])
                 i += 2
+            case "-p":
+                if sys.argv[i+1][0] == '-': raise SyntaxError(f"Invalid preclustering value {sys.argv[i+1]}")
+                preclustering_file = sys.argv[i+1]
+                i += 2
+            case "-preclustering":
+                if sys.argv[i+1][0] == '-': raise SyntaxError(f"Invalid preclustering value {sys.argv[i+1]}")
+                preclustering_file = sys.argv[i+1]
+                i += 2
             case "--minimum-circuit-size":
                 if sys.argv[i+1][0] == '-': raise SyntaxError(f"Invalid minimum circuit size value value {sys.argv[i+1]}")
                 minimum_circuit_size = int(sys.argv[i+1])
+                i += 2
+            case "--leiden-iterations":
+                if sys.argv[i+1][0] == '-': raise SyntaxError(f"Invalid minimum circuit size value value {sys.argv[i+1]}")
+                leiden_iterations = int(sys.argv[i+1])
                 i += 2
             case "-i": return_img, i = True, i + 1
             case "-m": include_mappings, i = True, i+1
@@ -622,6 +651,6 @@ if __name__ == '__main__':
     with time_limit(timeout):
         circuit_cluster(*req_args, automerge_passthrough=automerge_passthrough, automerge_only_nonlinear=automerge_only_nonlinear, return_img=return_img, timing=timing, undo_remapping = undo_remapping, include_mappings=include_mappings, 
             maxequiv=maxequiv, maxequiv_tol=maxequiv_tol, maxequiv_timeout=maxequiv_timeout, maxequiv_merge=maxequiv_merge, sanity_check=sanity_check, seed = seed, minimum_circuit_size=minimum_circuit_size, 
-            output_automatic_clusters=output_automatic_clusters, skip_preprocessing=skip_preprocessing, single_json=single_json, debug=debug)
+            output_automatic_clusters=output_automatic_clusters, skip_preprocessing=skip_preprocessing, preclustering_file=preclustering_file, leiden_iterations=leiden_iterations, single_json=single_json, debug=debug)
 
     # python3 cluster.py r1cs_files/binsub_test.r1cs -o clustering_tests -e structural
