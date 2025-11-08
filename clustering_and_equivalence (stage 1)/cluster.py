@@ -98,9 +98,10 @@ import random
 from circuits_and_constraints.abstract_circuit import Circuit
 from circuits_and_constraints.r1cs.r1cs_circuit import R1CSCircuit
 from circuits_and_constraints.acir.acir_circuit import ACIRCircuit
+from networkx.algorithms.community import louvain_communities
 from testing_harness import time_limit
 
-from structural_analysis.utilities.constraint_graph import shared_signal_graph
+from structural_analysis.utilities.constraint_graph import shared_signal_graph_nx, shared_signal_graph_igraph
 from structural_analysis.utilities.connected_preprocessing import componentwise_preprocessing, preclustering
 from structural_analysis.clustering_methods.nonlinear_attract import nonlinear_attract_clustering
 # from structural_analysis.clustering_methods.linear_coefficient import cluster_by_linear_coefficient #TODO: maybe refactor but not promising enough to spend time on
@@ -278,7 +279,7 @@ def circuit_cluster(
         timing = {"format_conversion_time": dagnode_conversion_time - start, "equivalency_time": equivalency_timing - dagnode_conversion_time, "total": equivalency_timing - start}
         nodes_to_dict_iterator = map(lambda n : n.to_dict(inverse_mapping = None), nodes.values())
 
-        if single_json:
+        if single_json and not would_output_single_file:
             index_offset += len(nodes)
             return_json["circuit_sizes"].append(len(nodes))
 
@@ -335,18 +336,29 @@ def circuit_cluster(
                 partition = partition_from_partial_clustering(circ, clusters.values(), remaining=remaining)
 
             case "louvain":
-                random.seed(seed)
-                circuit_graph = shared_signal_graph(circ)
-                if debug: logging_lines([f"Graph Created in: {time.time() - last_time}"], [log, circuit_log])
-                partition = circuit_graph.community_leiden(
-                        objective_function = 'modularity',
-                        resolution = circ.nConstraints ** 0.5,
-                        n_iterations = leiden_iterations
-                    )
-                if debug: logging_lines([f"Modularity: {partition.modularity}"], [log, circuit_log])
+                g = shared_signal_graph_nx(circ.constraints)
+                partition = list(map(list, louvain_communities(g, resolution=circ.nConstraints ** 0.5, seed=seed)))
+
+            case "louvain-networkx":
+                g = shared_signal_graph_nx(circ.constraints)
+                partition = list(map(list, louvain_communities(g, resolution=circ.nConstraints ** 0.5, seed=seed)))
+
+            case "louvain-igraph":
+                if circ.nConstraints > 1:
+                    random.seed(seed)
+                    circuit_graph = shared_signal_graph_igraph(circ)
+                    if debug: logging_lines([f"Graph Created in: {time.time() - last_time}"], [log, circuit_log])
+                    partition = circuit_graph.community_leiden(
+                            objective_function = 'modularity',
+                            resolution = circ.nConstraints ** 0.5,
+                            n_iterations = leiden_iterations
+                        )
+                    if debug: logging_lines([f"Modularity: {partition.modularity}"], [log, circuit_log])
+                else:
+                    partition = [[0]]
 
             case "iterated_louvain":
-                circuit_graph = shared_signal_graph(circ)
+                circuit_graph = shared_signal_graph_igraph(circ)
                 partition, resolution = iterated_louvain(circuit_graph, init_resolution=circ.nConstraints ** 0.5, seed=seed)
                 partition = list(map(list, partition))
                 data["final_resolution"] = resolution
