@@ -16,6 +16,7 @@ Created on Mon Mar 17 12:33:56 2025
 
 
 from z3 import *
+from z3 import Optimize
 
 def compute_cluster(signal_to_cluster_rep, s1):
     c_s1 = signal_to_cluster_rep[s1]
