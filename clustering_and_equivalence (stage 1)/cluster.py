@@ -220,7 +220,6 @@ def circuit_cluster(
         case _: pass
     
     would_output_single_file: bool = len(circs) == 0 or (len(circs) == 1 and ( len(minimum_size_clusterings) == 0 or not output_automatic_clusters )) 
-    print(would_output_single_file)
 
     get_outfile =  lambda index, ftype : f"{output_directory}/{filename + ('_' if len(suffixes) > 0 else '') + '_'.join(suffixes)}{'' if would_output_single_file or single_json else ('/' + str(index))}.{ftype}"
 
@@ -336,12 +335,12 @@ def circuit_cluster(
                 partition = partition_from_partial_clustering(circ, clusters.values(), remaining=remaining)
 
             case "louvain":
-                g = shared_signal_graph_nx(circ.constraints)
-                partition = list(map(list, louvain_communities(g, resolution=circ.nConstraints ** 0.5, seed=seed)))
+                circuit_graph = shared_signal_graph_nx(circ.constraints)
+                partition = list(map(list, louvain_communities(circuit_graph, resolution=circ.nConstraints ** 0.5, seed=seed)))
 
             case "louvain-networkx":
-                g = shared_signal_graph_nx(circ.constraints)
-                partition = list(map(list, louvain_communities(g, resolution=circ.nConstraints ** 0.5, seed=seed)))
+                circuit_graph = shared_signal_graph_nx(circ.constraints)
+                partition = list(map(list, louvain_communities(circuit_graph, resolution=circ.nConstraints ** 0.5, seed=seed)))
 
             case "louvain-igraph":
                 if circ.nConstraints > 1:
@@ -416,8 +415,9 @@ def circuit_cluster(
             add_sanity_check(index, "post_merge_postprocessing", removed_coni)
 
         if return_img:
-            if circuit_graph is None: circuit_graph = shared_signal_graph(circ)
-            dag_graph_to_img(circ, circuit_graph, nodes, get_outfile(index, clustering_method, "png"))
+            if circuit_graph is None: circuit_graph = shared_signal_graph_nx(circ)
+            print(get_outfile(index, "png"))
+            dag_graph_to_img(circ, circuit_graph, nodes, get_outfile(index, "png"))
 
         match equivalence_method:
 
