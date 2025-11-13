@@ -113,6 +113,8 @@ from structural_analysis.clustering_methods.iterated_louvain import iterated_lou
 from maximal_equivalence.applied_maximal_equivalence import maximally_equivalent_classes
 from structural_analysis.cluster_trees.dag_from_clusters import DAGNode
 
+DEBUG_PRINT_LEVEL = 2
+
 def circuit_cluster(
         input_filename: str,
         fileformat: str,
@@ -137,7 +139,9 @@ def circuit_cluster(
         preclustering_file: str | None = None,
         leiden_iterations: int = -1,
         single_json: bool = False,
-        debug: bool = False,
+        resolution: int | None = None,
+        expected_size: int | None = None,
+        debug: int = 0,
     ):
     """
     Manager function for handling the clustering methods, for a complete specification see `cluster.py'
@@ -162,9 +166,8 @@ def circuit_cluster(
     main_circ.parse_file(input_filename)
 
     if debug:
-        
         debug_parsing_time = time.time()
-        logging_lines([f"File Parsed: {debug_parsing_time - debug_last_time}s"], [log])
+        logging_lines([f"File Parsed: {debug_parsing_time - debug_last_time}s"], [log], printbool = debug >= DEBUG_PRINT_LEVEL)
         debug_last_time = debug_parsing_time
 
     if preclustering_file is not None:
@@ -172,7 +175,7 @@ def circuit_cluster(
 
         if debug:
             debug_preclustering_time = time.time()
-            logging_lines([str(len(circs)), f"File Preclustered: {debug_preclustering_time - debug_last_time}s"], [log])
+            logging_lines([str(len(circs)), f"File Preclustered: {debug_preclustering_time - debug_last_time}s"], [log], printbool = debug >= DEBUG_PRINT_LEVEL)
             debug_last_time = debug_preclustering_time
 
         if not skip_preprocessing:
@@ -205,7 +208,7 @@ def circuit_cluster(
 
     if debug:
         debug_preprocessing_time = time.time()
-        logging_lines([str(len(circs)), f"File Preprocessed: {debug_preprocessing_time - debug_last_time}s"], [log])
+        logging_lines([str(len(circs)), f"File Preprocessed: {debug_preprocessing_time - debug_last_time}s"], [log], printbool = debug >= DEBUG_PRINT_LEVEL)
         debug_last_time = debug_preprocessing_time
 
     circuit_graph = None ## what's this?
@@ -250,7 +253,7 @@ def circuit_cluster(
 
     if len(minimum_size_clusterings) > 0 and output_automatic_clusters:
 
-        if debug: print("################### Dealing with Auto-Clusters ###################")
+        if debug >= DEBUG_PRINT_LEVEL: print("################### Dealing with Auto-Clusters ###################")
         
         start = time.time()
         equivalency = {}
@@ -304,13 +307,24 @@ def circuit_cluster(
             if mappings != {} and include_mappings: 
                 for equiv in mappings: return_json[f"equiv_mapping_{equiv}"] = mappings[equiv]
 
-            if debug: print("------------------- Writing Auto-Clusters To File -------------------")
+            if debug >= DEBUG_PRINT_LEVEL: print("------------------- Writing Auto-Clusters To File -------------------")
 
             f = open(get_outfile("automatic", "json"), "w")
             json.dump(return_json, f, indent=4)
             f.close()
 
         minimum_size_clusterings = None
+
+    def get_resolution(circ: Circuit, nEdges: int):
+        """
+        Handles resolution calculation given the 3 options and default
+        """
+        if resolution is not None:
+            return resolution
+        elif expected_size is not None:
+            return 2 / (expected_size ** 2) * nEdges
+        else:
+            return circ.nConstraints ** 0.5
 
     for index, circ in enumerate(circs):
 
@@ -324,7 +338,7 @@ def circuit_cluster(
         last_time = start
     
         if debug:
-            logging_lines([f"################################# clustering {index} #################################", f"nConstraints {circ.nConstraints}, nWires {circ.nWires}"], [log])
+            logging_lines([f"################################# clustering {index} #################################", f"nConstraints {circ.nConstraints}, nWires {circ.nWires}"], [log], printbool = debug >= DEBUG_PRINT_LEVEL)
             circuit_log = []
 
         match clustering_method:
@@ -336,20 +350,24 @@ def circuit_cluster(
 
             case "louvain":
                 circuit_graph = shared_signal_graph_nx(circ.constraints)
-                partition = list(map(list, louvain_communities(circuit_graph, resolution=circ.nConstraints ** 0.5, seed=seed)))
+                resolution = get_resolution(circ, circuit_graph.number_of_edges())
+                if debug: logging_lines([f"Graph Created in: {time.time() - last_time}", f"Resolution: {resolution}", f"Expected size: {(2 * circuit_graph.number_of_edges() / resolution)**0.5}"], [log, circuit_log], printbool = debug >= DEBUG_PRINT_LEVEL)
+                partition = list(map(list, louvain_communities(circuit_graph, resolution=resolution, seed=seed)))
 
             case "louvain-networkx":
                 circuit_graph = shared_signal_graph_nx(circ.constraints)
-                partition = list(map(list, louvain_communities(circuit_graph, resolution=circ.nConstraints ** 0.5, seed=seed)))
+                if debug: logging_lines([f"Graph Created in: {time.time() - last_time}", f"Resolution: {resolution}", f"Expected size: {(2 * circuit_graph.number_of_edges() / resolution)**0.5}"], [log, circuit_log], printbool = debug >= DEBUG_PRINT_LEVEL)
+                partition = list(map(list, louvain_communities(circuit_graph, resolution=resolution, seed=seed)))
 
             case "louvain-igraph":
                 if circ.nConstraints > 1:
                     random.seed(seed)
                     circuit_graph = shared_signal_graph_igraph(circ)
-                    if debug: logging_lines([f"Graph Created in: {time.time() - last_time}"], [log, circuit_log])
+                    resolution = get_resolution(circ, len(circuit_graph.es)),
+                    if debug: logging_lines([f"Graph Created in: {time.time() - last_time}", f"Resolution: {resolution}", f"Expected size: {(2 * len(circuit_graph.es) / resolution)**0.5}"], [log, circuit_log], printbool = debug >= DEBUG_PRINT_LEVEL)
                     partition = circuit_graph.community_leiden(
                             objective_function = 'modularity',
-                            resolution = circ.nConstraints ** 0.5,
+                            resolution = resolution,
                             n_iterations = leiden_iterations
                         )
                     if debug: logging_lines([f"Modularity: {partition.modularity}"], [log, circuit_log])
@@ -358,7 +376,7 @@ def circuit_cluster(
 
             case "iterated_louvain":
                 circuit_graph = shared_signal_graph_igraph(circ)
-                partition, resolution = iterated_louvain(circuit_graph, init_resolution=circ.nConstraints ** 0.5, seed=seed)
+                partition, resolution = iterated_louvain(circuit_graph, init_resolution=get_resolution(circ, len(circuit_graph.es)), seed=seed)
                 partition = list(map(list, partition))
                 data["final_resolution"] = resolution
             
@@ -371,14 +389,14 @@ def circuit_cluster(
 
         if sanity_check:
             # calculate which coni are not included in the partition
-            removed_coni = list(map(coni_inverse[index].__getitem__, set(range(circ.nConstraints)).difference(itertools.chain(*partition))))
+            removed_coni = list(map(coni_inverse[index].__getitem__, set(range(circ.nConstraints)).difference(itertools.chain.from_iterable(partition))))
             add_sanity_check(index, "post_clustering_removed", removed_coni)
 
         if not return_img: circuit_graph = None
         timing['clustering'] = time.time() - last_time
         last_time = time.time()
 
-        if debug: logging_lines([f"File Clustered: {timing['clustering']}s", f"Num Clusters: {len(partition)}"], [log, circuit_log])
+        if debug: logging_lines([f"File Clustered: {timing['clustering']}s", f"Num Clusters: {len(partition)}"], [log, circuit_log], printbool = debug >= DEBUG_PRINT_LEVEL)
 
         partition, arcs = dag_from_partition(circ, partition)
         nodes = dag_to_nodes(circ, partition, arcs, index_offset=index_offset)
@@ -389,7 +407,7 @@ def circuit_cluster(
         timing['dag_construction'] = time.time() - last_time
         last_time = time.time()
 
-        if debug: logging_lines([f"Dag Consructed: {timing['dag_construction']}s"], [log, circuit_log])
+        if debug: logging_lines([f"Dag Consructed: {timing['dag_construction']}s"], [log, circuit_log], printbool = debug >= DEBUG_PRINT_LEVEL)
 
         if sanity_check:
             # calculate which coni are not included in the partition
@@ -400,14 +418,14 @@ def circuit_cluster(
             nodes = merge_passthrough(circ, nodes)
             timing['passthrough_merge'] = time.time() - last_time
             last_time = time.time()
-            if debug: logging_lines([f"Passthrough Merging Done: {timing['passthrough_merge']}s", f"Num Nodes: {len(nodes)}"], [log, circuit_log])
+            if debug: logging_lines([f"Passthrough Merging Done: {timing['passthrough_merge']}s", f"Num Nodes: {len(nodes)}"], [log, circuit_log], printbool = debug >= DEBUG_PRINT_LEVEL)
                 
 
         if automerge_only_nonlinear: 
             nodes = merge_only_nonlinear(circ, nodes)
             timing['nonlinear_merge'] = time.time() - last_time
             last_time = time.time()
-            if debug: logging_lines([f"Only Nonlinear Merging Done: {timing['nonlinear_merge']}s", f"Num Nodes: {len(nodes)}"], [log, circuit_log])
+            if debug: logging_lines([f"Only Nonlinear Merging Done: {timing['nonlinear_merge']}s", f"Num Nodes: {len(nodes)}"], [log, circuit_log], printbool = debug >= DEBUG_PRINT_LEVEL)
 
         if sanity_check:
             # calculate which coni are not included in the partition
@@ -461,7 +479,7 @@ def circuit_cluster(
         timing['equivalency'] = time.time() - last_time
         last_time = time.time()
 
-        if equivalence_method != "none" and debug: logging_lines([f"Equivalency Done: {timing['equivalency']}s", f"Number of Classes: {','.join(str(len(equiv)) for equiv in equivalency.values())}"], [log, circuit_log])
+        if equivalence_method != "none" and debug: logging_lines([f"Equivalency Done: {timing['equivalency']}s", f"Number of Classes: {','.join(str(len(equiv)) for equiv in equivalency.values())}"], [log, circuit_log], printbool = debug >= DEBUG_PRINT_LEVEL)
 
         if maxequiv:
 
@@ -477,7 +495,7 @@ def circuit_cluster(
             timing["maxequiv"] = time.time() - last_time
             last_time = time.time()
 
-            if debug: logging_lines([f"Equivalency Done: {timing['equivalency']}s", f"Num Nodes: {len(nodes)}", f"Number of Classes: {','.join(str(len(equiv)) for equiv in equivalency.values())}"], [log, circuit_log])
+            if debug: logging_lines([f"Equivalency Done: {timing['equivalency']}s", f"Num Nodes: {len(nodes)}", f"Number of Classes: {','.join(str(len(equiv)) for equiv in equivalency.values())}"], [log, circuit_log], printbool = debug >= DEBUG_PRINT_LEVEL)
             if sanity_check:
                 # calculate which coni are not included in the partition
                 removed_coni = list(map(coni_inverse[index].__getitem__, set(range(circ.nConstraints)).difference(itertools.chain.from_iterable(map(lambda node : node.constraints, nodes.values())))))
@@ -535,10 +553,10 @@ def circuit_cluster(
         f.writelines(f"{line}\n" for line in log)
         f.close()
 
-def logging_lines(lines: List[str], logs: List[List[str]]) -> None:
+def logging_lines(lines: List[str], logs: List[List[str]], printbool=True) -> None:
     for line in lines:
         for log in logs: log.append(line)
-        print(line)
+        if printbool: print(line)
 
 
 
@@ -547,8 +565,9 @@ if __name__ == '__main__':
     req_args = [None, None, None, None, None]
     timeout = 0
     automerge_passthrough, automerge_only_nonlinear, return_img , timing, undo_remapping, include_mappings = True, False, False, True, True, False
-    maxequiv, maxequiv_timeout, maxequiv_tol, maxequiv_merge, sanity_check, seed, debug, minimum_circuit_size = False, 5, 0.8, 0, False, None, False, 100
+    maxequiv, maxequiv_timeout, maxequiv_tol, maxequiv_merge, sanity_check, seed, debug, minimum_circuit_size = False, 5, 0.8, 0, False, None, 0, 100
     output_automatic_clusters, skip_preprocessing, preclustering_file, leiden_iterations, single_json = True, False, None, -1, False
+    resolution, expected_size = None, None
 
     def set_file(index: int, filename: str):
         if filename[0] == '-': raise SyntaxError(f"Invalid {'input' if not index else 'outout'} filename {filename}")
@@ -608,6 +627,22 @@ if __name__ == '__main__':
                 if sys.argv[i+1][0] == '-': raise SyntaxError(f"Invalid seed value {sys.argv[i+1]}")
                 seed = int(sys.argv[i+1])
                 i += 2
+            case "-r":
+                if sys.argv[i+1][0] == '-': raise SyntaxError(f"Invalid resolution value {sys.argv[i+1]}")
+                resolution = int(sys.argv[i+1])
+                i += 2
+            case "--resolution":
+                if sys.argv[i+1][0] == '-': raise SyntaxError(f"Invalid resolution value {sys.argv[i+1]}")
+                resolution = int(sys.argv[i+1])
+                i += 2
+            case "-x":
+                if sys.argv[i+1][0] == '-': raise SyntaxError(f"Invalid expected size value {sys.argv[i+1]}")
+                expected_size = int(sys.argv[i+1])
+                i += 2
+            case "--expected-size":
+                if sys.argv[i+1][0] == '-': raise SyntaxError(f"Invalid expected size value {sys.argv[i+1]}")
+                expected_size = int(sys.argv[i+1])
+                i += 2
             case "-p":
                 if sys.argv[i+1][0] == '-': raise SyntaxError(f"Invalid preclustering value {sys.argv[i+1]}")
                 preclustering_file = sys.argv[i+1]
@@ -637,7 +672,8 @@ if __name__ == '__main__':
             case "--no-timing-information": timing, i = False, i+1
             case "--maximal-equivalence": maxequiv, i = True, i+1
             case "--sanity-check": sanity_check, i = True, i+1
-            case "--debug": debug, i = True, i+1
+            case "--debug": debug, i = 2, i+1
+            case "--log": debug, i = 1, i+1
             case "-d": debug, i = True, i+1
             case "-M": maxequiv, i = True, i+1
             case "--maxequiv-timeout": 
@@ -651,7 +687,9 @@ if __name__ == '__main__':
                 maxequiv_merge, i = int(sys.argv[i+1]), i+2
             case "--r1cs": req_args[1], i = "r1cs", i+1
             case "--acir": req_args[1], i = "acir", i+1
-            case _: warnings.warn(f"Invalid argument '{arg}' ignored", SyntaxWarning)
+            case _: 
+                warnings.warn(f"Invalid argument '{arg}' ignored", SyntaxWarning)
+                i += 1
 
 
     if req_args[0] is None: raise SyntaxError("No input file given")
@@ -660,9 +698,13 @@ if __name__ == '__main__':
     if req_args[3] is None: req_args[3] = "louvain"
     if req_args[4] is None: req_args[4] = "structural"
 
+    if expected_size is not None and resolution is not None: 
+        raise SyntaxError("Gave both a resolution and expected size")
+
     with time_limit(timeout):
         circuit_cluster(*req_args, automerge_passthrough=automerge_passthrough, automerge_only_nonlinear=automerge_only_nonlinear, return_img=return_img, timing=timing, undo_remapping = undo_remapping, include_mappings=include_mappings, 
             maxequiv=maxequiv, maxequiv_tol=maxequiv_tol, maxequiv_timeout=maxequiv_timeout, maxequiv_merge=maxequiv_merge, sanity_check=sanity_check, seed = seed, minimum_circuit_size=minimum_circuit_size, 
-            output_automatic_clusters=output_automatic_clusters, skip_preprocessing=skip_preprocessing, preclustering_file=preclustering_file, leiden_iterations=leiden_iterations, single_json=single_json, debug=debug)
+            output_automatic_clusters=output_automatic_clusters, skip_preprocessing=skip_preprocessing, preclustering_file=preclustering_file, leiden_iterations=leiden_iterations, single_json=single_json, 
+            resolution=resolution, expected_size=expected_size, debug=debug)
 
     # python3 cluster.py r1cs_files/binsub_test.r1cs -o clustering_tests -e structural
