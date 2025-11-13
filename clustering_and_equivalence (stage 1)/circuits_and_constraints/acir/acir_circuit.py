@@ -44,8 +44,8 @@ class ACIRCircuit(Circuit):
         acir_json = json.load(fp)
         fp.close()
 
-        self._prime = acir_json["prime"]
-        self._nWires = acir_json["number_of_signals"]
+        self._prime = int(acir_json["prime"])
+        self._nWires = int(acir_json["number_of_signals"])int(
         self.input_signals = acir_json["inputs"]
         self.output_signals = acir_json["outputs"]
 
