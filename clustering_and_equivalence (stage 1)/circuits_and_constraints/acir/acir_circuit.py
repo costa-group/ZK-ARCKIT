@@ -45,7 +45,7 @@ class ACIRCircuit(Circuit):
         fp.close()
 
         self._prime = int(acir_json["prime"])
-        self._nWires = int(acir_json["number_of_signals"])int(
+        self._nWires = int(acir_json["number_of_signals"])
         self.input_signals = acir_json["inputs"]
         self.output_signals = acir_json["outputs"]
 
