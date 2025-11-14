@@ -13,6 +13,8 @@ from circuits_and_constraints.abstract_constraint import Constraint
 
 from utilities.utilities import _signal_data_from_cons_list, _distances_to_signal_set
 
+DEBUG_PRINT_LEVEL = 2
+
 def connected_preprocessing(circ: Circuit, return_mapping: bool = False) -> Circuit | Tuple[Circuit, List[int | None]]:
     """
     Given an input circuit removes all constraints not connected to any inputs
@@ -67,7 +69,7 @@ def componentwise_preprocessing(circ: Circuit, minimum_circuit_size: int = 100, 
             a list of where each constraint was mapped to (form (i,j): circuit i, new constraint j)
     """
 
-    if debug: print("------------------ preprocessing --------------------")
+    if debug >= DEBUG_PRINT_LEVEL: print("------------------ preprocessing --------------------")
 
     signal_to_conis = _signal_data_from_cons_list(circ.constraints)
     signals = set(circ.get_signals())
@@ -91,7 +93,7 @@ def componentwise_preprocessing(circ: Circuit, minimum_circuit_size: int = 100, 
 
     i = -1
     for signals in filter(lambda signals: any(map(lambda sig : circ.signal_is_input(sig) or circ.signal_is_output(sig), signals)), signals_by_component):
-        if debug: print(f"processing component {i+1} of {len(signals_by_component)}", "           ", end='\r')
+        if debug >= DEBUG_PRINT_LEVEL: print(f"processing component {i+1} of {len(signals_by_component)}", "           ", end='\r')
         
         constraints = list(set(itertools.chain.from_iterable(map(lambda sig : signal_to_conis.get(sig, []), signals))))
         if len(constraints) == 0: continue
@@ -106,7 +108,7 @@ def componentwise_preprocessing(circ: Circuit, minimum_circuit_size: int = 100, 
         coni_inverse.append(constraints)
         circuits.append(next_circuit)
 
-    if debug: print("------------------ end preprocessing --------------------")
+    if debug >= DEBUG_PRINT_LEVEL: print("------------------ end preprocessing --------------------")
 
     return circuits, minimum_size_clusterings, sig_inverse, coni_inverse
         

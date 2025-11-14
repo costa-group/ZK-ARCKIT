@@ -311,12 +311,12 @@ def dag_to_nodes(circ: Circuit, partition: List[List[int]], arcs: List[Tuple[int
 
     for arc in arcs:
 
-        l, r = arc
+        l, r = arc[0] + index_offset, arc[1] + index_offset
         nodes[l].successors.append(r)
         nodes[r].predecessors.append(l)
 
         # need to identify signals shared between these arcs, then mark these signals as input/output as appropriate
-        shared_signals = part_to_signals[l].intersection(part_to_signals[r])
+        shared_signals = part_to_signals[l - index_offset].intersection(part_to_signals[r - index_offset])
 
         nodes[l].output_signals.update(shared_signals)
         nodes[r].input_signals.update(shared_signals)
