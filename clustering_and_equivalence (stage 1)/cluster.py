@@ -94,6 +94,7 @@ import json
 import time
 import itertools
 import random
+from math import log2
 
 from circuits_and_constraints.abstract_circuit import Circuit
 from circuits_and_constraints.r1cs.r1cs_circuit import R1CSCircuit
@@ -319,13 +320,15 @@ def circuit_cluster(
         """
         Handles resolution calculation given the 3 options and default
         """
-        if resolution is not None:
-            return resolution
-        elif expected_size is not None:
+        if expected_size is not None:
             return 2 / (expected_size ** 2) * nEdges
-        else:
-            return circ.nConstraints ** 0.5
-
+        match resolution:
+            case None:
+                return circ.nConstraints ** 0.5
+            case "log2":
+                return 2 / (log2(nEdges) ** 2) * nEdges
+            case _:
+                return resolution
     for index, circ in enumerate(circs):
 
         if index > 0:
@@ -356,6 +359,7 @@ def circuit_cluster(
 
             case "louvain-networkx":
                 circuit_graph = shared_signal_graph_nx(circ.constraints)
+                resolution = get_resolution(circ, circuit_graph.number_of_edges())
                 if debug: logging_lines([f"Graph Created in: {time.time() - last_time}", f"Resolution: {resolution}", f"Expected size: {(2 * circuit_graph.number_of_edges() / resolution)**0.5}"], [log, circuit_log], printbool = debug >= DEBUG_PRINT_LEVEL)
                 partition = list(map(list, louvain_communities(circuit_graph, resolution=resolution, seed=seed)))
 
@@ -363,7 +367,7 @@ def circuit_cluster(
                 if circ.nConstraints > 1:
                     random.seed(seed)
                     circuit_graph = shared_signal_graph_igraph(circ)
-                    resolution = get_resolution(circ, len(circuit_graph.es)),
+                    resolution = get_resolution(circ, len(circuit_graph.es))
                     if debug: logging_lines([f"Graph Created in: {time.time() - last_time}", f"Resolution: {resolution}", f"Expected size: {(2 * len(circuit_graph.es) / resolution)**0.5}"], [log, circuit_log], printbool = debug >= DEBUG_PRINT_LEVEL)
                     partition = circuit_graph.community_leiden(
                             objective_function = 'modularity',
@@ -635,6 +639,9 @@ if __name__ == '__main__':
                 if sys.argv[i+1][0] == '-': raise SyntaxError(f"Invalid resolution value {sys.argv[i+1]}")
                 resolution = int(sys.argv[i+1])
                 i += 2
+            case "--ex-log2":
+                resolution = "log2"
+                i += 1
             case "-x":
                 if sys.argv[i+1][0] == '-': raise SyntaxError(f"Invalid expected size value {sys.argv[i+1]}")
                 expected_size = int(sys.argv[i+1])
