@@ -6,7 +6,7 @@ use circuits_and_constraints::circuit::Circuit;
 use circuits_and_constraints::constraint::Constraint;
 use utils::small_utilities::signals_to_constraints_with_them;
 
-pub fn shared_signal_graph<C: Constraint>(circ: &impl Circuit<C>) -> CSRNetwork<f32, f32> {
+pub fn shared_signal_graph<C: Constraint>(circ: &impl Circuit<C>) -> CSRNetwork<f64, f64> {
 
     let signal_to_coni = signals_to_constraints_with_them(&circ.constraints(), None, None);
     let mut weights: HashMap<(usize, usize), usize> = HashMap::new();
@@ -15,5 +15,5 @@ pub fn shared_signal_graph<C: Constraint>(circ: &impl Circuit<C>) -> CSRNetwork<
         weights.insert(pair, 1 + weights.get(&pair).unwrap_or(&0));
     }
     
-    CSRNetwork::from_edges(weights.iter().map(|(pair, val)| (pair.0, pair.1, *val as f32)).collect::<Vec<_>>().as_ref(), vec![1 as f32; circ.n_constraints()])
+    CSRNetwork::from_edges(weights.iter().map(|(pair, val)| (pair.0, pair.1, *val as f64)).collect::<Vec<_>>().as_ref(), vec![1 as f64; circ.n_constraints()])
 }

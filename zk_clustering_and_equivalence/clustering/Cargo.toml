@@ -7,3 +7,4 @@ edition = "2024"
 circuits_and_constraints = {path = "../circuits_and_constraints" }
 circuit_graphing = {path = "../circuit_graphing"}
 ansi_term = "0.12.1"
+single-clustering = "0.6.0"
