@@ -1,6 +1,29 @@
 *
 
 # parent directory
+!zk_clustering_and_equivalence/
+!zk_clustering_and_equivalence/Cargo.toml
+
+!zk_clustering_and_equivalence/circuit_graphing/
+!zk_clustering_and_equivalence/circuit_graphing/src/
+!zk_clustering_and_equivalence/circuit_graphing/src/*.rs
+!zk_clustering_and_equivalence/circuit_graphing/Cargo.toml
+
+!zk_clustering_and_equivalence/circuits_and_constraints/
+!zk_clustering_and_equivalence/circuits_and_constraints/src/
+!zk_clustering_and_equivalence/circuits_and_constraints/src/*.rs
+!zk_clustering_and_equivalence/circuits_and_constraints/Cargo.toml
+
+!zk_clustering_and_equivalence/clustering/
+!zk_clustering_and_equivalence/clustering/src/
+!zk_clustering_and_equivalence/clustering/src/*.rs
+!zk_clustering_and_equivalence/clustering/Cargo.toml
+
+!zk_clustering_and_equivalence/equivalence/
+!zk_clustering_and_equivalence/equivalence/src/
+!zk_clustering_and_equivalence/equivalence/src/*.rs
+!zk_clustering_and_equivalence/equivalence/Cargo.toml
+
 !clustering_and_equivalence\ \(stage\ 1\)/
 
 !clustering_and_equivalence\ \(stage\ 1\)/README.md
