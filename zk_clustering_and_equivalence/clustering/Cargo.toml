@@ -5,3 +5,5 @@ edition = "2024"
 
 [dependencies]
 circuits_and_constraints = {path = "../circuits_and_constraints" }
+circuit_graphing = {path = "../circuit_graphing"}
+ansi_term = "0.12.1"

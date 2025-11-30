@@ -9,8 +9,15 @@
 !zk_clustering_and_equivalence/circuit_graphing/src/*.rs
 !zk_clustering_and_equivalence/circuit_graphing/Cargo.toml
 
+!zk_clustering_and_equivalence/utils/
+!zk_clustering_and_equivalence/utils/src/
+!zk_clustering_and_equivalence/utils/src/*.rs
+!zk_clustering_and_equivalence/utils/Cargo.toml
+
 !zk_clustering_and_equivalence/circuits_and_constraints/
 !zk_clustering_and_equivalence/circuits_and_constraints/src/
+!zk_clustering_and_equivalence/circuits_and_constraints/src/r1cs/
+!zk_clustering_and_equivalence/circuits_and_constraints/src/r1cs/*.rs
 !zk_clustering_and_equivalence/circuits_and_constraints/src/*.rs
 !zk_clustering_and_equivalence/circuits_and_constraints/Cargo.toml
 

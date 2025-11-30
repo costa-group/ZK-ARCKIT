@@ -15,8 +15,12 @@ impl Constraint for R1CSConstraint {
     fn normalisation_choices(&self) -> Vec<BigInt>{
         unimplemented!("This function is not implemented yet")
     }
-    fn signals(&self) -> &HashSet<usize>{
-        unimplemented!("This function is not implemented yet")
+    fn signals(&self) -> HashSet<usize>{
+        // really georgous code here
+        let mut set = HashSet::new();
+        set.extend(self.0.keys().chain(self.1.keys()).chain(self.2.keys()).filter(|signal| **signal != 0));
+
+        set
     }
     fn fingerprint(&self, signal_to_fingerprint: &HashMap<usize, usize>) -> impl Hash + Eq{
         unimplemented!("This function is not implemented yet")
