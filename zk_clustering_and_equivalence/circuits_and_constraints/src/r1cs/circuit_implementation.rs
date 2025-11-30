@@ -1,0 +1,73 @@
+use num_bigint::{BigInt};
+use std::collections::{HashMap};
+use std::hash::Hash;
+use std::cmp::Eq;
+
+use super::{R1CSConstraint, R1CSData};
+use equivalence::assignment::{Assignment};
+use crate::circuit::Circuit;
+
+impl Circuit<R1CSConstraint> for R1CSData {
+    
+    fn prime(&self) -> &BigInt {&self.header_data.field}
+    fn n_constraints(&self) -> usize {self.header_data.number_of_constraints}
+    fn n_wires(&self) -> usize {self.header_data.total_wires}
+    fn constraints(&self) -> &Vec<R1CSConstraint> {&self.constraints}
+    fn normalised_constraints(&self) -> &Vec<R1CSConstraint> {unimplemented!("This function is not implemented yet")}
+    fn normi_to_coni(&self) -> &Vec<usize> {unimplemented!("This function is not implemented yet")}
+    fn n_inputs(&self) -> usize {self.header_data.public_inputs + self.header_data.private_inputs}
+    fn n_outputs(&self) -> usize {self.header_data.public_outputs}
+    fn signal_is_input(&self, signal: usize) -> bool {self.header_data.public_outputs < signal && signal <= self.header_data.public_inputs + self.header_data.private_inputs + self.header_data.public_outputs} 
+    fn signal_is_output(&self, signal: usize) -> bool {0 < signal && signal <= self.header_data.public_outputs}
+    fn get_signals(&self) -> impl Iterator<Item = usize> {1..self.header_data.total_wires}
+    fn get_input_signals(&self) -> impl Iterator<Item = usize> {self.header_data.public_outputs+1..=self.header_data.public_inputs + self.header_data.private_inputs + self.header_data.public_outputs}
+    fn get_output_signals(&self) -> impl Iterator<Item = usize> {1..=self.header_data.public_outputs}
+    fn parse_file(&mut self, file: &str) -> () {
+        let parsed_circuit = crate::r1cs::r1cs_reader::read_r1cs(file).unwrap();
+
+        self.header_data = parsed_circuit.header_data;
+        self.constraints = parsed_circuit.constraints;
+        self.signals = parsed_circuit.signals;
+        self.custom_gates = parsed_circuit.custom_gates;
+        self.custom_gates_used_data = parsed_circuit.custom_gates_used_data;
+        self.custom_gates_applied_data = parsed_circuit.custom_gates_applied_data;
+
+    }
+    fn write_file(&self, file: &str) -> () {unimplemented!("This function is not implemented yet")}
+    
+    fn fingerprint_signal(
+        &self, 
+        signal: usize, 
+        normalised_constraints: &Vec<R1CSConstraint>, 
+        normalised_constraint_to_fingerprints: &Vec<usize>, 
+        prev_signal_to_fingerprint: &HashMap<usize, impl Hash + Eq>, 
+        signal_to_normi: &HashMap<usize, Vec<usize>>
+    ) -> impl Hash + Eq {unimplemented!("This function is not implemented yet")}
+    
+    fn take_subcircuit(
+        &self, 
+        constraint_subset: &Vec<usize>, 
+        input_signals: &Option<Vec<usize>>, 
+        output_signals: &Option<Vec<usize>>, 
+        signal_map: &Option<HashMap<usize,usize>>, 
+        return_signal_mapping: Option<bool>
+    ) -> impl Circuit<R1CSConstraint> {
+        unimplemented!("This function is not implemented yet");
+        R1CSData::new()
+    }
+    
+    fn singular_class_requires_additional_constraints() -> bool {false}
+
+    fn encode_single_norm_pair(
+        &self, // TODO: figure out if necessary
+        norms: &Vec<R1CSConstraint>,
+        is_ordered: bool,
+        signal_pair_encoder: Assignment,
+        signal_to_fingerprint: (HashMap<usize, usize>, HashMap<usize, usize>),
+        fingerprint_to_signals: (HashMap<usize, Vec<usize>>, HashMap<usize, Vec<usize>>),
+        is_singular_class: Option<bool>
+    ) -> impl Hash + Eq {unimplemented!("This function is not implemented yet")}
+
+    fn normalise_constraints(&self) -> () {unimplemented!("This function is not implemented yet")}
+
+}

@@ -4,6 +4,7 @@ use num_traits::ToPrimitive;
 use std::fs::File;
 use std::io::{BufReader, Read, Seek, SeekFrom};
 use std::fmt;
+use super::{R1CSData, HeaderData, CustomGatesAppliedData, CustomGatesUsedData};
 
 const SECTIONS: u8 = 5;
 const MAGIC: &[u8] = b"r1cs";
@@ -16,6 +17,7 @@ const CUSTOM_GATES_APPLIED_TYPE: &[u8] = &[5, 0, 0, 0];
 //This is used only to skip the section size.
 const PLACE_HOLDER: &[u8] = &[3, 3, 3, 3, 3, 3, 3, 3];
 
+type Constraint = HashMap<usize, BigInt>;
 
 pub enum R1CSParsingError {
     InvalidMagicNumber,
@@ -114,21 +116,6 @@ pub struct HeaderSection {
     sections: [bool; SECTIONS as usize],
 }
 
-pub struct HeaderData {
-    pub field: BigInt,
-    pub field_size: usize,
-    pub total_wires: usize,
-    pub public_outputs: usize,
-    pub public_inputs: usize,
-    pub private_inputs: usize,
-    pub number_of_labels: usize,
-    pub number_of_constraints: usize,
-}
-
-
-type Constraint = HashMap<usize, BigInt>;
-type ConstraintList = Vec<(Constraint, Constraint, Constraint)>;
-type SignalList = Vec<usize>;
 pub struct ConstraintSection {
     reader: BufReader<File>,
     number_of_constraints: usize,
@@ -138,8 +125,6 @@ pub struct ConstraintSection {
     field_size: usize,
     sections: [bool; SECTIONS as usize],
 }
-
-
 
 pub struct SignalSection {
     reader: BufReader<File>,
@@ -338,7 +323,6 @@ impl SignalSection {
     }
 }
 
-pub type CustomGatesUsedData = Vec<(String, Vec<BigInt>)>;
 impl CustomGatesUsedSection {
     pub fn read_custom_gates_usages(&mut self) -> Result<CustomGatesUsedData, std::io::Error> {
         let no_custom_gates = read_bigint(&mut self.reader, 4)?.to_usize().unwrap();
@@ -382,7 +366,6 @@ impl CustomGatesUsedSection {
     }
 }
 
-pub type CustomGatesAppliedData = Vec<(usize, Vec<usize>)>;
 impl CustomGatesAppliedSection {
     pub fn read_custom_gates_applications(&mut self) -> Result<CustomGatesAppliedData, std::io::Error> {
         let no_custom_gate_applications = read_bigint(&mut self.reader, 4)?.to_usize().unwrap();
@@ -414,38 +397,6 @@ impl CustomGatesAppliedSection {
             field_size: self.field_size,
             sections,
         })
-    }
-}
-
-//This struct contained all the sections
-pub struct R1CSData {
-    header_data: HeaderData,
-    pub constraints: ConstraintList,
-    signals: SignalList,
-    custom_gates: bool,
-    custom_gates_used_data: Option<CustomGatesUsedData>,
-    custom_gates_applied_data: Option<CustomGatesAppliedData>,
-}
-
-impl R1CSData {
-    pub fn new() -> Self {
-        R1CSData {
-            header_data: HeaderData {
-                field: BigInt::from(0),
-                field_size: 0,
-                total_wires: 0,
-                public_outputs: 0,
-                public_inputs: 0,
-                private_inputs: 0,
-                number_of_labels: 0,
-                number_of_constraints: 0,
-            },
-            custom_gates: false,
-            constraints: ConstraintList::new(),
-            signals: SignalList::new(),
-            custom_gates_used_data: None,
-            custom_gates_applied_data: None,
-        }
     }
 }
 

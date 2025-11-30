@@ -8,20 +8,20 @@ use equivalence::assignment::Assignment;
 
 pub trait Circuit<T: Constraint> {
 
-    fn prime(&self) -> BigInt;
-    fn nConstraints(&self) -> usize;
-    fn nWires(&self) -> usize;
-    fn constraints(&self) -> Vec<T>;
-    fn normalised_constraints(&self) -> Vec<T>;
-    fn normi_to_coni(&self) -> Vec<usize>;
-    fn nInputs(&self) -> usize;
-    fn nOutputs(&self) -> usize;
+    fn prime(&self) -> &BigInt;
+    fn n_constraints(&self) -> usize;
+    fn n_wires(&self) -> usize;
+    fn constraints(&self) -> &Vec<T>;
+    fn normalised_constraints(&self) -> &Vec<T>;
+    fn normi_to_coni(&self) -> &Vec<usize>;
+    fn n_inputs(&self) -> usize;
+    fn n_outputs(&self) -> usize;
     fn signal_is_input(&self, signal: usize) -> bool;
     fn signal_is_output(&self, signal: usize) -> bool;
     fn get_signals(&self) -> impl Iterator<Item = usize>;
     fn get_input_signals(&self) -> impl Iterator<Item = usize>;
     fn get_output_signals(&self) -> impl Iterator<Item = usize>;
-    fn parse_file(&self, file: &str) -> ();
+    fn parse_file(&mut self, file: &str) -> ();
     fn write_file(&self, file: &str) -> ();
     
     fn fingerprint_signal(
