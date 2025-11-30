@@ -1,0 +1,3 @@
+[workspace]
+resolver = "3"
+members = ["circuit_graphing","circuits_and_constraints","clustering", "equivalence"]
