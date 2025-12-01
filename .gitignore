@@ -7,6 +7,8 @@
 !zk_clustering_and_equivalence/circuit_graphing/
 !zk_clustering_and_equivalence/circuit_graphing/src/
 !zk_clustering_and_equivalence/circuit_graphing/src/*.rs
+!zk_clustering_and_equivalence/circuit_graphing/src/directed_acyclic_graph/
+!zk_clustering_and_equivalence/circuit_graphing/src/directed_acyclic_graph/*.rs
 !zk_clustering_and_equivalence/circuit_graphing/Cargo.toml
 
 !zk_clustering_and_equivalence/utils/

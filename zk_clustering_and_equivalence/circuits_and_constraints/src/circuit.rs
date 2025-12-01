@@ -1,18 +1,18 @@
 use num_bigint::{BigInt};
-use std::collections::{HashMap};
+use std::collections::{HashMap, HashSet};
 use std::hash::{Hash};
 use std::cmp::{Eq};
 
 use crate::constraint::{Constraint};
 use equivalence::assignment::Assignment;
 
-pub trait Circuit<T: Constraint> {
+pub trait Circuit<C: Constraint> {
 
     fn prime(&self) -> &BigInt;
     fn n_constraints(&self) -> usize;
     fn n_wires(&self) -> usize;
-    fn constraints(&self) -> &Vec<T>;
-    fn normalised_constraints(&self) -> &Vec<T>;
+    fn constraints(&self) -> &Vec<C>;
+    fn normalised_constraints(&self) -> &Vec<C>;
     fn normi_to_coni(&self) -> &Vec<usize>;
     fn n_inputs(&self) -> usize;
     fn n_outputs(&self) -> usize;
@@ -27,7 +27,7 @@ pub trait Circuit<T: Constraint> {
     fn fingerprint_signal(
         &self, 
         signal: usize, 
-        normalised_constraints: &Vec<T>, 
+        normalised_constraints: &Vec<C>, 
         normalised_constraint_to_fingerprints: &Vec<usize>, 
         prev_signal_to_fingerprint: &HashMap<usize, impl Hash + Eq>, 
         signal_to_normi: &HashMap<usize, Vec<usize>>
@@ -36,17 +36,17 @@ pub trait Circuit<T: Constraint> {
     fn take_subcircuit(
         &self, 
         constraint_subset: &Vec<usize>, 
-        input_signals: &Option<Vec<usize>>, 
-        output_signals: &Option<Vec<usize>>, 
-        signal_map: &Option<HashMap<usize,usize>>, 
+        input_signals: Option<&HashSet<usize>>, 
+        output_signals: Option<&HashSet<usize>>, 
+        signal_map: Option<&HashMap<usize,usize>>, 
         return_signal_mapping: Option<bool>
-    ) -> impl Circuit<T>;
+    ) -> Self;
     
     fn singular_class_requires_additional_constraints() -> bool;
 
     fn encode_single_norm_pair(
         &self, // TODO: figure out if necessary
-        norms: &Vec<T>,
+        norms: &Vec<C>,
         is_ordered: bool,
         signal_pair_encoder: Assignment,
         signal_to_fingerprint: (HashMap<usize, usize>, HashMap<usize, usize>),

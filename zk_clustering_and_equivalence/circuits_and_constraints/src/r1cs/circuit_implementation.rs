@@ -1,5 +1,5 @@
 use num_bigint::{BigInt};
-use std::collections::{HashMap};
+use std::collections::{HashMap, HashSet};
 use std::hash::Hash;
 use std::cmp::Eq;
 
@@ -47,11 +47,11 @@ impl Circuit<R1CSConstraint> for R1CSData {
     fn take_subcircuit(
         &self, 
         constraint_subset: &Vec<usize>, 
-        input_signals: &Option<Vec<usize>>, 
-        output_signals: &Option<Vec<usize>>, 
-        signal_map: &Option<HashMap<usize,usize>>, 
+        input_signals: Option<&HashSet<usize>>, 
+        output_signals: Option<&HashSet<usize>>, 
+        signal_map: Option<&HashMap<usize,usize>>, 
         return_signal_mapping: Option<bool>
-    ) -> impl Circuit<R1CSConstraint> {
+    ) -> R1CSData {
         unimplemented!("This function is not implemented yet");
         R1CSData::new()
     }

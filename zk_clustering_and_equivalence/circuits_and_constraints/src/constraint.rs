@@ -5,7 +5,7 @@ use std::cmp::{Eq};
 
 pub trait Constraint {
 
-    fn normalise(&self) -> Vec<impl Constraint>;
+    fn normalise(&self) -> Vec<Self> where Self: Sized;
     fn normalisation_choices(&self) -> Vec<BigInt>;
     fn signals(&self) -> HashSet<usize>;
     fn fingerprint(&self, signal_to_fingerprint: &HashMap<usize, usize>) -> impl Hash + Eq;
