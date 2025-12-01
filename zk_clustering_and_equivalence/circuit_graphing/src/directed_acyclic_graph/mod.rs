@@ -4,7 +4,7 @@ use std::collections::HashSet;
 use circuits_and_constraints::constraint::Constraint;
 use circuits_and_constraints::circuit::Circuit;
 
-mod dag_from_partition;
+pub mod dag_from_partition;
 
 pub struct DAGNode<'a, C: Constraint + 'a, S: Circuit<C> + 'a> {
     circ : &'a S,
