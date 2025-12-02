@@ -39,26 +39,24 @@ pub fn dag_from_partition<'a, C: Constraint + 'a, S: Circuit<C> + 'a>(circ: &'a 
     while any_merges {
         any_merges = false;
 
-        let mut parts_to_merge: Vec<Vec<usize>> = Vec::new();
+        let distance_to_inputs = distance_to_source_set(input_parts.iter().copied(), &adjacencies);
+        let distance_to_outputs = distance_to_source_set(output_parts.iter().copied(), &adjacencies);
 
-            let distance_to_inputs = distance_to_source_set(input_parts.iter().copied(), &adjacencies);
-            let distance_to_outputs = distance_to_source_set(output_parts.iter().copied(), &adjacencies);
-
-            // make the preorder
-            part_to_preorder = partition.keys().map(|key| (*key, (*distance_to_inputs.get(key).unwrap_or(&usize::MAX), *distance_to_outputs.get(key).unwrap_or(&usize::MAX)))).collect();
-            let mut to_merge = UnionFind::new(false);
-            
-            // detect equivalent adjacent pairs and merge them
-            for parti in partition.keys() {
-                for partj in adjacencies.get(parti).unwrap() {
-                    if part_to_preorder.get(parti).unwrap() == part_to_preorder.get(partj).unwrap() {
-                        any_merges = true;
-                        to_merge.union([*parti, *partj].into_iter())
-                    }
+        // make the preorder
+        part_to_preorder = partition.keys().map(|key| (*key, (*distance_to_inputs.get(key).unwrap_or(&usize::MAX), *distance_to_outputs.get(key).unwrap_or(&usize::MAX)))).collect();
+        let mut to_merge = UnionFind::new(false);
+        
+        // detect equivalent adjacent pairs and merge them
+        for parti in partition.keys() {
+            for partj in adjacencies.get(parti).unwrap() {
+                if part_to_preorder.get(parti).unwrap() == part_to_preorder.get(partj).unwrap() {
+                    any_merges = true;
+                    to_merge.union([*parti, *partj].into_iter())
                 }
             }
+        }
 
-            parts_to_merge = to_merge.get_components();
+        let parts_to_merge: Vec<Vec<usize>> = to_merge.get_components();
 
         merge_parts(parts_to_merge, &mut input_parts, &mut output_parts, &mut partition, &mut adjacencies);
     }

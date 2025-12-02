@@ -9,7 +9,7 @@ Step 1: Read R1CS -- DONE
 Step 2: Preprocess
 Step 3: Convert to Graph -- DONE
 Step 4: Run Clustering -- DONE
-Step 5: Convert to DAG
+Step 5: Convert to DAG -- DONE
 Step 6: Run Postprocessing
 
 */
@@ -29,8 +29,9 @@ use leiden_clustering::leiden_clustering;
 use circuits_and_constraints::r1cs::{R1CSData};
 use circuits_and_constraints::circuit::Circuit;
 use circuit_graphing::graphing_circuits::shared_signal_graph;
-use circuit_graphing::directed_acyclic_graph::{DAGNode, NodeInfo};
+use circuit_graphing::directed_acyclic_graph::{NodeInfo};
 use circuit_graphing::directed_acyclic_graph::dag_from_partition::dag_from_partition;
+use circuit_graphing::directed_acyclic_graph::dag_postprocessing::{merge_passthrough};
 // use circuits_and_constraints::constraint::Constraint;
 
 
@@ -79,12 +80,11 @@ fn start() -> Result<(), Box<dyn Error>> {
     let edge_count: f64 = graph.edge_count() as f64;
 
     let partition = leiden_clustering(graph, f64::log2(edge_count), 5, 25565);
-    let dagnodes = dag_from_partition(&r1cs, partition);
-
-    println!("here");
+    let mut dagnodes = dag_from_partition(&r1cs, partition);
+    merge_passthrough(&r1cs, &mut dagnodes);
 
     let dagnode_info: Vec<NodeInfo> = dagnodes.into_values().map(|node| node.to_json(None, None)).collect();
-    let result: ResultInfo = ResultInfo {seed: 0, timing: HashMap::new(), data: HashMap::new(), nodes: dagnode_info, equivalence: HashMap::new()};
+    let result: ResultInfo {seed: 0, timing: HashMap::new(), data: HashMap::new(), nodes: dagnode_info, equivalence: HashMap::new()};
 
     write_output_into_file("testing.json", &result)
 }

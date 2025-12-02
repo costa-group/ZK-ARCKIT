@@ -6,10 +6,10 @@ use circuits_and_constraints::constraint::Constraint;
 pub fn signals_to_constraints_with_them(
     cons: &Vec<impl Constraint>,
     names: Option<&Vec<usize>>,
-    mut signal_to_cons: Option<HashMap<usize, Vec<usize>>>
+    mut _signal_to_cons: Option<HashMap<usize, Vec<usize>>>
 ) -> HashMap<usize, Vec<usize>> {
     
-    let mut signal_to_cons = signal_to_cons.unwrap_or_else(HashMap::new);
+    let mut signal_to_cons = _signal_to_cons.unwrap_or_else(HashMap::new);
 
     for (i, con) in names.map(|v| Either::Left(v.iter().copied())).unwrap_or_else(|| Either::Right(0..cons.len())).zip(cons.iter()) {
         for signal in con.signals().iter().copied() { // hmmm copied copied...
@@ -33,4 +33,30 @@ pub fn distance_to_source_set(source_set: impl Iterator<Item = usize>, adjacenci
     };
 
     distance
+}
+
+pub fn dfs_can_reach_target_from_source(source: &usize, targets: Vec<usize>, adjacencies: &HashMap<usize, &Vec<usize>>) -> Vec<usize> {
+
+    let mut can_reach_t: HashMap<&usize, bool> = targets.iter().map(|t| (t, true)).collect();
+    let mut stack: Vec<&usize> = vec![source];
+
+    while stack.len() > 0 {
+
+        let curr: &usize = stack.last().unwrap();
+        if can_reach_t.contains_key(curr) {
+            stack.pop();
+            continue;
+        };
+
+        stack.extend(adjacencies.get(curr).unwrap().iter().filter(|adj| can_reach_t.get(*adj).is_none()));
+
+        if adjacencies.get(curr).unwrap().iter().any(|adj| can_reach_t.get(adj).copied().unwrap_or(false) ) {
+            can_reach_t.entry(curr).or_insert(true);
+        } else if adjacencies.get(curr).unwrap().iter().all(|adj| !can_reach_t.get(adj).copied().unwrap_or(true) ) {
+            can_reach_t.entry(curr).or_insert(false);
+        }
+
+    }
+
+    can_reach_t.into_iter().filter(|(_, val)| *val).map(|(k, _)| k).copied().filter(|k| !targets.contains(k)).collect()
 }
