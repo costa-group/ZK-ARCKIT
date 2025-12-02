@@ -1,5 +1,6 @@
 use std::marker::PhantomData;
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
+use serde::{Serialize};
 
 use circuits_and_constraints::constraint::Constraint;
 use circuits_and_constraints::circuit::Circuit;
@@ -17,6 +18,16 @@ pub struct DAGNode<'a, C: Constraint + 'a, S: Circuit<C> + 'a> {
     subcircuit : Option<S>,
 
     _phantom: PhantomData<C>
+}
+
+#[derive(Serialize)]
+pub struct NodeInfo{
+    node_id: usize,
+    constraints: Vec<usize>, //ids of the constraints
+    input_signals: Vec<usize>,
+    output_signals: Vec<usize>,
+    signals: Vec<usize>, 
+    successors: Vec<usize> //ids of the successors 
 }
 
 impl<'a, C: Constraint + 'a, S: Circuit<C> + 'a> DAGNode<'a, C, S> {
@@ -47,5 +58,20 @@ impl<'a, C: Constraint + 'a, S: Circuit<C> + 'a> DAGNode<'a, C, S> {
             self.subcircuit = Some(self.circ.take_subcircuit(&self.constraints, Some(&self.input_signals), Some(&self.output_signals), None, None))
         }
         self.subcircuit.as_ref().unwrap()
+    }
+
+    pub fn to_json(self, inverse_signal_mapping: Option<&HashMap<usize, usize>>, inverse_constraint_mapping: Option<&HashMap<usize, usize>>) -> NodeInfo {
+        let signal_mapping = |sig| if inverse_signal_mapping.is_none() {sig} else {*inverse_signal_mapping.unwrap().get(&sig).unwrap()};
+        let constraint_mapping = |coni| if inverse_constraint_mapping.is_none() {coni} else {*inverse_constraint_mapping.unwrap().get(&coni).unwrap()};
+        let signals: Vec<usize> = self.constraints.iter().flat_map(|x| self.circ.constraints()[*x].signals()).collect::<HashSet<usize>>().into_iter().map(signal_mapping).collect();
+
+        NodeInfo {
+            node_id: self.id, 
+            constraints: self.constraints.into_iter().map(constraint_mapping).collect(), 
+            input_signals: self.input_signals.into_iter().map(signal_mapping).collect(), 
+            output_signals: self.output_signals.into_iter().map(signal_mapping).collect(), 
+            signals: signals, 
+            successors: self.successors
+        }
     }
 }

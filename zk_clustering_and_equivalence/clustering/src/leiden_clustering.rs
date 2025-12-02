@@ -28,7 +28,5 @@ pub fn leiden_clustering(
     // Find communities using modularity optimization
     let _ = optimizer.optimize_single_partition::<f64, VectorGrouping, RBConfigurationPartition<f64, VectorGrouping>>(&mut partition, None);
 
-    println!("{:?}", partition.get_communities());
-
     partition.get_communities()
 }
