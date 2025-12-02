@@ -30,7 +30,7 @@ impl UnionFind {
         let mut representatives: Vec<usize> = idxs.map(|idx| self.find(idx)).collect::<HashSet<usize>>().into_iter().collect();
         representatives.sort_by_key(|idx| self.parent.get(idx).unwrap());
 
-        if representatives.len() > 1 && self.parent.get(&representatives[0]) == self.parent.get(&representatives[1]) {self.parent.entry(representatives[0]).and_modify(|entry| *entry += 1);};
+        if representatives.len() > 1 && self.parent.get(&representatives[0]) == self.parent.get(&representatives[1]) {self.parent.entry(representatives[0]).and_modify(|entry| *entry -= 1);};
 
         for repr in representatives.iter().skip(1) {
             if !self.representatives.is_none() {self.representatives.as_mut().map(|set| set.remove(repr));};
