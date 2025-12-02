@@ -29,7 +29,7 @@ pub fn distance_to_source_set(source_set: impl Iterator<Item = usize>, adjacenci
         let curr = queue.pop_front().unwrap();
         queue.extend(adjacencies.get(&curr).unwrap().iter().filter(|key| !distance.contains_key(key)));
         let next_distance = distance.get(&curr).unwrap() + 1;
-        for adj in adjacencies.get(&curr).unwrap().iter() {distance.entry(curr).or_insert(next_distance);}
+        for adj in adjacencies.get(&curr).unwrap().iter().copied() {distance.entry(adj).or_insert(next_distance);}
     };
 
     distance
