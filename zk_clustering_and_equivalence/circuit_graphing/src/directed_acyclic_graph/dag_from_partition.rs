@@ -6,6 +6,7 @@ use circuits_and_constraints::circuit::Circuit;
 use utils::small_utilities::{signals_to_constraints_with_them, distance_to_source_set};
 use utils::union_find::{UnionFind};
 
+// TODO: generalise to arbitrary iter not just Vec<usize>
 pub fn dag_from_partition<'a, C: Constraint + 'a, S: Circuit<C> + 'a>(circ: &'a S, partition: Vec<Vec<usize>>) -> HashMap<usize, DAGNode<'a, C, S>> {
 
     let mut partition: HashMap<usize, Vec<usize>> = partition.into_iter().enumerate().collect();
