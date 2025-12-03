@@ -3,7 +3,7 @@ use std::collections::{HashMap, HashSet, VecDeque};
 use super::DAGNode;
 use circuits_and_constraints::constraint::Constraint;
 use circuits_and_constraints::circuit::Circuit;
-use utils::small_utilities::{signals_to_constraints_with_them, dfs_can_reach_target_from_source};
+use utils::small_utilities::{signals_to_constraints_with_them, dfs_can_reach_target_from_sources};
 
 fn merge_under_property<'a, C: Constraint + 'a, S: Circuit<C> + 'a>(
     circ: &'a S, nodes: &mut HashMap<usize, DAGNode<'a, C, S>>, 
@@ -49,14 +49,15 @@ fn merge_under_property<'a, C: Constraint + 'a, S: Circuit<C> + 'a>(
         }
 
         // find, for each option, the nodes that will need to be merged
+        let adjacency_hashmap : HashMap<usize, &Vec<usize>> = nodes.iter().map(|(k, node)| (*k, node.get_successors())).collect();
         let required_to_merge: Vec<(usize, Vec<usize>)> = potential_adjacent.into_iter().map(|(idx, &okey)| {
             let extra_key_adjacencies: &Vec<usize> = &nnode.get_successors().iter().copied().chain(nodes.get(&okey).unwrap().get_successors().iter().copied()).collect();
             (
                 idx, 
-                dfs_can_reach_target_from_source(
-                    &extra_key,
-                    vec![nkey, okey],
-                    &nodes.iter().map(|(k, node)| (*k, node.get_successors())).chain([(extra_key, extra_key_adjacencies)]).collect::<HashMap<usize, &Vec<usize>>>()
+                dfs_can_reach_target_from_sources(
+                    &extra_key_adjacencies,
+                    &vec![nkey, okey],
+                    &adjacency_hashmap
                 ).into_iter().filter(|&k| k != extra_key).chain([nkey, okey].into_iter()).collect()
             )
         }).collect();

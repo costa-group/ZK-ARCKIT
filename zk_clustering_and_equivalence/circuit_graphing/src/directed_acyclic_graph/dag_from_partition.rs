@@ -6,7 +6,6 @@ use circuits_and_constraints::circuit::Circuit;
 use utils::small_utilities::{signals_to_constraints_with_them, distance_to_source_set};
 use utils::union_find::{UnionFind};
 
-// TODO: generalise to arbitrary iter not just Vec<usize>
 pub fn dag_from_partition<'a, C: Constraint + 'a, S: Circuit<C> + 'a>(circ: &'a S, partition: Vec<Vec<usize>>) -> HashMap<usize, DAGNode<'a, C, S>> {
 
     let mut partition: HashMap<usize, Vec<usize>> = partition.into_iter().enumerate().collect();
@@ -40,8 +39,8 @@ pub fn dag_from_partition<'a, C: Constraint + 'a, S: Circuit<C> + 'a>(circ: &'a 
     while any_merges {
         any_merges = false;
 
-        let distance_to_inputs = distance_to_source_set(input_parts.iter().copied(), &adjacencies);
-        let distance_to_outputs = distance_to_source_set(output_parts.iter().copied(), &adjacencies);
+        let distance_to_inputs = distance_to_source_set(input_parts.iter(), &adjacencies);
+        let distance_to_outputs = distance_to_source_set(output_parts.iter(), &adjacencies);
 
         // make the preorder
         part_to_preorder = partition.keys().map(|key| (*key, (*distance_to_inputs.get(key).unwrap_or(&usize::MAX), *distance_to_outputs.get(key).unwrap_or(&usize::MAX)))).collect();
@@ -70,8 +69,8 @@ pub fn dag_from_partition<'a, C: Constraint + 'a, S: Circuit<C> + 'a>(circ: &'a 
             circ, 
             idx, 
             part, 
-            part_to_signals_arr.get(&idx).unwrap().iter().copied().filter(|sig| circ.signal_is_input(*sig)).collect(), // can get around
-            part_to_signals_arr.get(&idx).unwrap().iter().copied().filter(|sig| circ.signal_is_output(*sig)).collect()))
+            part_to_signals_arr.get(&idx).unwrap().into_iter().copied().filter(|sig| circ.signal_is_input(*sig)).collect(), // can get around
+            part_to_signals_arr.get(&idx).unwrap().into_iter().copied().filter(|sig| circ.signal_is_output(*sig)).collect()))
     }).collect();
 
     let arcs : Vec<(usize, usize)> = nodes.keys().flat_map(|idx| adjacencies.get(idx).unwrap().iter().map(|idy| (*idx, *idy))).filter(|(idx, idy)| {

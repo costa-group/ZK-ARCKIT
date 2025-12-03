@@ -1,4 +1,5 @@
 use std::collections::{HashMap, HashSet, VecDeque};
+use std::hash::Hash;
 use either::Either;
 
 use circuits_and_constraints::constraint::Constraint;
@@ -20,25 +21,25 @@ pub fn signals_to_constraints_with_them(
     signal_to_cons
 }
 
-pub fn distance_to_source_set(source_set: impl Iterator<Item = usize>, adjacencies: &HashMap<usize, HashSet<usize>>) -> HashMap<usize, usize> {
+pub fn distance_to_source_set<'a, T: Eq + Hash + Copy>(source_set: impl Iterator<Item = &'a T>, adjacencies: &'a HashMap<T, HashSet<T>>) -> HashMap<&'a T, usize> {
 
-    let mut distance: HashMap<usize, usize> = source_set.map(|idx| (idx, 0)).collect();
-    let mut queue: VecDeque<usize> = distance.keys().copied().collect();
+    let mut distance: HashMap<&T, usize> = source_set.map(|idx| (idx, 0)).collect();
+    let mut queue: VecDeque<&T> = distance.keys().copied().collect();
 
     while queue.len() > 0 {
         let curr = queue.pop_front().unwrap();
-        queue.extend(adjacencies.get(&curr).unwrap().iter().filter(|key| !distance.contains_key(key)));
-        let next_distance = distance.get(&curr).unwrap() + 1;
-        for adj in adjacencies.get(&curr).unwrap().iter().copied() {distance.entry(adj).or_insert(next_distance);}
+        queue.extend(adjacencies.get(curr).unwrap().into_iter().filter(|key| !distance.contains_key(key)));
+        let next_distance = distance.get(curr).unwrap() + 1;
+        for adj in adjacencies.get(curr).unwrap().into_iter() {distance.entry(adj).or_insert(next_distance);}
     };
 
     distance
 }
 
-pub fn dfs_can_reach_target_from_source(source: &usize, targets: Vec<usize>, adjacencies: &HashMap<usize, &Vec<usize>>) -> Vec<usize> {
+pub fn dfs_can_reach_target_from_sources(source: &Vec<usize>, targets: &Vec<usize>, adjacencies: &HashMap<usize, &Vec<usize>>) -> Vec<usize> {
 
     let mut can_reach_t: HashMap<&usize, bool> = targets.iter().map(|t| (t, true)).collect();
-    let mut stack: Vec<&usize> = vec![source];
+    let mut stack: Vec<&usize> = source.into_iter().collect();
 
     while stack.len() > 0 {
 
