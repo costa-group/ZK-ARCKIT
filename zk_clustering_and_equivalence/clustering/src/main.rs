@@ -133,5 +133,11 @@ fn start(args: Args) -> Result<(), Box<dyn Error>> {
         equivalence: HashMap::new()
     };
 
-    write_output_into_file("testing.json", &result)
+
+    let filepath_rev: String = args.filepath.chars().rev().collect();
+    let circname: String = filepath_rev[filepath_rev.find('.').expect("filepath didn't have filetype period")+1..filepath_rev.find('/').unwrap_or(filepath_rev.len())].chars().rev().collect();
+    
+    let outfile: String = format!("{}/{}_{}_{}.json", args.out_directory, circname, args.graph_backend, args.equivalence_mode);
+
+    write_output_into_file(outfile, &result)
 }

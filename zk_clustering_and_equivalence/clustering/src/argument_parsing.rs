@@ -1,9 +1,24 @@
 use clap::{Parser, ValueEnum};
+use strum_macros::{Display};
 
-#[derive(Copy, Clone, ValueEnum)]
+#[derive(Debug, Display, Copy, Clone, ValueEnum)]
 pub enum GraphBackend {
+    #[strum(serialize = "graphrs")]
     GraphRS,
+    #[strum(serialize = "singleclustering")]
     SingleClustering
+}
+
+#[derive(Debug, Display, Copy, Clone, ValueEnum)]
+pub enum EquivalenceMode {
+    #[strum(serialize = "total")]
+    Total,
+    #[strum(serialize = "structural")]
+    Structural,
+    #[strum(serialize = "local")]
+    Local,
+    #[strum(serialize = "none")]
+    None
 }
 
 #[derive(Parser)]
@@ -12,7 +27,7 @@ pub struct Args {
     // filepath to input circuit
     pub filepath: String,
 
-    #[arg(short, default_value="./")]
+    #[arg(short, default_value=".")]
     pub out_directory: String,
 
     #[arg(short, long, conflicts_with="target_size")]
@@ -24,5 +39,8 @@ pub struct Args {
     pub target_size: Option<f64>,
 
     #[arg(short, long, value_enum, default_value_t=GraphBackend::GraphRS)]
-    pub graph_backend: GraphBackend 
+    pub graph_backend: GraphBackend,
+
+    #[arg(short, long="equivalence", value_enum, default_value_t=EquivalenceMode::Structural)]
+    pub equivalence_mode: EquivalenceMode
 }
