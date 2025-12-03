@@ -16,12 +16,12 @@ Step 6: Run Postprocessing
 use ansi_term::Colour;
 use serde::{Serialize};
 use std::fs::File;
-use std::io::{BufReader, BufWriter};
+use std::io::{BufWriter};
 use std::path::Path;
 use std::io::Write;
 use std::collections::HashMap;
 use std::error::Error;
-use std::time::Instant;
+use std::time::{Instant};
 use clap::Parser;
 
 mod leiden_clustering;
@@ -53,12 +53,12 @@ fn main() {
 }
 
 #[derive(Serialize)]
-pub struct ResultInfo{
+pub struct ResultInfo<'a>{
     seed: usize,
-    timing: HashMap<Box<str>, f64>, //ids of the constraints
-    data: HashMap<Box<str>, Box<str>>,
+    timing: HashMap<&'a str, f64>, //ids of the constraints
+    data: HashMap<&'a str, &'a str>,
     nodes: Vec<NodeInfo>,
-    equivalence: HashMap<Box<str>, Vec<Vec<usize>>>
+    equivalence: HashMap<&'a str, Vec<Vec<usize>>>
 }
 
 fn write_output_into_file<P: AsRef<Path>>(path: P, result: &ResultInfo) -> Result<(), Box<dyn Error>> {
@@ -75,12 +75,21 @@ fn write_output_into_file<P: AsRef<Path>>(path: P, result: &ResultInfo) -> Resul
 }
 
 fn start(args: Args) -> Result<(), Box<dyn Error>> {
+    let start_time = Instant::now();
+
+    // Pass circuit
+    let circuit_parsing_timer = Instant::now();
+    
     let mut r1cs: R1CSData = R1CSData::new();
     r1cs.parse_file(&args.filepath);
+    
+    let circuit_parsing_time = circuit_parsing_timer.elapsed();
+    println!("Graph Parsing Took: {:?}", circuit_parsing_time);
 
-    let backend = args.graph_backend;
-
+    // Construct Graph from Circuit
     let graph_construction_timer = Instant::now();
+    
+    let backend = args.graph_backend;
     let graph: Box<dyn CanLeiden> = 
         match backend {
             GraphBackend::GraphRS => {
@@ -90,19 +99,39 @@ fn start(args: Args) -> Result<(), Box<dyn Error>> {
                 Box::new(shared_signal_graph_single_clustering(&r1cs))
             }
         };
+    
+    let graph_construction_time = graph_construction_timer.elapsed();
     println!("Graph Construction Took: {:?}", graph_construction_timer.elapsed());
 
-
+    // Partition Graph
     let partition_timer = Instant::now();
-    let edge_count = graph.num_edges() as f64;
-    let partition: Vec<Vec<usize>> = graph.get_partition(f64::log2(edge_count), 5, 25565);
+
+    let resolution = match args.resolution { Some(r) => r, None => ((graph.num_edges() << 1) as f64)/(args.target_size.unwrap_or(f64::log2(graph.num_edges() as f64)).powi(2)) };
+    println!("res {:?}", resolution);
+    let partition: Vec<Vec<usize>> = graph.get_partition(resolution, 5, 25565);
+    
+    let partition_time = partition_timer.elapsed();
     println!("Clustering took: {:?}", partition_timer.elapsed());
 
+    // Convert into DAG
+    let dagnode_timer = Instant::now();
+    
     let mut dagnodes = dag_from_partition(&r1cs, partition);
     merge_passthrough(&r1cs, &mut dagnodes);
+    
+    let dagnode_time = dagnode_timer.elapsed();
+    println!("DAG construction/merging took: {:?}", dagnode_timer.elapsed());
 
     let dagnode_info: Vec<NodeInfo> = dagnodes.into_values().map(|node| node.to_json(None, None)).collect();
-    let result = ResultInfo {seed: 0, timing: HashMap::new(), data: HashMap::new(), nodes: dagnode_info, equivalence: HashMap::new()};
+    let result = ResultInfo {
+        seed: 0, 
+        timing: [("parsing", circuit_parsing_time), ("graph_construction", graph_construction_time), ("clustering", partition_time), ("dag_construction", dagnode_time), ("total", start_time.elapsed())].into_iter().map(
+            |(string, dur)| (string, dur.as_secs_f64())
+        ).collect(), 
+        data: HashMap::new(), 
+        nodes: dagnode_info, 
+        equivalence: HashMap::new()
+    };
 
     write_output_into_file("testing.json", &result)
 }

@@ -30,7 +30,7 @@ pub fn shared_signal_graph_graphrs<C: Constraint>(circ: &impl Circuit<C>) -> RSG
     let weights = get_weighted_arcs(circ);
 
     let mut graph = RSGraph::new(GraphSpecs::undirected_create_missing());
-    graph.add_edge_tuples_weighted(weights.into_iter().map(|(pair, val)| (pair.0, pair.1, val as f64)).collect::<Vec<_>>());
+    let _ = graph.add_edge_tuples_weighted(weights.into_iter().map(|(pair, val)| (pair.0, pair.1, val as f64)).collect::<Vec<_>>());
 
     graph
 }
