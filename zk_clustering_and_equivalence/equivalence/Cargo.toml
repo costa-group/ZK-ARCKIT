@@ -4,3 +4,6 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+num-bigint-dig = "0.6.0"
+circuits_and_constraints = {path = "../circuits_and_constraints" }
+utils = {path = "../utils" }
