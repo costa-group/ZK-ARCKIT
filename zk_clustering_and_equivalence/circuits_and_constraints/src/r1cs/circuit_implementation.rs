@@ -4,7 +4,7 @@ use std::hash::Hash;
 use std::cmp::Eq;
 
 use super::{R1CSConstraint, R1CSData};
-use equivalence::assignment::{Assignment};
+use utils::assignment::{Assignment};
 use crate::circuit::Circuit;
 
 impl Circuit<R1CSConstraint> for R1CSData {

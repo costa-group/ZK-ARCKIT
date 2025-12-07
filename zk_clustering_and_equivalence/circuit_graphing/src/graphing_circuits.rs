@@ -6,7 +6,7 @@ use graphrs::{Graph as RSGraph, GraphSpecs};
 
 use circuits_and_constraints::circuit::Circuit;
 use circuits_and_constraints::constraint::Constraint;
-use utils::small_utilities::signals_to_constraints_with_them;
+use circuits_and_constraints::utils::signals_to_constraints_with_them;
 
 fn get_weighted_arcs<C: Constraint>(circ: &impl Circuit<C>) -> HashMap<(usize, usize), usize> {
 

@@ -3,7 +3,8 @@ use std::collections::{HashMap, HashSet};
 use super::DAGNode;
 use circuits_and_constraints::constraint::Constraint;
 use circuits_and_constraints::circuit::Circuit;
-use utils::small_utilities::{signals_to_constraints_with_them, distance_to_source_set};
+use circuits_and_constraints::utils::signals_to_constraints_with_them;
+use utils::small_utilities::{distance_to_source_set};
 use utils::union_find::{UnionFind};
 
 pub fn dag_from_partition<'a, C: Constraint + 'a, S: Circuit<C> + 'a>(circ: &'a S, partition: Vec<Vec<usize>>) -> HashMap<usize, DAGNode<'a, C, S>> {

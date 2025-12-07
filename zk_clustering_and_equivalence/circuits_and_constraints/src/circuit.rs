@@ -4,7 +4,7 @@ use std::hash::{Hash};
 use std::cmp::{Eq};
 
 use crate::constraint::{Constraint};
-use equivalence::assignment::Assignment;
+use utils::assignment::Assignment;
 
 pub trait Circuit<C: Constraint> {
 

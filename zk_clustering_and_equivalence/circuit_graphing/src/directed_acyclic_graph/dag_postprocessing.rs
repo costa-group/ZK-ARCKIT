@@ -3,7 +3,8 @@ use std::collections::{HashMap, HashSet, VecDeque};
 use super::DAGNode;
 use circuits_and_constraints::constraint::Constraint;
 use circuits_and_constraints::circuit::Circuit;
-use utils::small_utilities::{signals_to_constraints_with_them, dfs_can_reach_target_from_sources};
+use circuits_and_constraints::utils::signals_to_constraints_with_them;
+use utils::small_utilities::{dfs_can_reach_target_from_sources};
 
 fn merge_under_property<'a, C: Constraint + 'a, S: Circuit<C> + 'a>(
     circ: &'a S, nodes: &mut HashMap<usize, DAGNode<'a, C, S>>, 
@@ -63,6 +64,7 @@ fn merge_under_property<'a, C: Constraint + 'a, S: Circuit<C> + 'a>(
         }).collect();
 
         // greedily merge the fewest vertices, tiebreaking on potential property
+        // TODO: movie copied calls to here?
         let choice_to_merge: Vec<usize> = required_to_merge.into_iter().max_by_key(|(idx, req_to_merge)| (req_to_merge.len(), adjacent_to_property[*idx])).unwrap().1;
 
         let root: usize =  DAGNode::merge_nodes(choice_to_merge, nodes, &sig_to_coni, &mut coni_to_node);

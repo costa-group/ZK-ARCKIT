@@ -4,5 +4,3 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-circuits_and_constraints = {path = "../circuits_and_constraints"}
-either = "1.15.0"
