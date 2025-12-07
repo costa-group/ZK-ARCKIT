@@ -8,11 +8,13 @@ use utils::assignment::Assignment;
 
 pub trait Circuit<C: Constraint> {
 
+    type SignalFingerprint<T: Hash + Eq + Default + Copy + Ord>: Hash + Eq + Clone;
+
     fn prime(&self) -> &BigInt;
     fn n_constraints(&self) -> usize;
     fn n_wires(&self) -> usize;
     fn constraints(&self) -> &Vec<C>;
-    fn normalised_constraints(&self) -> &Vec<C>;
+    fn get_normalised_constraints(&self) -> &Vec<C>;
     fn normi_to_coni(&self) -> &Vec<usize>;
     fn n_inputs(&self) -> usize;
     fn n_outputs(&self) -> usize;
@@ -24,14 +26,14 @@ pub trait Circuit<C: Constraint> {
     fn parse_file(&mut self, file: &str) -> ();
     fn write_file(&self, file: &str) -> ();
     
-    fn fingerprint_signal(
+    fn fingerprint_signal<T: Hash + Eq + Default + Copy + Ord>(
         &self, 
         signal: usize, 
         normalised_constraints: &Vec<C>, 
-        normalised_constraint_to_fingerprints: &Vec<usize>, 
-        prev_signal_to_fingerprint: &HashMap<usize, impl Hash + Eq>, 
-        signal_to_normi: &HashMap<usize, Vec<usize>>
-    ) -> impl Hash + Eq;
+        normalised_constraint_to_fingerprints: &HashMap<usize, T>, 
+        prev_signal_to_fingerprint: &Vec<T>, 
+        signal_to_normi: &Vec<Vec<usize>>
+    ) -> Self::SignalFingerprint<T>;
     
     fn take_subcircuit(
         &self, 
@@ -48,7 +50,7 @@ pub trait Circuit<C: Constraint> {
         &self, // TODO: figure out if necessary
         norms: &Vec<C>,
         is_ordered: bool,
-        signal_pair_encoder: Assignment,
+        signal_pair_encoder: &Assignment<usize, 2>,
         signal_to_fingerprint: (HashMap<usize, usize>, HashMap<usize, usize>),
         fingerprint_to_signals: (HashMap<usize, Vec<usize>>, HashMap<usize, Vec<usize>>),
         is_singular_class: Option<bool>

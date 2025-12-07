@@ -2,6 +2,7 @@ use num_bigint::{BigInt};
 use std::collections::{HashMap, HashSet};
 use std::hash::Hash;
 use std::cmp::Eq;
+use itertools::sorted;
 
 use super::{R1CSConstraint, R1CSData};
 use utils::assignment::{Assignment};
@@ -13,7 +14,7 @@ impl Circuit<R1CSConstraint> for R1CSData {
     fn n_constraints(&self) -> usize {self.header_data.number_of_constraints}
     fn n_wires(&self) -> usize {self.header_data.total_wires}
     fn constraints(&self) -> &Vec<R1CSConstraint> {&self.constraints}
-    fn normalised_constraints(&self) -> &Vec<R1CSConstraint> {unimplemented!("This function is not implemented yet")}
+    fn get_normalised_constraints(&self) -> &Vec<R1CSConstraint> {unimplemented!("This function is not implemented yet")}
     fn normi_to_coni(&self) -> &Vec<usize> {unimplemented!("This function is not implemented yet")}
     fn n_inputs(&self) -> usize {self.header_data.public_inputs + self.header_data.private_inputs}
     fn n_outputs(&self) -> usize {self.header_data.public_outputs}
@@ -35,14 +36,56 @@ impl Circuit<R1CSConstraint> for R1CSData {
     }
     fn write_file(&self, file: &str) -> () {unimplemented!("This function is not implemented yet")}
     
-    fn fingerprint_signal(
+    type SignalFingerprint<T: Hash + Eq + Default + Copy + Ord> = Vec<(T, ((BigInt, BigInt), BigInt, BigInt))>;
+
+    fn fingerprint_signal<T: Hash + Eq + Default + Copy + Ord>(
         &self, 
         signal: usize, 
         normalised_constraints: &Vec<R1CSConstraint>, 
-        normalised_constraint_to_fingerprints: &Vec<usize>, 
-        prev_signal_to_fingerprint: &HashMap<usize, impl Hash + Eq>, 
-        signal_to_normi: &HashMap<usize, Vec<usize>>
-    ) -> impl Hash + Eq {unimplemented!("This function is not implemented yet")}
+        normalised_constraint_to_fingerprints: &HashMap<usize, T>, 
+        prev_signal_to_fingerprint: &Vec<T>, 
+        signal_to_normi: &Vec<Vec<usize>>
+    ) -> Self::SignalFingerprint<T> {
+        
+        let mut fingerprint = Vec::new();
+
+        for normi in signal_to_normi[signal].iter() {
+
+            let norm = &normalised_constraints[*normi];
+            let is_ordered: bool = !(norm.0.len() > 0 && norm.1.len() > 0 && sorted(norm.0.values()).eq(sorted(norm.1.values())));
+            // tuples don't play nice with iterables
+            let (a_val, b_val, c_val) = (norm.0.get(&signal).cloned().unwrap_or_else(|| BigInt::default()), norm.1.get(&signal).cloned().unwrap_or_else(|| BigInt::default()), norm.2.get(&signal).cloned().unwrap_or_else(|| BigInt::default()));
+            let big_zero = &BigInt::default();
+
+            if is_ordered {
+                fingerprint.push(
+                    (*normalised_constraint_to_fingerprints.get(normi).unwrap(), ((a_val, BigInt::default()), b_val, c_val))
+                );
+            } else {
+                let sort_pair_bigint = |left: BigInt, right: BigInt| if left <= right {(left, right)} else {(right, left)};
+                let first_term: (BigInt, BigInt);
+                let second_term: BigInt;
+
+                if !a_val.eq(big_zero) && !b_val.eq(big_zero) {
+                    first_term = sort_pair_bigint(a_val, b_val);
+                    second_term = BigInt::default();
+                } else {
+                    first_term = (BigInt::default(), BigInt::default());
+                    if !a_val.eq(big_zero) {
+                        second_term = a_val;
+                    } else {
+                        second_term = b_val;
+                    }  
+                } 
+
+                fingerprint.push(
+                    (*normalised_constraint_to_fingerprints.get(normi).unwrap(), (first_term,second_term,c_val))
+                );
+            }
+        }
+
+        fingerprint
+    }
     
     fn take_subcircuit(
         &self, 
@@ -62,7 +105,7 @@ impl Circuit<R1CSConstraint> for R1CSData {
         &self, // TODO: figure out if necessary
         norms: &Vec<R1CSConstraint>,
         is_ordered: bool,
-        signal_pair_encoder: Assignment,
+        signal_pair_encoder: &Assignment<usize, 2>,
         signal_to_fingerprint: (HashMap<usize, usize>, HashMap<usize, usize>),
         fingerprint_to_signals: (HashMap<usize, Vec<usize>>, HashMap<usize, Vec<usize>>),
         is_singular_class: Option<bool>
