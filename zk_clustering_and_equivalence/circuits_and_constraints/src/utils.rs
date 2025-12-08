@@ -2,6 +2,8 @@ use std::collections::HashMap;
 use either::Either;
 
 use crate::constraint::Constraint;
+use crate::circuit::Circuit;
+use crate::num_bigint::BigInt;
 
 pub fn signals_to_constraints_with_them(
     cons: &Vec<impl Constraint>,
@@ -18,4 +20,52 @@ pub fn signals_to_constraints_with_them(
     }
 
     signal_to_cons
+}
+
+use rand::{Rng, SeedableRng};
+use rand_chacha::ChaCha20Rng;
+use rand::seq::SliceRandom;
+
+pub fn circuit_shuffle<C: Constraint, S: Circuit<C>>(
+    inputfile: &String, seed: u64, 
+    add_constant_factor: bool,
+    shuffle_constraint_order: bool,
+    shuffle_signals: bool,
+    shuffle_constraint_internals: bool
+) -> (S, S) {
+
+    let mut circ: S = S::new();
+    circ.parse_file(inputfile);
+
+    let mut circ_shuffled: S = S::new();
+    circ_shuffled.parse_file(&inputfile);
+
+    let mut rng = ChaCha20Rng::seed_from_u64(seed);
+    let mut add_constant_factor_rng = ChaCha20Rng::seed_from_u64(rng.random::<u64>());
+    let mut shuffle_constraint_order_rng = ChaCha20Rng::seed_from_u64(rng.random::<u64>());
+    let mut shuffle_signals_rng = ChaCha20Rng::seed_from_u64(rng.random::<u64>());
+    let mut shuffle_constraint_internals_rng = ChaCha20Rng::seed_from_u64(rng.random::<u64>());
+
+    if add_constant_factor {
+        let prime = &circ_shuffled.prime().clone();
+        for constraint in circ_shuffled.get_mut_constraints().into_iter() {
+            constraint.add_random_constant_factor(&mut add_constant_factor_rng, prime);
+        }
+    }
+
+    if shuffle_constraint_order {
+        circ_shuffled.get_mut_constraints().shuffle(&mut shuffle_constraint_order_rng);
+    }
+
+    if shuffle_signals {
+        circ_shuffled = circ_shuffled.shuffle_signals(&mut ChaCha20Rng::seed_from_u64(rng.random::<u64>()));
+    }
+
+    if shuffle_constraint_internals {
+        for constraint in circ_shuffled.get_mut_constraints().into_iter() {
+            constraint.shuffle_constraint_internals(&mut shuffle_constraint_internals_rng);
+        }
+    }
+
+    (circ, circ_shuffled)
 }

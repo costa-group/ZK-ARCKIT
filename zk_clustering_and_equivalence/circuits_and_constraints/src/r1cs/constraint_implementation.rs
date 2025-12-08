@@ -1,8 +1,12 @@
 use num_bigint::{BigInt};
+use crate::modular_arithmetic::{mul};
 use std::collections::{HashSet, HashMap};
 use std::hash::Hash;
 use std::cmp::Eq;
+use rand::Rng;
+use std::array::from_fn;
 use itertools::sorted;
+use std::mem::swap;
 
 use super::{R1CSConstraint};
 use crate::constraint::{Constraint};
@@ -56,6 +60,28 @@ impl Constraint for R1CSConstraint {
     }
     fn get_coefficients(self) -> impl Hash + Eq{
         unimplemented!("This function is not implemented yet")
+    }
+
+    fn add_random_constant_factor(&mut self, rng: &mut impl Rng, field: &BigInt) -> () {
+        let factors: [u64; 2] = from_fn(|_| rng.random::<u32>() as u64);
+    
+        let a_bigfactor = &BigInt::from(factors[0]);
+        let b_bigfactor = &BigInt::from(factors[1]);
+        let c_bigfactor = &BigInt::from(factors[0] * factors[1]);
+
+        for (bigint, big_factor) in self.0.values_mut().map(|bigint| (bigint, a_bigfactor)).chain(
+                                    self.1.values_mut().map(|bigint| (bigint, b_bigfactor))).chain(
+                                    self.2.values_mut().map(|bigint| (bigint, c_bigfactor))) 
+            {*bigint = mul(a_bigfactor, bigint, field)}
+    }
+
+    fn shuffle_constraint_internals(&mut self, rng: &mut impl Rng) -> () {
+        // HashMap is already unordered so no need to shuffle there
+
+        // Swap A/B parts at random
+        if rng.random::<bool>() {
+            swap(&mut self.0, &mut self.1);
+        }
     }
 
 }

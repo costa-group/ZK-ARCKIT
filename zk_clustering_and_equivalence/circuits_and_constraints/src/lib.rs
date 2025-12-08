@@ -4,3 +4,4 @@ pub mod circuit;
 pub mod constraint;
 pub mod r1cs;
 pub mod utils;
+pub mod modular_arithmetic;

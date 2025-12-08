@@ -3,6 +3,8 @@ use std::collections::{HashMap, HashSet};
 use std::hash::Hash;
 use std::cmp::Eq;
 use itertools::sorted;
+use rand::seq::SliceRandom;
+use rand::Rng;
 
 use super::{R1CSConstraint, R1CSData, SignalList, HeaderData, ConstraintList};
 use utils::assignment::{Assignment};
@@ -138,4 +140,26 @@ impl Circuit<R1CSConstraint> for R1CSData {
 
     fn normalise_constraints(&self) -> () {unimplemented!("This function is not implemented yet")}
 
+    fn shuffle_signals(self, rng: &mut impl Rng) -> Self {
+        let mut outputs: Vec<usize> = self.get_output_signals().into_iter().collect();
+        let mut inputs: Vec<usize> = self.get_input_signals().into_iter().collect();
+        let mut remaining: Vec<usize> = (self.n_outputs() + self.n_inputs() + 1..self.n_wires()).into_iter().collect();
+    
+        outputs.shuffle(rng);
+        inputs.shuffle(rng);
+        remaining.shuffle(rng);
+    
+        let mapping: Vec<usize> = [0].into_iter().chain(outputs.into_iter()).chain(inputs.into_iter()).chain(remaining.into_iter()).collect();
+
+        // constructing new constraint lists needs to consume the current one and for that we need to consume Self -- this avoids cloning a whole bunch of BigInts
+        let Self {header_data, custom_gates, constraints, signals, custom_gates_used_data, custom_gates_applied_data} = self;
+
+        let new_constraints = constraints.into_iter().map(|cons|
+            (cons.0.into_iter().map(|(k, val)| (mapping[k], val)).collect::<HashMap<usize, BigInt>>(),
+             cons.1.into_iter().map(|(k, val)| (mapping[k], val)).collect::<HashMap<usize, BigInt>>(),
+             cons.2.into_iter().map(|(k, val)| (mapping[k], val)).collect::<HashMap<usize, BigInt>>())
+        ).collect::<Vec<R1CSConstraint>>();
+
+        Self {header_data: header_data, custom_gates: custom_gates, constraints: new_constraints, signals: signals, custom_gates_used_data: custom_gates_used_data, custom_gates_applied_data: custom_gates_applied_data}
+    }
 }

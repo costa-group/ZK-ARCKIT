@@ -2,6 +2,7 @@ use num_bigint::{BigInt};
 use std::collections::{HashMap, HashSet};
 use std::hash::{Hash};
 use std::cmp::{Eq};
+use rand::Rng;
 
 use crate::constraint::{Constraint};
 use utils::assignment::Assignment;
@@ -78,4 +79,6 @@ pub trait Circuit<C: Constraint> {
     //             maxlen=0,
     //             iterable = itertools.starmap(_normalised_constraint_building_step, enumerate(&self.constraints))
     //         )
+
+    fn shuffle_signals(self, rng: &mut impl Rng) -> Self;
 }
