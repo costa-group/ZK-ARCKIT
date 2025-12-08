@@ -43,7 +43,7 @@ impl Circuit<R1CSConstraint> for R1CSData {
         signal: usize, 
         normalised_constraints: &Vec<R1CSConstraint>, 
         normalised_constraint_to_fingerprints: &HashMap<usize, T>, 
-        prev_signal_to_fingerprint: &Vec<T>, 
+        _prev_signal_to_fingerprint: &HashMap<usize, T>, 
         signal_to_normi: &Vec<Vec<usize>>
     ) -> Self::SignalFingerprint<T> {
         

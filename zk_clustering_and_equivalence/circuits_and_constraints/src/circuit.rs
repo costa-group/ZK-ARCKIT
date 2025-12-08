@@ -31,7 +31,7 @@ pub trait Circuit<C: Constraint> {
         signal: usize, 
         normalised_constraints: &Vec<C>, 
         normalised_constraint_to_fingerprints: &HashMap<usize, T>, 
-        prev_signal_to_fingerprint: &Vec<T>, 
+        prev_signal_to_fingerprint: &HashMap<usize, T>, 
         signal_to_normi: &Vec<Vec<usize>>
     ) -> Self::SignalFingerprint<T>;
     
