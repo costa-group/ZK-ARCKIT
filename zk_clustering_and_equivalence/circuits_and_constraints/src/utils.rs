@@ -3,7 +3,6 @@ use either::Either;
 
 use crate::constraint::Constraint;
 use crate::circuit::Circuit;
-use crate::num_bigint::BigInt;
 
 pub fn signals_to_constraints_with_them(
     cons: &Vec<impl Constraint>,
@@ -58,7 +57,7 @@ pub fn circuit_shuffle<C: Constraint, S: Circuit<C>>(
     }
 
     if shuffle_signals {
-        circ_shuffled = circ_shuffled.shuffle_signals(&mut ChaCha20Rng::seed_from_u64(rng.random::<u64>()));
+        circ_shuffled = circ_shuffled.shuffle_signals(&mut shuffle_signals_rng);
     }
 
     if shuffle_constraint_internals {

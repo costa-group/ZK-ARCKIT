@@ -5,6 +5,7 @@ use std::cmp::Eq;
 use itertools::sorted;
 use rand::seq::SliceRandom;
 use rand::Rng;
+use std::fmt::Debug;
 
 use super::{R1CSConstraint, R1CSData, SignalList, HeaderData, ConstraintList};
 use utils::assignment::{Assignment};
@@ -40,8 +41,7 @@ impl Circuit<R1CSConstraint> for R1CSData {
     
     fn get_constraints(&self) -> &Vec<R1CSConstraint> {&self.constraints}
     fn get_mut_constraints(&mut self) -> &mut Vec<R1CSConstraint> {&mut self.constraints}
-    
-    fn get_normalised_constraints(&self) -> &Vec<R1CSConstraint> {unimplemented!("This function is not implemented yet")}
+
     fn normi_to_coni(&self) -> &Vec<usize> {unimplemented!("This function is not implemented yet")}
     fn n_inputs(&self) -> usize {self.header_data.public_inputs + self.header_data.private_inputs}
     fn n_outputs(&self) -> usize {self.header_data.public_outputs}
@@ -63,25 +63,25 @@ impl Circuit<R1CSConstraint> for R1CSData {
     }
     fn write_file(&self, file: &str) -> () {unimplemented!("This function is not implemented yet")}
     
-    type SignalFingerprint<T: Hash + Eq + Default + Copy + Ord> = Vec<(T, ((BigInt, BigInt), BigInt, BigInt))>;
+    type SignalFingerprint<T: Hash + Eq + Default + Copy + Ord + Debug> = Vec<(T, ((BigInt, BigInt), BigInt, BigInt))>;
 
-    fn fingerprint_signal<T: Hash + Eq + Default + Copy + Ord>(
+    fn fingerprint_signal<T: Hash + Eq + Default + Copy + Ord + Debug>(
         &self, 
-        signal: usize, 
+        signal: &usize, 
         normalised_constraints: &Vec<R1CSConstraint>, 
         normalised_constraint_to_fingerprints: &HashMap<usize, T>, 
         _prev_signal_to_fingerprint: &HashMap<usize, T>, 
-        signal_to_normi: &Vec<Vec<usize>>
+        signal_to_normi: &HashMap<usize, Vec<usize>>
     ) -> Self::SignalFingerprint<T> {
         
         let mut fingerprint = Vec::new();
 
-        for normi in signal_to_normi[signal].iter() {
+        for normi in signal_to_normi.get(signal).unwrap().into_iter() {
 
             let norm = &normalised_constraints[*normi];
             let is_ordered: bool = !(norm.0.len() > 0 && norm.1.len() > 0 && sorted(norm.0.values()).eq(sorted(norm.1.values())));
             // tuples don't play nice with iterables
-            let (a_val, b_val, c_val) = (norm.0.get(&signal).cloned().unwrap_or_else(|| BigInt::default()), norm.1.get(&signal).cloned().unwrap_or_else(|| BigInt::default()), norm.2.get(&signal).cloned().unwrap_or_else(|| BigInt::default()));
+            let (a_val, b_val, c_val) = (norm.0.get(signal).cloned().unwrap_or_else(|| BigInt::default()), norm.1.get(signal).cloned().unwrap_or_else(|| BigInt::default()), norm.2.get(signal).cloned().unwrap_or_else(|| BigInt::default()));
             let big_zero = &BigInt::default();
 
             if is_ordered {
@@ -111,6 +111,7 @@ impl Circuit<R1CSConstraint> for R1CSData {
             }
         }
 
+        fingerprint.sort();
         fingerprint
     }
     
@@ -137,8 +138,6 @@ impl Circuit<R1CSConstraint> for R1CSData {
         fingerprint_to_signals: (HashMap<usize, Vec<usize>>, HashMap<usize, Vec<usize>>),
         is_singular_class: Option<bool>
     ) -> impl Hash + Eq {unimplemented!("This function is not implemented yet")}
-
-    fn normalise_constraints(&self) -> () {unimplemented!("This function is not implemented yet")}
 
     fn shuffle_signals(self, rng: &mut impl Rng) -> Self {
         let mut outputs: Vec<usize> = self.get_output_signals().into_iter().collect();

@@ -3,13 +3,14 @@ use std::collections::{HashMap, HashSet};
 use std::hash::{Hash};
 use std::cmp::{Eq};
 use rand::Rng;
+use std::fmt::Debug;
 
 use crate::constraint::{Constraint};
 use utils::assignment::Assignment;
 
 pub trait Circuit<C: Constraint> {
 
-    type SignalFingerprint<T: Hash + Eq + Default + Copy + Ord>: Hash + Eq + Clone;
+    type SignalFingerprint<T: Hash + Eq + Default + Copy + Ord + Debug>: Hash + Eq + Clone + Debug;
 
     fn new() -> Self;
 
@@ -20,7 +21,10 @@ pub trait Circuit<C: Constraint> {
     fn get_constraints(&self) -> &Vec<C>;
     fn get_mut_constraints(&mut self) -> &mut Vec<C>;
 
-    fn get_normalised_constraints(&self) -> &Vec<C>;
+    fn normalise_constraints(&self) -> Vec<C> {
+        self.get_constraints().into_iter().flat_map(|cons| cons.normalise(self.prime()).into_iter()).collect()
+    }
+
     fn normi_to_coni(&self) -> &Vec<usize>;
     fn n_inputs(&self) -> usize;
     fn n_outputs(&self) -> usize;
@@ -32,13 +36,13 @@ pub trait Circuit<C: Constraint> {
     fn parse_file(&mut self, file: &str) -> ();
     fn write_file(&self, file: &str) -> ();
     
-    fn fingerprint_signal<T: Hash + Eq + Default + Copy + Ord>(
+    fn fingerprint_signal<T: Hash + Eq + Default + Copy + Ord + Debug>(
         &self, 
-        signal: usize, 
+        signal: &usize, 
         normalised_constraints: &Vec<C>, 
         normalised_constraint_to_fingerprints: &HashMap<usize, T>, 
         prev_signal_to_fingerprint: &HashMap<usize, T>, 
-        signal_to_normi: &Vec<Vec<usize>>
+        signal_to_normi: &HashMap<usize, Vec<usize>>
     ) -> Self::SignalFingerprint<T>;
     
     fn take_subcircuit(
@@ -61,8 +65,6 @@ pub trait Circuit<C: Constraint> {
         fingerprint_to_signals: (HashMap<usize, Vec<usize>>, HashMap<usize, Vec<usize>>),
         is_singular_class: Option<bool>
     ) -> impl Hash + Eq;
-
-    fn normalise_constraints(&self) -> ();
 
     // fn normalise_constraints(&self) -> None:
 

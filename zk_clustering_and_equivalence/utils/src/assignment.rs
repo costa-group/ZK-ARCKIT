@@ -17,6 +17,10 @@ impl<T: Hash + Eq + Clone, const N: usize> Assignment<T, N> {
         Assignment { assignment: HashMap::new(), inv_assignment: Some(Vec::new()), curr: 0, offset: offset, has_assigned: Vec::new() }
     }
 
+    pub fn get_offset(&self) -> usize {
+        self.offset
+    }
+
     pub fn drop_inverse(&mut self) -> () {
         self.inv_assignment = None;
     }

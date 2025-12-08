@@ -1,5 +1,6 @@
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::hash::Hash;
+use itertools::Itertools;
 
 pub fn distance_to_source_set<'a, T: Eq + Hash + Copy>(source_set: impl Iterator<Item = &'a T>, adjacencies: &'a HashMap<T, HashSet<T>>) -> HashMap<&'a T, usize> {
 
@@ -40,4 +41,12 @@ pub fn dfs_can_reach_target_from_sources(source: &Vec<usize>, targets: &Vec<usiz
     }
 
     can_reach_t.into_iter().filter(|(_, val)| *val).map(|(k, _)| k).copied().filter(|k| !targets.contains(k)).collect()
+}
+
+pub fn count_ints<T: Hash + Eq + Ord>(source: impl IntoIterator<Item = T>) -> Vec<(T, usize)> {
+    let mut counter: HashMap<T, usize> = HashMap::new();
+    for num in source.into_iter() {
+        *counter.entry(num).or_insert(0) += 1
+    }
+    counter.into_iter().sorted().collect()
 }
