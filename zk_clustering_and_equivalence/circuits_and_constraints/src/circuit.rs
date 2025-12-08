@@ -10,10 +10,15 @@ pub trait Circuit<C: Constraint> {
 
     type SignalFingerprint<T: Hash + Eq + Default + Copy + Ord>: Hash + Eq + Clone;
 
+    fn new() -> Self;
+
     fn prime(&self) -> &BigInt;
     fn n_constraints(&self) -> usize;
     fn n_wires(&self) -> usize;
-    fn constraints(&self) -> &Vec<C>;
+    
+    fn get_constraints(&self) -> &Vec<C>;
+    fn get_mut_constraints(&mut self) -> &mut Vec<C>;
+
     fn get_normalised_constraints(&self) -> &Vec<C>;
     fn normi_to_coni(&self) -> &Vec<usize>;
     fn n_inputs(&self) -> usize;

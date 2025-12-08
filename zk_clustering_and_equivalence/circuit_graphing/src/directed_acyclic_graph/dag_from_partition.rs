@@ -11,7 +11,7 @@ pub fn dag_from_partition<'a, C: Constraint + 'a, S: Circuit<C> + 'a>(circ: &'a 
 
     let mut partition: HashMap<usize, Vec<usize>> = partition.into_iter().enumerate().collect();
     
-    let part_to_signals_arr: HashMap<usize, HashSet<usize>> = partition.keys().copied().map(|key| (key, partition.get(&key).unwrap().iter().copied().flat_map(|idx| circ.constraints()[idx].signals()).collect::<HashSet<usize>>())).collect();
+    let part_to_signals_arr: HashMap<usize, HashSet<usize>> = partition.keys().copied().map(|key| (key, partition.get(&key).unwrap().iter().copied().flat_map(|idx| circ.get_constraints()[idx].signals()).collect::<HashSet<usize>>())).collect();
 
     let mut input_parts: HashSet<usize> = partition.keys().copied().filter(|key| part_to_signals_arr.get(key).unwrap().iter().copied().any(|sig| circ.signal_is_input(sig))).collect();
     let mut output_parts: HashSet<usize> = partition.keys().copied().filter(|key| part_to_signals_arr.get(key).unwrap().iter().copied().any(|sig| circ.signal_is_output(sig))).collect();
@@ -26,7 +26,7 @@ pub fn dag_from_partition<'a, C: Constraint + 'a, S: Circuit<C> + 'a>(circ: &'a 
         }
     }
 
-    let sig_to_coni = signals_to_constraints_with_them(circ.constraints(), None, None);
+    let sig_to_coni = signals_to_constraints_with_them(circ.get_constraints(), None, None);
 
     let adjacent_parts = 
         |part_id: usize| -> HashSet<usize> {part_to_signals_arr.get(&part_id).unwrap().iter().copied().flat_map(|sig| sig_to_coni.get(&sig).unwrap()).map(|coni| coni_to_part[*coni].unwrap()).copied().filter(|opart_id| *opart_id != part_id).collect()};
@@ -62,7 +62,7 @@ pub fn dag_from_partition<'a, C: Constraint + 'a, S: Circuit<C> + 'a>(circ: &'a 
         merge_parts(parts_to_merge, &mut input_parts, &mut output_parts, &mut partition, &mut adjacencies);
     }
 
-    let part_to_signals_arr: HashMap<usize, HashSet<usize>> = partition.keys().copied().map(|key| (key, partition.get(&key).unwrap().iter().copied().flat_map(|idx| circ.constraints()[idx].signals()).collect::<HashSet<usize>>())).collect();
+    let part_to_signals_arr: HashMap<usize, HashSet<usize>> = partition.keys().copied().map(|key| (key, partition.get(&key).unwrap().iter().copied().flat_map(|idx| circ.get_constraints()[idx].signals()).collect::<HashSet<usize>>())).collect();
 
     let mut nodes : HashMap<usize, DAGNode<'a, C, S>> = partition.into_iter().map(|(idx, part)| {
         (idx, 

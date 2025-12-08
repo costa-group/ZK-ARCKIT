@@ -80,7 +80,7 @@ impl<'a, C: Constraint + 'a, S: Circuit<C> + 'a> DAGNode<'a, C, S> {
     pub fn to_json(self, inverse_signal_mapping: Option<&HashMap<usize, usize>>, inverse_constraint_mapping: Option<&HashMap<usize, usize>>) -> NodeInfo {
         let signal_mapping = |sig| if inverse_signal_mapping.is_none() {sig} else {*inverse_signal_mapping.unwrap().get(&sig).unwrap()};
         let constraint_mapping = |coni| if inverse_constraint_mapping.is_none() {coni} else {*inverse_constraint_mapping.unwrap().get(&coni).unwrap()};
-        let signals: Vec<usize> = self.constraints.iter().flat_map(|x| self.circ.constraints()[*x].signals()).collect::<HashSet<usize>>().into_iter().map(signal_mapping).collect();
+        let signals: Vec<usize> = self.constraints.iter().flat_map(|x| self.circ.get_constraints()[*x].signals()).collect::<HashSet<usize>>().into_iter().map(signal_mapping).collect();
 
         NodeInfo {
             node_id: self.id, 

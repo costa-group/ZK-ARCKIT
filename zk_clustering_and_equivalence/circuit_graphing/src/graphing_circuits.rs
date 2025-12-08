@@ -10,7 +10,7 @@ use circuits_and_constraints::utils::signals_to_constraints_with_them;
 
 fn get_weighted_arcs<C: Constraint>(circ: &impl Circuit<C>) -> HashMap<(usize, usize), usize> {
 
-    let signal_to_coni = signals_to_constraints_with_them(&circ.constraints(), None, None);
+    let signal_to_coni = signals_to_constraints_with_them(&circ.get_constraints(), None, None);
     let mut weights: HashMap<(usize, usize), usize> = HashMap::new();
 
     for pair in signal_to_coni.keys().flat_map(|signal| Combinations::of_size(signal_to_coni.get(signal).unwrap(), 2)).map(|pair| (*pair[0], *pair[1])){

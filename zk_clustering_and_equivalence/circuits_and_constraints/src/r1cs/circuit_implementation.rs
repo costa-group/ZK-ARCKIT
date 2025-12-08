@@ -4,16 +4,41 @@ use std::hash::Hash;
 use std::cmp::Eq;
 use itertools::sorted;
 
-use super::{R1CSConstraint, R1CSData};
+use super::{R1CSConstraint, R1CSData, SignalList, HeaderData, ConstraintList};
 use utils::assignment::{Assignment};
 use crate::circuit::Circuit;
+use crate::r1cs::r1cs_reader::read_r1cs;
 
 impl Circuit<R1CSConstraint> for R1CSData {
     
+    fn new() -> Self {
+        R1CSData {
+            header_data: HeaderData {
+                field: BigInt::from(0),
+                field_size: 0,
+                total_wires: 0,
+                public_outputs: 0,
+                public_inputs: 0,
+                private_inputs: 0,
+                number_of_labels: 0,
+                number_of_constraints: 0,
+            },
+            custom_gates: false,
+            constraints: ConstraintList::new(),
+            signals: SignalList::new(),
+            custom_gates_used_data: None,
+            custom_gates_applied_data: None,
+        }
+    }
+
     fn prime(&self) -> &BigInt {&self.header_data.field}
     fn n_constraints(&self) -> usize {self.header_data.number_of_constraints}
     fn n_wires(&self) -> usize {self.header_data.total_wires}
-    fn constraints(&self) -> &Vec<R1CSConstraint> {&self.constraints}
+    
+    
+    fn get_constraints(&self) -> &Vec<R1CSConstraint> {&self.constraints}
+    fn get_mut_constraints(&mut self) -> &mut Vec<R1CSConstraint> {&mut self.constraints}
+    
     fn get_normalised_constraints(&self) -> &Vec<R1CSConstraint> {unimplemented!("This function is not implemented yet")}
     fn normi_to_coni(&self) -> &Vec<usize> {unimplemented!("This function is not implemented yet")}
     fn n_inputs(&self) -> usize {self.header_data.public_inputs + self.header_data.private_inputs}
@@ -24,7 +49,7 @@ impl Circuit<R1CSConstraint> for R1CSData {
     fn get_input_signals(&self) -> impl Iterator<Item = usize> {self.header_data.public_outputs+1..=self.header_data.public_inputs + self.header_data.private_inputs + self.header_data.public_outputs}
     fn get_output_signals(&self) -> impl Iterator<Item = usize> {1..=self.header_data.public_outputs}
     fn parse_file(&mut self, file: &str) -> () {
-        let parsed_circuit = crate::r1cs::r1cs_reader::read_r1cs(file).unwrap();
+        let parsed_circuit = read_r1cs(file).unwrap();
 
         self.header_data = parsed_circuit.header_data;
         self.constraints = parsed_circuit.constraints;

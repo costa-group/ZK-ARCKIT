@@ -4,6 +4,7 @@ use num_traits::ToPrimitive;
 use std::fs::File;
 use std::io::{BufReader, Read, Seek, SeekFrom};
 use std::fmt;
+use crate::circuit::Circuit;
 use super::{R1CSData, HeaderData, CustomGatesAppliedData, CustomGatesUsedData};
 
 const SECTIONS: u8 = 5;

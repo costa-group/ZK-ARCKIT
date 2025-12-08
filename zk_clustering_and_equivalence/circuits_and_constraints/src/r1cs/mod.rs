@@ -34,25 +34,3 @@ pub struct R1CSData {
     custom_gates_used_data: Option<CustomGatesUsedData>,
     custom_gates_applied_data: Option<CustomGatesAppliedData>,
 }
-
-impl R1CSData {
-    pub fn new() -> Self {
-        R1CSData {
-            header_data: HeaderData {
-                field: BigInt::from(0),
-                field_size: 0,
-                total_wires: 0,
-                public_outputs: 0,
-                public_inputs: 0,
-                private_inputs: 0,
-                number_of_labels: 0,
-                number_of_constraints: 0,
-            },
-            custom_gates: false,
-            constraints: ConstraintList::new(),
-            signals: SignalList::new(),
-            custom_gates_used_data: None,
-            custom_gates_applied_data: None,
-        }
-    }
-}
