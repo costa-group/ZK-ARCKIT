@@ -7,6 +7,7 @@ use std::array::from_fn;
 use itertools::Itertools;
 use std::mem::swap;
 use std::fmt::Debug;
+use std::borrow::Cow;
 
 use super::{R1CSConstraint};
 use crate::constraint::{Constraint};
@@ -15,45 +16,45 @@ use crate::modular_arithmetic::{mul, div};
 
 impl Constraint for R1CSConstraint {
 
-    fn normalise(&self, prime: &BigInt) -> Vec<R1CSConstraint> {
+    fn normalise<'a>(&'a self, prime: &'a BigInt) -> Vec<R1CSConstraint> {
 
         // first normalise the quadratic term if there is one
-        let mut choices_ab: Vec<(&BigInt, &BigInt)> = Vec::new();
-        let choices_a: Vec<BigInt>;
-        let choices_b: Vec<BigInt>;
+        let mut choices_ab: Vec<(Cow<'_, BigInt>, Cow<'_, BigInt>)> = Vec::new();
+        let choices_a: Vec<Cow<'a, BigInt>>;
+        let choices_b: Vec<Cow<'a, BigInt>>;
 
         if self.is_nonlinear() {
-            choices_a = self.0.get(&0).map(|bigint| vec![bigint.clone()]).unwrap_or_else(|| division_normalise( &self.0.values().collect::<Vec<&BigInt>>(), prime, true ) );
-            choices_b = self.1.get(&0).map(|bigint| vec![bigint.clone()]).unwrap_or_else(|| division_normalise( &self.1.values().collect::<Vec<&BigInt>>(), prime, true ) );
+            choices_a = self.0.get(&0).map(|bigint| vec![Cow::Borrowed(bigint)]).unwrap_or_else(|| division_normalise( self.0.values(), prime, true ) );
+            choices_b = self.1.get(&0).map(|bigint| vec![Cow::Borrowed(bigint)]).unwrap_or_else(|| division_normalise( self.1.values(), prime, true ) );
         
-            choices_ab.extend(choices_a.iter().cartesian_product(choices_b.iter()));
+            choices_ab.extend(choices_a.into_iter().cartesian_product(choices_b.into_iter()));
         }
 
         // now collect the choices for AB with the choices for C
         let big_one = BigInt::from(1);
-        let choices: Vec<((&BigInt, &BigInt), &BigInt)>;
-        let choices_c: Vec<BigInt>;
+        let choices: Vec<((Cow<'_, BigInt>, Cow<'_, BigInt>), Cow<'_, BigInt>)>;
+        let choices_c: Vec<Cow<'a, BigInt>>;
 
         // if C has a constant normalise by that
         if let Some(c_constant) = self.2.get(&0) {
-            if choices_ab.len() == 0 {choices_ab.push((&big_one, &big_one))}
-            choices = choices_ab.into_iter().cartesian_product([c_constant].into_iter()).collect();
+            if choices_ab.len() == 0 {choices_ab.push((Cow::Borrowed(&big_one), Cow::Borrowed(&big_one)))}
+            choices = choices_ab.into_iter().cartesian_product([Cow::Borrowed(c_constant)].into_iter()).collect();
 
         // Otherwise if there are no AB choices normalise by C division norm
         } else if choices_ab.len() == 0 {
-            choices_ab.push((&big_one, &big_one));
-            choices_c = division_normalise( &self.2.values().collect::<Vec<&BigInt>>(), prime, true );
-            choices = choices_ab.into_iter().cartesian_product(choices_c.iter()).collect();
+            choices_ab.push((Cow::Borrowed(&big_one), Cow::Borrowed(&big_one)));
+            choices_c = division_normalise( self.2.values(), prime, true );
+            choices = choices_ab.into_iter().cartesian_product(choices_c.into_iter()).collect();
         // Otherwise if there are AB choices, normalise by this and calculate the appropriate c_factor
         } else {
-            choices_c = choices_ab.iter().map(|&(l, r)| mul(l, r, prime)).collect();
-            choices = choices_ab.into_iter().zip(choices_c.iter()).collect();
+            choices_c = choices_ab.iter().map(|(l, r)| Cow::Owned(mul(&l, &r, prime))).collect();
+            choices = choices_ab.into_iter().zip(choices_c.into_iter()).collect();
         }
 
         choices.into_iter().map(|((a_factor, b_factor), c_factor)| {
-            let nonlinear_part_a = self.0.keys().map(|sig| (*sig, div(self.0.get(sig).unwrap(), a_factor, prime).ok().unwrap()) ).collect::<HashMap<usize, BigInt>>();
-            let nonlinear_part_b = self.1.keys().map(|sig| (*sig, div(self.1.get(sig).unwrap(), b_factor, prime).ok().unwrap()) ).collect::<HashMap<usize, BigInt>>();
-            let nonlinear_part_c = self.2.keys().map(|sig| (*sig, div(self.2.get(sig).unwrap(), c_factor, prime).ok().unwrap()) ).collect::<HashMap<usize, BigInt>>();
+            let nonlinear_part_a = self.0.keys().map(|sig| (*sig, div(self.0.get(sig).unwrap(), &a_factor, prime).ok().unwrap()) ).collect::<HashMap<usize, BigInt>>();
+            let nonlinear_part_b = self.1.keys().map(|sig| (*sig, div(self.1.get(sig).unwrap(), &b_factor, prime).ok().unwrap()) ).collect::<HashMap<usize, BigInt>>();
+            let nonlinear_part_c = self.2.keys().map(|sig| (*sig, div(self.2.get(sig).unwrap(), &c_factor, prime).ok().unwrap()) ).collect::<HashMap<usize, BigInt>>();
             if nonlinear_part_a.values().sorted().cmp(nonlinear_part_b.values().sorted()).is_gt() {
                 (nonlinear_part_b, nonlinear_part_a, nonlinear_part_c)
             } else {

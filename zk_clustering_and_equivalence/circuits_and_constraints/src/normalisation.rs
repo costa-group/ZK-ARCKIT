@@ -1,11 +1,11 @@
 use std::collections::{HashSet, HashMap};
 use itertools::Itertools;
+use std::borrow::Cow;
 
 use crate::num_bigint::BigInt;
-use crate::modular_arithmetic::{add, div, ArithmeticError};
+use crate::modular_arithmetic::{add, div, mul, ArithmeticError};
 
-
-fn non_zero_sum_normalise(lineq: &Vec<&BigInt>, prime: &BigInt) -> Result<BigInt, ArithmeticError> {
+fn non_zero_sum_normalise<'a>(lineq: impl Iterator<Item = &'a BigInt>, prime: &'a BigInt) -> Result<BigInt, ArithmeticError> {
     
     let sum: BigInt = lineq.into_iter().fold(BigInt::from(0), |curr, next| add(&curr, next, prime));
     if sum == BigInt::from(0) {
@@ -15,22 +15,23 @@ fn non_zero_sum_normalise(lineq: &Vec<&BigInt>, prime: &BigInt) -> Result<BigInt
     }
 }
 
-pub fn division_normalise(lineq: &Vec<&BigInt>, prime: &BigInt, early_exit: bool) -> Vec<BigInt> {
+pub fn division_normalise<'a>(_lineq: impl Iterator<Item = &'a BigInt>, prime: &'a BigInt, early_exit: bool) -> Vec<Cow<'a, BigInt>> {
 
     // If can early exit then do
-    let ee_value: Option<BigInt> = if early_exit {non_zero_sum_normalise(lineq, prime).ok()} else {None};
+    let lineq: Vec<&'a BigInt> = _lineq.collect();
+    let ee_value: Option<BigInt> = if early_exit {non_zero_sum_normalise(lineq.iter().copied(), prime).ok()} else {None};
 
     if let Some(choice) = ee_value {
-        [choice].into_iter().collect()
+        [Cow::Owned(choice)].into_iter().collect()
     } else {
 
-        let unique_lineq: Vec<&BigInt> = lineq.into_iter().collect::<HashSet<_>>().into_iter().copied().collect();
+        let unique_lineq: Vec<&'a BigInt> = lineq.into_iter().collect::<HashSet<&'a BigInt>>().into_iter().collect();
         
         // If can early exit with unique then do
 
-        let ee_value: Option<BigInt> = if early_exit {non_zero_sum_normalise(&unique_lineq, prime).ok()} else {None};
+        let ee_value: Option<BigInt> = if early_exit {non_zero_sum_normalise(unique_lineq.iter().copied(), prime).ok()} else {None};
         if let Some(choice) = ee_value {
-            [choice].into_iter().collect()
+            [Cow::Owned(choice)].into_iter().collect()
         } else {
 
             fn find_next_subset<'a>(lineq: Vec<&'a BigInt>, prime: &'a BigInt) -> Vec<&'a BigInt> {
@@ -54,7 +55,7 @@ pub fn division_normalise(lineq: &Vec<&BigInt>, prime: &BigInt, early_exit: bool
             }
 
             // this ensures we can actually be early exiting -- performance loss is minimal as this is basically always <2 BigInts -- still annoying
-            subset.into_iter().cloned().collect::<Vec<BigInt>>()
+            subset.into_iter().map(|val| Cow::Borrowed(val)).collect()
         }
     }
 }
