@@ -3,10 +3,15 @@ use std::array::from_fn;
 use std::hash::Hash;
 use std::cmp::Eq;
 use std::fmt::Debug;
+use itertools::Itertools;
 
 use circuits_and_constraints::circuit::Circuit;
 use circuits_and_constraints::constraint::Constraint;
 use utils::assignment::Assignment;
+
+// struct IndexWrapper() {
+    
+// };
 
 pub fn iterated_refinement<C: Constraint, S: Circuit<C>, const N: usize>(
         circuits: &[&S; N],
@@ -112,17 +117,21 @@ pub fn iterated_refinement<C: Constraint, S: Circuit<C>, const N: usize>(
             let break_on_next_loop = (0..N).into_iter().all(|idx| num_singular_labels[&(round_num - 2)] + label_to_indices[idx].len() == prev_distinct_labels[idx]);
             *prev_distinct_labels = from_fn(|idx| num_singular_labels[&(round_num - 2)] + label_to_indices[idx].len());
 
-            if debug {sanity_check_fingerprinting(assignment, index_to_label, label_to_indices);}
+            if debug {
+                println!("{:?}", round_num);
+                sanity_check_fingerprinting(assignment, index_to_label, label_to_indices, prev_index_to_label);
+            }
 
             // Handle the context switch if isn't the last loop
             if !last_loop {
-                let other_signals_to_update: [HashSet<usize>; N];
-                (*assignment, *prev_other_index_to_label, other_signals_to_update) = fingerprint_switch(
+                let other_indices_to_update: [HashSet<usize>; N];
+                (*assignment, *prev_other_index_to_label, other_indices_to_update) = fingerprint_switch(
                     &assignment, index_to_label, label_to_indices, num_singular_labels, prev_index_to_label, prev_label_to_indices, prev_label_to_indices_count, get_to_update,
                     other_index_to_label, other_num_singular, round_num, strict_unique
                 );
+
                 *label_to_indices = from_fn(|_| HashMap::new());
-                (break_on_next_loop, other_signals_to_update)
+                (break_on_next_loop, other_indices_to_update)
             } else {
                 (break_on_next_loop, from_fn(|_| HashSet::new()))
             }
@@ -236,7 +245,7 @@ fn fingerprint_switch<const N: usize, H: Hash + Eq + Clone>(
     let mut next_to_update: [HashSet<usize>; N] = from_fn(|_| HashSet::new());
     let mut add_to_update = |index: usize, idx: usize| next_to_update[idx].extend(get_to_update(index, idx).into_iter().filter(
         // other_num_singular[round] is the number of singular fingerprints at that time, if oind_label.1 > that then it means it's not singular and should be looked at again
-        |oind: &usize| {let other_label: (usize, usize) = other_fingerprints[idx][oind]; other_label.1 > other_num_singular[&other_label.0]}
+        |oind: &usize| {let (prev_round, other_label): (usize, usize) = other_fingerprints[idx][oind]; other_label > other_num_singular[&prev_round]}
     ));
 
     let mut nonsingular_fingerprints: [Vec<(usize, usize)>; N] = from_fn(|_| Vec::new());
@@ -275,7 +284,9 @@ fn fingerprint_switch<const N: usize, H: Hash + Eq + Clone>(
     // now we collect all the labels that have actually changed by comparing the old/new sets
     // TODO: do this better, so not comparing each class multiple times
     // TODO: when the prev_fingerprint was from a very old round -- this struggles
+
     for (idx, nonsingular_batch) in nonsingular_fingerprints.into_iter().enumerate() {
+
         for label in nonsingular_batch.into_iter() {
 
             let new_key = new_assignment.get_assignment(assignment.get_inv_assignment(label.1).unwrap());
@@ -284,6 +295,7 @@ fn fingerprint_switch<const N: usize, H: Hash + Eq + Clone>(
             prev_fingerprints_to_index[idx].insert(new_label, fingerprints_to_index[idx].remove(&label).unwrap());
 
             let class: &Vec<usize> = prev_fingerprints_to_index[idx].get(&new_label).unwrap();
+
             prev_fingerprints_to_index_count[idx].insert(new_label, class.len());
 
             for index in class.into_iter().copied() {
@@ -296,16 +308,17 @@ fn fingerprint_switch<const N: usize, H: Hash + Eq + Clone>(
             if round_num <= 4 || an_old_key.0 < 3 {
                 for index in class.into_iter().copied() {add_to_update(index, idx)};
             } else {
-                if *prev_fingerprints_to_index_count[idx].get(an_old_key).unwrap() == class.len() && class == prev_fingerprints_to_index[idx].get(an_old_key).unwrap() {
+                // Only when the class is truly unchanged (i.e. has not had anything removed) will do we consider it unchaged, sorting here also requires fewest sort calls
+                if *prev_fingerprints_to_index_count[idx].get(an_old_key).unwrap() == class.len() && class.into_iter().sorted().eq(prev_fingerprints_to_index[idx].get(an_old_key).unwrap().into_iter().sorted()) {
                     // class has not changed, delete old info as it is redundant
                     labels_to_delete.push(*an_old_key);
                 } else {
                     // class has changed -- need to check these on next iteration, need to update index counts / delete if empty
-                    for index in class.into_iter().copied() {
+                    for index in class.into_iter() {
 
-                        add_to_update(index, idx);
+                        add_to_update(*index, idx);
 
-                        let index_old_key = prev_fingerprints[idx].get(&index).unwrap();
+                        let index_old_key = prev_fingerprints[idx].get(index).unwrap();
                         prev_fingerprints_to_index_count[idx].entry(*index_old_key).and_modify(|val| *val -= 1);
 
                         if *prev_fingerprints_to_index_count[idx].get(index_old_key).unwrap() == 0 {
@@ -325,12 +338,15 @@ fn fingerprint_switch<const N: usize, H: Hash + Eq + Clone>(
 
     let new_prev_other_index_to_label: [HashMap<usize, (usize, usize)>; N] = from_fn(|idx| next_to_update[idx].iter().map(|index| (*index, *other_fingerprints[idx].get(index).unwrap())).collect());
 
+    *fingerprints_to_index = from_fn(|_| HashMap::new());
     (new_assignment, new_prev_other_index_to_label, next_to_update)
 }
 
 use utils::small_utilities::count_ints;
 
-fn sanity_check_fingerprinting<const N: usize, H: Hash + Eq + Clone + Debug>(assignment: &Assignment<H, 1>, index_to_label: &[HashMap<usize, (usize, usize)>; N], label_to_indices: &[HashMap<(usize, usize), Vec<usize>>;N]) -> () {
+fn sanity_check_fingerprinting<const N: usize, H: Hash + Eq + Clone + Debug>(
+    assignment: &Assignment<H, 1>, index_to_label: &[HashMap<usize, (usize, usize)>; N], label_to_indices: &[HashMap<(usize, usize), Vec<usize>>;N],
+    prev_index_to_label: &[HashMap<usize, (usize, usize)>; N]) -> () {
     /*
     function used to debug behaviour
     */
@@ -340,20 +356,39 @@ fn sanity_check_fingerprinting<const N: usize, H: Hash + Eq + Clone + Debug>(ass
 
     let different_keys_in_both: Vec<(usize, usize)> = keys_in_both.into_iter().filter(|key| label_to_indices[0].get(&key).unwrap().len() != label_to_indices[1].get(&key).unwrap().len()).collect();
 
-    let num_per_count = from_fn::<Vec<((usize, usize), usize)>, 2, _>(|idx| count_ints(index_to_label[idx].values().copied().collect::<Vec<_>>()));
-    let different_fingerprints: Vec<usize> = keys_in_only_one.into_iter().chain(different_keys_in_both.into_iter()).map(|(_, val)| val).collect();
+    // let num_per_count = from_fn::<Vec<((usize, usize), usize)>, 2, _>(|idx| count_ints(index_to_label[idx].values().copied().collect::<Vec<_>>()));
+    let different_fingerprints: Vec<(usize, usize)> = keys_in_only_one.into_iter().chain(different_keys_in_both.into_iter()).collect();
     
     if different_fingerprints.len() != 0 {
-        println!("{:?}", num_per_count);
-        println!("{:?}", different_fingerprints);
-        println!("{:?}", assignment.get_offset());
-        for fingerprint in different_fingerprints.into_iter() {
-            println!("fingerprint {}: {:?}", fingerprint, assignment.get_inv_assignment(fingerprint));
+
+        let mut prev_label_to_labels: HashMap<(usize, usize), HashSet<(usize, usize)>> = HashMap::new();
+        for key in different_fingerprints.iter() {
+            for idx in 0..N {
+                if let Some(indices) = label_to_indices[idx].get(key) {
+                    let prev_label = *prev_index_to_label[idx].get(&indices[0]).unwrap();
+                    prev_label_to_labels.entry(prev_label).or_insert(HashSet::new()).insert(*key);
+                }
+            }
         }
+
+        let different_fingerprints_no_roundnum: Vec<usize> = different_fingerprints.into_iter().map(|(_, val)| val).collect();
+
+        println!("{:?}", prev_label_to_labels);
+        println!("{:?}", different_fingerprints_no_roundnum);
+        println!("{:?}", assignment.get_offset());
+        for ((rn, old_hash), new_keys) in prev_label_to_labels.into_iter() {
+            println!("---------------------------- {:?}: {:?}-------------------------", (rn, old_hash), new_keys);
+            println!("old fingerprint {}: {:?}", old_hash, assignment.get_inv_assignment(old_hash));
+
+            for (_, hash) in new_keys.into_iter() {
+                println!("fingerprint {}: {:?}", hash, assignment.get_inv_assignment(hash));
+            }
+        }
+        panic!("sanity check failed");
     }
 }
 
-pub fn sanity_check_fingerprints<T: Hash + Eq + Debug + Copy + Ord>(index_to_label: &[HashMap<usize, T>; 2], label_to_indices: &[HashMap<T, Vec<usize>>; 2]) -> () {
+pub fn sanity_check_fingerprints<T: Hash + Eq + Debug + Copy + Ord, const N: usize>(index_to_label: &[HashMap<usize, T>; N], label_to_indices: &[HashMap<T, Vec<usize>>; N]) -> () {
     let keys_in_only_one: HashSet<T> = label_to_indices[0].keys().copied().collect::<HashSet<_>>().symmetric_difference(&label_to_indices[1].keys().copied().collect::<HashSet<_>>()).copied().collect();
     let keys_in_both: HashSet<T> = label_to_indices[0].keys().copied().collect::<HashSet<_>>().intersection(&label_to_indices[1].keys().copied().collect::<HashSet<_>>()).copied().collect();
 
@@ -366,5 +401,6 @@ pub fn sanity_check_fingerprints<T: Hash + Eq + Debug + Copy + Ord>(index_to_lab
 
         if num_per_count[0].len() < 1000 {println!("{:?}", num_per_count);}
         if different_fingerprints.len() < 1000 {println!("{:?}", different_fingerprints);} else {println!("Differs at {:?} keys", different_fingerprints.len())}
+        panic!("other sanity check failed");
     }
 }
