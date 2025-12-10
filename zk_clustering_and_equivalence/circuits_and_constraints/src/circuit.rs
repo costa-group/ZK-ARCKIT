@@ -10,7 +10,7 @@ use utils::assignment::Assignment;
 
 pub trait Circuit<C: Constraint> {
 
-    type SignalFingerprint<T: Hash + Eq + Default + Copy + Ord + Debug>: Hash + Eq + Clone + Debug;
+    type SignalFingerprint<'a, T: Hash + Eq + Default + Copy + Ord + Debug>: Hash + Eq + Clone + Debug where C: 'a;
 
     fn new() -> Self;
 
@@ -36,14 +36,15 @@ pub trait Circuit<C: Constraint> {
     fn parse_file(&mut self, file: &str) -> ();
     fn write_file(&self, file: &str) -> ();
     
-    fn fingerprint_signal<T: Hash + Eq + Default + Copy + Ord + Debug>(
+    fn fingerprint_signal<'a, T: Hash + Eq + Default + Copy + Ord + Debug>(
         &self, 
         signal: &usize, 
-        normalised_constraints: &Vec<C>, 
+        fingerprint: &mut Option<Self::SignalFingerprint<'a, T>>,
+        normalised_constraints: &'a Vec<C>, 
         normalised_constraint_to_fingerprints: &HashMap<usize, T>, 
         prev_signal_to_fingerprint: &HashMap<usize, T>, 
         signal_to_normi: &HashMap<usize, Vec<usize>>
-    ) -> Self::SignalFingerprint<T>;
+    ) -> () where C: 'a;
     
     fn take_subcircuit(
         &self, 

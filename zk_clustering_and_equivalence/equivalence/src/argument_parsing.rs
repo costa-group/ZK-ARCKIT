@@ -13,5 +13,8 @@ pub struct Args {
     pub test: bool,
 
     #[arg(long)]
+    pub debug: bool,
+
+    #[arg(long)]
     pub dont_shuffle_internals: bool
 }

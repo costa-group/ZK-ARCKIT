@@ -13,6 +13,7 @@ use super::{R1CSConstraint};
 use crate::constraint::{Constraint};
 use crate::normalisation::division_normalise;
 use crate::modular_arithmetic::{mul, div};
+use crate::utils::FingerprintIndex;
 
 impl Constraint for R1CSConstraint {
 
@@ -67,34 +68,51 @@ impl Constraint for R1CSConstraint {
         self.0.keys().chain(self.1.keys()).chain(self.2.keys()).filter(|signal| **signal != 0).copied().collect() //probably quite ugly
     }
 
-    type Fingerprint<T: Hash + Eq + Default + Copy + Ord + Debug> = (Vec<(T, (BigInt, BigInt))>, Vec<(T, BigInt)>, Vec<(T, BigInt)>);
+    type Fingerprint<'a, T: Hash + Eq + Default + Copy + Ord + Debug> = Vec<(FingerprintIndex<T>, ((Option<&'a BigInt>, Option<&'a BigInt>), Option<&'a BigInt>, Option<&'a BigInt>))>  where Self: 'a;
 
-    fn fingerprint<T: Hash + Eq + Default + Copy + Ord + Debug>(&self, signal_to_fingerprint: &HashMap<usize, T>) -> Self::Fingerprint<T> {
-        let is_ordered = !(self.0.len() > 0 && self.1.len() > 0 && self.0.values().sorted().eq(self.1.values().sorted()));
+    fn fingerprint<'a, T: Hash + Eq + Default + Copy + Ord + Debug>(&'a self, fingerprint: &mut Option<Self::Fingerprint<'a, T>>, signal_to_fingerprint: &HashMap<usize, T>) -> () {
 
         fn _get_signal_fingerprint<T: Hash + Eq + Default + Copy>(sig: &usize, signal_to_fingerprint: &HashMap<usize, T>) -> T {
-            if sig == &0 {T::default()} else {*signal_to_fingerprint.get(sig).unwrap()}
-        }
+                if sig == &0 {T::default()} else {*signal_to_fingerprint.get(sig).unwrap()}
+            }
 
-        let part_to_sorted_vec = |part: &HashMap<usize, BigInt>| part.iter().map(|(sig, val)| (_get_signal_fingerprint(sig, signal_to_fingerprint), val.clone())).sorted().collect::<Vec<_>>();
-        // Ended up having to Clone BigInts... not sure there's a way around this unless we convert to some smaller form which I don't like
-
-        if is_ordered {
-            // first has a buffer to maintain the same type. when comparing to unordered it will never equal as no unordered has 0 as coef in first part
-            (self.0.iter().map(|(sig, val)| (_get_signal_fingerprint(sig, signal_to_fingerprint), (val.clone(), BigInt::default()))).sorted().collect::<Vec<_>>(), part_to_sorted_vec(&self.1), part_to_sorted_vec(&self.2))
+        if let Some(existing_fingerprint) = fingerprint.as_mut() {
+            for item in existing_fingerprint.into_iter() {
+                item.0.fingerprint = _get_signal_fingerprint(&item.0.index, signal_to_fingerprint);
+            }
+            existing_fingerprint.sort();
         } else {
-            let (lsignals, rsignals) = (self.0.keys().copied().collect::<HashSet<_>>(), self.1.keys().copied().collect::<HashSet<_>>());
 
-            let in_both = lsignals.intersection(&rsignals).copied().collect::<HashSet<_>>();
-            let (only_left, only_right) = (lsignals.difference(&in_both), rsignals.difference(&in_both));
+            let is_ordered = !(self.0.len() > 0 && self.1.len() > 0 && self.0.values().sorted().eq(self.1.values().sorted()));
 
-            let sort_pair_bigint = |left: BigInt, right: BigInt| if left <= right {(left, right)} else {(right, left)};
+            type Characteristic<'a> = ((Option<&'a BigInt>, Option<&'a BigInt>), Option<&'a BigInt>, Option<&'a BigInt>);
+            let mut new_fingerprint: HashMap<usize, Characteristic> = HashMap::new();
 
-            (
-                in_both.iter().map(|sig| (_get_signal_fingerprint(sig, signal_to_fingerprint), sort_pair_bigint(self.0.get(sig).unwrap().clone(), self.1.get(sig).unwrap().clone()) ) ).sorted().collect::<Vec<_>>(), // both parts
-                only_left.map(|sig| (sig, self.0.get(sig).unwrap().clone())).chain(only_right.map(|sig| (sig, self.1.get(sig).unwrap().clone()))).map(|(sig, val)| (_get_signal_fingerprint(sig, signal_to_fingerprint), val) ).sorted().collect::<Vec<_>>(), // only one part
-                part_to_sorted_vec(&self.2)
-            )
+            for key in self.2.keys() {new_fingerprint.entry(*key).or_insert_with(|| Characteristic::default()).2 = self.2.get(key);}
+
+            if is_ordered {
+                for key in self.0.keys() {new_fingerprint.entry(*key).or_insert_with(|| Characteristic::default()).0.0 = self.0.get(key);}
+                for key in self.1.keys() {new_fingerprint.entry(*key).or_insert_with(|| Characteristic::default()).1 = self.1.get(key);}
+            } else {
+
+                let (lsignals, rsignals) = (self.0.keys().copied().collect::<HashSet<_>>(), self.1.keys().copied().collect::<HashSet<_>>());
+
+                let in_both = lsignals.intersection(&rsignals).copied().collect::<HashSet<_>>();
+                let (only_left, only_right) = (lsignals.difference(&in_both), rsignals.difference(&in_both));
+
+                let sort_pair_bigint = |left: Option<&'a BigInt>, right: Option<&'a BigInt>| if left <= right {(left, right)} else {(right, left)};
+
+                for key in in_both.iter().copied() {
+                    new_fingerprint.entry(key).or_insert_with(|| Characteristic::default()).0 = sort_pair_bigint(self.0.get(&key), self.1.get(&key));}
+                for (key, bigint) in only_left.map(|sig| (sig, self.0.get(sig))).chain(only_right.map(|sig| (sig, self.1.get(sig)))) {
+                    new_fingerprint.entry(*key).or_insert_with(|| Characteristic::default()).1 = bigint;
+                }
+            }
+
+            let mut new_fingerprint: Vec<(FingerprintIndex<T>, Characteristic)> = 
+                new_fingerprint.into_iter().map(|(sig, characteristic): (usize, Characteristic)| (FingerprintIndex {fingerprint: _get_signal_fingerprint(&sig, signal_to_fingerprint), index: sig}, characteristic)).collect();
+            new_fingerprint.sort();
+            *fingerprint = Some(new_fingerprint);
         }
     }
 

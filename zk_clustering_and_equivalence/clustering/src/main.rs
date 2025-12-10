@@ -1,16 +1,9 @@
 /*
-Bare Bones Version
+Bare Bones Version -- DONE
 
-TODO:: Option Parsing
-TODO:: Equivalence
-TODO:: ...
-
-Step 1: Read R1CS -- DONE
-Step 2: Preprocess
-Step 3: Convert to Graph -- DONE
-Step 4: Run Clustering -- DONE
-Step 5: Convert to DAG -- DONE
-Step 6: Run Postprocessing
+TODO: Equivalence Implementation
+TODO: Implement Own Graph Version
+TODO: Better Error Handling (using Result and the like)
 
 */
 use ansi_term::Colour;
@@ -107,7 +100,7 @@ fn start(args: Args) -> Result<(), Box<dyn Error>> {
     let partition_timer = Instant::now();
 
     let resolution = match args.resolution { Some(r) => r, None => ((graph.num_edges() << 1) as f64)/(args.target_size.unwrap_or(f64::log2(graph.num_edges() as f64)).powi(2)) };
-    println!("res {:?}", resolution);
+    // println!("res {:?}", resolution);
     let partition: Vec<Vec<usize>> = graph.get_partition(resolution, 5, 25565);
     
     let partition_time = partition_timer.elapsed();

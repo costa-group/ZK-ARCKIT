@@ -3,15 +3,15 @@ use std::collections::HashMap;
 use std::hash::Hash;
 use std::cmp::Eq;
 
-pub struct Assignment<T: Hash + Eq, const N: usize> {
-    assignment: HashMap<[T; N], usize>,
-    inv_assignment: Option<Vec<[T; N]>>,
+pub struct Assignment<'a, T: Hash + Eq, const N: usize> {
+    assignment: HashMap<[&'a T; N], usize>,
+    inv_assignment: Option<Vec<[&'a T; N]>>,
     curr: usize,
     offset: usize,
     has_assigned: Vec<usize>
-}
+} 
 
-impl<T: Hash + Eq + Clone, const N: usize> Assignment<T, N> {
+impl<'a, T: Hash + Eq, const N: usize> Assignment<'a, T, N> {
 
     pub fn new(offset: usize) -> Self {
         Assignment { assignment: HashMap::new(), inv_assignment: Some(Vec::new()), curr: 0, offset: offset, has_assigned: Vec::new() }
@@ -29,13 +29,13 @@ impl<T: Hash + Eq + Clone, const N: usize> Assignment<T, N> {
         self.assignment.len()
     }
 
-    pub fn get_assignment(&mut self, input: [T; N]) -> usize {
+    pub fn get_assignment(&mut self, input: [&'a T; N]) -> usize {
 
 
         if !self.assignment.contains_key(&input) {
 
-            self.assignment.insert(input.clone(), self.curr + self.offset);
-            self.inv_assignment.as_mut().map(|inv_assignment| inv_assignment.push(input.clone()));
+            self.assignment.insert(input, self.curr + self.offset);
+            if let Some(inv_assignment) = &mut self.inv_assignment {inv_assignment.push(input.clone());}
             self.has_assigned.push(self.curr);
 
             self.curr += 1;
@@ -44,9 +44,9 @@ impl<T: Hash + Eq + Clone, const N: usize> Assignment<T, N> {
         *self.assignment.get(&input).unwrap() + 1
     }
     
-    pub fn get_inv_assignment(&self, inverse: usize) -> Option<[T; N]> {
-        self.inv_assignment.as_ref().map(|inv_assignment| inv_assignment[inverse - 1 - self.offset].clone() )
-        
+    pub fn get_inv_assignment(&self, inverse: usize) -> Option<[&'a T; N]> {
+        if let Some(inv_assignment) = &self.inv_assignment {Some(inv_assignment[inverse - 1 - self.offset])}
+        else {None}
     }
 
     pub fn number_assigned(&self) -> usize {

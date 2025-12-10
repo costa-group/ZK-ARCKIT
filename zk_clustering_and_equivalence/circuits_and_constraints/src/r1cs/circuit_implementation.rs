@@ -11,6 +11,7 @@ use super::{R1CSConstraint, R1CSData, SignalList, HeaderData, ConstraintList};
 use utils::assignment::{Assignment};
 use crate::circuit::Circuit;
 use crate::r1cs::r1cs_reader::read_r1cs;
+use crate::utils::FingerprintIndex;
 
 impl Circuit<R1CSConstraint> for R1CSData {
     
@@ -63,56 +64,66 @@ impl Circuit<R1CSConstraint> for R1CSData {
     }
     fn write_file(&self, file: &str) -> () {unimplemented!("This function is not implemented yet")}
     
-    type SignalFingerprint<T: Hash + Eq + Default + Copy + Ord + Debug> = Vec<(T, ((BigInt, BigInt), BigInt, BigInt))>;
+    type SignalFingerprint<'a, T: Hash + Eq + Default + Copy + Ord + Debug> = Vec<(FingerprintIndex<T>, ((Option<&'a BigInt>, Option<&'a BigInt>), Option<&'a BigInt>, Option<&'a BigInt>))>;
 
-    fn fingerprint_signal<T: Hash + Eq + Default + Copy + Ord + Debug>(
+    fn fingerprint_signal<'a, T: Hash + Eq + Default + Copy + Ord + Debug>(
         &self, 
-        signal: &usize, 
-        normalised_constraints: &Vec<R1CSConstraint>, 
+        signal: &usize,
+        fingerprint: &mut Option<Self::SignalFingerprint<'a, T>>, 
+        normalised_constraints: &'a Vec<R1CSConstraint>, 
         normalised_constraint_to_fingerprints: &HashMap<usize, T>, 
         _prev_signal_to_fingerprint: &HashMap<usize, T>, 
         signal_to_normi: &HashMap<usize, Vec<usize>>
-    ) -> Self::SignalFingerprint<T> {
-        
-        let mut fingerprint = Vec::new();
+    ) -> () where R1CSConstraint: 'a {
 
-        for normi in signal_to_normi.get(signal).unwrap().into_iter() {
-
-            let norm = &normalised_constraints[*normi];
-            let is_ordered: bool = !(norm.0.len() > 0 && norm.1.len() > 0 && sorted(norm.0.values()).eq(sorted(norm.1.values())));
-            // tuples don't play nice with iterables
-            let (a_val, b_val, c_val) = (norm.0.get(signal).cloned().unwrap_or_else(|| BigInt::default()), norm.1.get(signal).cloned().unwrap_or_else(|| BigInt::default()), norm.2.get(signal).cloned().unwrap_or_else(|| BigInt::default()));
-            let big_zero = &BigInt::default();
-
-            if is_ordered {
-                fingerprint.push(
-                    (*normalised_constraint_to_fingerprints.get(normi).unwrap(), ((a_val, BigInt::default()), b_val, c_val))
-                );
-            } else {
-                let sort_pair_bigint = |left: BigInt, right: BigInt| if left <= right {(left, right)} else {(right, left)};
-                let first_term: (BigInt, BigInt);
-                let second_term: BigInt;
-
-                if !a_val.eq(big_zero) && !b_val.eq(big_zero) {
-                    first_term = sort_pair_bigint(a_val, b_val);
-                    second_term = BigInt::default();
-                } else {
-                    first_term = (BigInt::default(), BigInt::default());
-                    if !a_val.eq(big_zero) {
-                        second_term = a_val;
-                    } else {
-                        second_term = b_val;
-                    }  
-                } 
-
-                fingerprint.push(
-                    (*normalised_constraint_to_fingerprints.get(normi).unwrap(), (first_term,second_term,c_val))
-                );
+        if let Some(existing_fingerprint) = fingerprint.as_mut() {
+            for item in existing_fingerprint.into_iter() {
+                item.0.fingerprint = *normalised_constraint_to_fingerprints.get(&item.0.index).unwrap();
             }
-        }
+            existing_fingerprint.sort();
+        } else {
 
-        fingerprint.sort();
-        fingerprint
+            
+            let mut new_fingerprint = Vec::new();
+
+            for normi in signal_to_normi.get(signal).unwrap().into_iter().copied() {
+
+                let fi_index = FingerprintIndex { fingerprint: *normalised_constraint_to_fingerprints.get(&normi).unwrap(), index: normi };
+                let norm = &normalised_constraints[normi];
+                let is_ordered: bool = !(norm.0.len() > 0 && norm.1.len() > 0 && sorted(norm.0.values()).eq(sorted(norm.1.values())));
+                // tuples don't play nice with iterables
+                let (a_val, b_val, c_val): (Option<&'a BigInt>, Option<&'a BigInt>, Option<&'a BigInt>) = (norm.0.get(signal), norm.1.get(signal), norm.2.get(signal));
+
+                if is_ordered {
+                    new_fingerprint.push(
+                        (fi_index, ((a_val, None), b_val, c_val))
+                    );
+                } else {
+                    let sort_pair_bigint = |left: Option<&'a BigInt>, right: Option<&'a BigInt>| if left <= right {(left, right)} else {(right, left)};
+                    let first_term: (Option<&'a BigInt>, Option<&'a BigInt>);
+                    let second_term: Option<&'a BigInt>;
+
+                    if a_val.is_some() && b_val.is_some() {
+                        first_term = sort_pair_bigint(a_val, b_val);
+                        second_term = None;
+                    } else {
+                        first_term = (None, None);
+                        if a_val.is_some() {
+                            second_term = a_val;
+                        } else {
+                            second_term = b_val;
+                        }  
+                    } 
+
+                    new_fingerprint.push(
+                        (fi_index, (first_term,second_term,c_val))
+                    );
+                }
+            }
+
+            new_fingerprint.sort();
+            *fingerprint = Some(new_fingerprint);
+        }
     }
     
     fn take_subcircuit(

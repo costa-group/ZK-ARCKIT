@@ -1,5 +1,8 @@
 use std::collections::HashMap;
 use either::Either;
+use std::fmt::Debug;
+use std::cmp::{Eq, PartialEq, Ord, PartialOrd, Ordering};
+use std::hash::{Hash, Hasher};
 
 use crate::constraint::Constraint;
 use crate::circuit::Circuit;
@@ -67,4 +70,39 @@ pub fn circuit_shuffle<C: Constraint, S: Circuit<C>>(
     }
 
     (circ, circ_shuffled)
+}
+
+/*
+FingerprintIndex struct that stores the hash value for the index and uses it to compare, but otherwise 
+*/
+#[derive(Default, Copy, Debug, Clone)]
+pub struct FingerprintIndex<H: Hash + Eq + Ord + Default + Copy + Debug> {
+    pub fingerprint: H,
+    pub index: usize
+}
+
+impl<H: Hash + Eq + Ord + Default + Copy + Debug> Hash for FingerprintIndex<H> {
+    fn hash<T: Hasher>(&self, state: &mut T) {
+        self.fingerprint.hash(state);
+    }
+}
+
+impl<H: Hash + Eq + Ord + Default + Copy + Debug> PartialEq for FingerprintIndex<H> {
+    fn eq(&self, other: &Self) -> bool {
+        self.fingerprint == other.fingerprint
+    }
+}
+
+impl<H: Hash + Eq + Ord + Default + Copy + Debug> Eq for FingerprintIndex<H> {}
+
+impl<H: Hash + Eq + Ord + Default + Copy + Debug> PartialOrd for FingerprintIndex<H> {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.fingerprint.cmp(&other.fingerprint))
+    }
+}
+
+impl<H: Hash + Eq + Ord + Default + Copy + Debug> Ord for FingerprintIndex<H> {
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.fingerprint.cmp(&other.fingerprint)
+    }
 }

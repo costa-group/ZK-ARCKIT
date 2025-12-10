@@ -3,7 +3,7 @@ use itertools::Itertools;
 use std::borrow::Cow;
 
 use crate::num_bigint::BigInt;
-use crate::modular_arithmetic::{add, div, mul, ArithmeticError};
+use crate::modular_arithmetic::{add, div, ArithmeticError};
 
 fn non_zero_sum_normalise<'a>(lineq: impl Iterator<Item = &'a BigInt>, prime: &'a BigInt) -> Result<BigInt, ArithmeticError> {
     
