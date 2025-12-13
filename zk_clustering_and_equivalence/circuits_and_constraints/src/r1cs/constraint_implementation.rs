@@ -83,14 +83,12 @@ impl Constraint for R1CSConstraint {
             existing_fingerprint.sort();
         } else {
 
-            let is_ordered = !(self.0.len() > 0 && self.1.len() > 0 && self.0.values().sorted().eq(self.1.values().sorted()));
-
             type Characteristic<'a> = ((Option<&'a BigInt>, Option<&'a BigInt>), Option<&'a BigInt>, Option<&'a BigInt>);
             let mut new_fingerprint: HashMap<usize, Characteristic> = HashMap::new();
 
             for key in self.2.keys() {new_fingerprint.entry(*key).or_insert_with(|| Characteristic::default()).2 = self.2.get(key);}
 
-            if is_ordered {
+            if self.is_ordered() {
                 for key in self.0.keys() {new_fingerprint.entry(*key).or_insert_with(|| Characteristic::default()).0.0 = self.0.get(key);}
                 for key in self.1.keys() {new_fingerprint.entry(*key).or_insert_with(|| Characteristic::default()).1 = self.1.get(key);}
             } else {
@@ -144,5 +142,7 @@ impl Constraint for R1CSConstraint {
             swap(&mut self.0, &mut self.1);
         }
     }
+
+    fn is_ordered(&self) -> bool {!(self.0.len() > 0 && self.1.len() > 0 && self.0.values().sorted().eq(self.1.values().sorted()))}
 
 }

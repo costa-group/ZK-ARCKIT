@@ -2,6 +2,11 @@ use std::collections::HashMap;
 
 use std::hash::Hash;
 use std::cmp::Eq;
+use std::array::from_fn;
+
+pub enum AssignmentError {
+    InverseEnabledAfterAssignment
+}
 
 pub struct Assignment<'a, T: Hash + Eq, const N: usize> {
     assignment: HashMap<[&'a T; N], usize>,
@@ -14,42 +19,48 @@ pub struct Assignment<'a, T: Hash + Eq, const N: usize> {
 impl<'a, T: Hash + Eq, const N: usize> Assignment<'a, T, N> {
 
     pub fn new(offset: usize) -> Self {
-        Assignment { assignment: HashMap::new(), inv_assignment: Some(Vec::new()), curr: 0, offset: offset, has_assigned: Vec::new() }
+        Assignment { assignment: HashMap::new(), inv_assignment: None, curr: 0, offset: offset, has_assigned: Vec::new() }
     }
 
     pub fn get_offset(&self) -> usize {
         self.offset
     }
 
-    pub fn drop_inverse(&mut self) -> () {
-        self.inv_assignment = None;
+    pub fn enable_inverse(&mut self) -> Result<(), AssignmentError> {
+        if self.curr != 0 {
+            Err(AssignmentError::InverseEnabledAfterAssignment)
+        } else {
+            self.inv_assignment = Some(Vec::new());
+            Ok(())
+        }
     }
 
     pub fn len(&self) -> usize {
-        self.assignment.len()
+        self.curr
+    }
+
+    fn get_assignment_with_curr(&mut self, input: [&'a T; N], curr: usize) -> (usize, bool) {
+
+        let new_insert = !self.assignment.contains_key(&input);
+        if new_insert {
+            self.assignment.insert(input, curr + self.offset);
+            if let Some(inv_assignment) = &mut self.inv_assignment {inv_assignment.push(input.clone());}
+            self.has_assigned.push(curr);
+        }
+
+        (self.assignment[&input], new_insert)
     }
 
     pub fn get_assignment(&mut self, input: [&'a T; N]) -> usize {
 
+        let (assignment, new_insert) = self.get_assignment_with_curr(input, self.curr);
 
-        if !self.assignment.contains_key(&input) {
-
-            self.assignment.insert(input, self.curr + self.offset);
-            if let Some(inv_assignment) = &mut self.inv_assignment {inv_assignment.push(input.clone());}
-            self.has_assigned.push(self.curr);
-
-            self.curr += 1;
-        }
-
-        *self.assignment.get(&input).unwrap() + 1
+        if new_insert {self.curr += 1;}
+        assignment
     }
     
     pub fn get_inv_assignment(&self, inverse: usize) -> Option<[&'a T; N]> {
-        if let Some(inv_assignment) = &self.inv_assignment {Some(inv_assignment[inverse - 1 - self.offset])}
+        if let Some(inv_assignment) = &self.inv_assignment {Some(inv_assignment[inverse - self.offset])}
         else {None}
-    }
-
-    pub fn number_assigned(&self) -> usize {
-        self.assignment.len()
     }
 }

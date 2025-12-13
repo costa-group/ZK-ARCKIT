@@ -1,4 +1,7 @@
 use num_bigint::{BigInt};
+use rustsat::instances::ObjectVarManager;
+use rustsat::types::Clause;
+
 use std::collections::{HashMap, HashSet};
 use std::hash::{Hash};
 use std::cmp::{Eq};
@@ -6,7 +9,6 @@ use rand::Rng;
 use std::fmt::Debug;
 
 use crate::constraint::{Constraint};
-use utils::assignment::Assignment;
 
 pub trait Circuit<C: Constraint> {
 
@@ -58,14 +60,13 @@ pub trait Circuit<C: Constraint> {
     fn singular_class_requires_additional_constraints() -> bool;
 
     fn encode_single_norm_pair(
-        &self, // TODO: figure out if necessary
-        norms: &Vec<C>,
+        norms: &[&C; 2],
         is_ordered: bool,
-        signal_pair_encoder: &Assignment<usize, 2>,
-        signal_to_fingerprint: (HashMap<usize, usize>, HashMap<usize, usize>),
-        fingerprint_to_signals: (HashMap<usize, Vec<usize>>, HashMap<usize, Vec<usize>>),
-        is_singular_class: Option<bool>
-    ) -> impl Hash + Eq;
+        signal_pair_encoder: &mut ObjectVarManager,
+        fingerprint_to_signals: &[HashMap<usize, Vec<usize>>; 2],
+        signal_to_fingerprint: &[HashMap<usize, usize>; 2],
+        is_singular_class: bool
+    ) -> Vec<Clause>;
 
     // fn normalise_constraints(&self) -> None:
 

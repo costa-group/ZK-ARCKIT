@@ -3,6 +3,10 @@ use std::array::from_fn;
 use std::collections::{HashMap};
 use std::time::{Instant};
 
+use rustsat::instances::SatInstance;
+use rustsat::solvers::Solve;
+
+
 use circuits_and_constraints::r1cs::{R1CSData};
 use circuits_and_constraints::circuit::{Circuit};
 use circuits_and_constraints::utils::{circuit_shuffle, signals_to_constraints_with_them};
@@ -10,7 +14,9 @@ use utils::small_utilities::count_ints;
 
 mod argument_parsing;
 mod fingerprinting;
+mod encoding;
 
+use encoding::encode_comparison;
 use fingerprinting::{iterated_refinement, sanity_check_fingerprints};
 use argument_parsing::Args;
 
@@ -23,6 +29,8 @@ fn main() {
         let (r1cs, r1cs_shuffled): (R1CSData, R1CSData) = circuit_shuffle(&args.file1path, 25565, true, true, true, !args.dont_shuffle_internals);
         println!("shuffled, {:?}", parsing_shuffling_timer.elapsed());
         // dummy test expand later
+
+        // ## PREPROCESSING ## //
 
         let fingerprints_preprocessing_timer = Instant::now();
         let circuits = [&r1cs, &r1cs_shuffled];
@@ -45,6 +53,7 @@ fn main() {
         let signals_to_normi: [_; 2] = from_fn(|idx| signals_to_constraints_with_them(&normalised_constraints[idx], None, None));
         println!("preprocessed, {:?}", fingerprints_preprocessing_timer.elapsed());
 
+        // ## FINGERPRINTING ## //
         let fingerprinting_timer = Instant::now();
         let (fingerprints_to_normi, fingerprints_to_signals, norm_fingerprints, sig_fingerprints) = iterated_refinement(
             &circuits, &normalised_constraints, &signals_to_normi, init_fingerprints_to_normi, init_fingerprints_to_signals, true, None, false, args.debug
@@ -59,6 +68,25 @@ fn main() {
         let num_per_count = from_fn::<Vec<(usize, usize)>, 2, _>(|idx| count_ints(fingerprints_to_normi[idx].values().map(|val| val.len()).collect::<Vec<_>>()));
         println!("\n{:?}", num_per_count[0]);
         println!("\n{:?}", num_per_count[1]);
+
+        // ## ENCODING ## //
+        let encoding_timer = Instant::now();
+
+        let _formula = encode_comparison::<_, R1CSData>(&normalised_constraints, &fingerprints_to_normi, &fingerprints_to_signals, &sig_fingerprints);
+
+        if let Err(err) = _formula {
+            println!("{:?}", err)
+        } else {
+            let formula = _formula.ok().unwrap();
+
+            let mut solver = rustsat_glucose::core::Glucose::default();
+            solver.add_cnf(formula.into_cnf().0);
+
+            println!("encoded, {:?}", encoding_timer.elapsed());
+
+            let res = solver.solve().unwrap();
+            println!("{:?}", res);
+        }
     } else {
         println!("{} {:?}", args.file1path, args.file2path);
     }

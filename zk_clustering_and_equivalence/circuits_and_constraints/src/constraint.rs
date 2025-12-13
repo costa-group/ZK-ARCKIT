@@ -16,4 +16,5 @@ pub trait Constraint {
     fn get_coefficients(&self) -> impl Hash + Eq;
     fn add_random_constant_factor(&mut self, rng: &mut impl Rng, field: &BigInt) -> ();
     fn shuffle_constraint_internals(&mut self, rng: &mut impl Rng) -> ();
+    fn is_ordered(&self) -> bool;
 }

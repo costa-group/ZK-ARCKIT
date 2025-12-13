@@ -34,7 +34,6 @@ pub fn iterated_refinement<'a, C: Constraint, S: Circuit<C>, const N: usize>(
             let mut index_to_label: [HashMap<usize, usize>;N] = from_fn(|_| HashMap::new());
 
             let mut final_assignment = Assignment::<(usize, usize), 1>::new(0);
-            final_assignment.drop_inverse();
             
             for (idx, hm) in index_to_label_and_roundnum.iter().enumerate() {
                 for index in hm.keys() {
@@ -101,7 +100,7 @@ pub fn iterated_refinement<'a, C: Constraint, S: Circuit<C>, const N: usize>(
                 println!("other_num_singular {:?}", other_num_singular[&(round_num - 1)]);
             }
             let mut assignment = Assignment::<H, 1>::new(num_singular_labels[&(round_num - 2)]);
-            if !debug {assignment.drop_inverse();}
+            if debug {let _ = assignment.enable_inverse();}
 
             // Fingerprint everything that needs to be update
             for (idx, (to_update, raw_fingerprints_idx) ) in indices_to_update.into_iter().zip(raw_fingerprints.into_iter()).enumerate() {
@@ -265,7 +264,6 @@ fn fingerprint_switch<const N: usize>(
     let mut nonsingular_fingerprints: [Vec<(usize, usize)>; N] = from_fn(|_| Vec::new());
 
     let mut singular_renaming = Assignment::<(usize, usize), 1>::new(*num_singular_fingerprints.get(&(round_num-2)).unwrap());
-    singular_renaming.drop_inverse();
 
     for idx in 0..N {
         for label in fingerprints_to_index[idx].keys() {
