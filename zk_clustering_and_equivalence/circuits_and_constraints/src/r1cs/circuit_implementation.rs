@@ -72,7 +72,6 @@ impl Circuit<R1CSConstraint> for R1CSData {
         self.custom_gates_applied_data = parsed_circuit.custom_gates_applied_data;
 
     }
-    fn write_file(&self, file: &str) -> () {unimplemented!("This function is not implemented yet")}
     
     type SignalFingerprint<'a, T: Hash + Eq + Default + Copy + Ord + Debug> = Vec<(FingerprintIndex<T>, ((Option<&'a BigInt>, Option<&'a BigInt>), Option<&'a BigInt>, Option<&'a BigInt>))>;
 
@@ -143,8 +142,64 @@ impl Circuit<R1CSConstraint> for R1CSData {
         signal_map: Option<&HashMap<usize,usize>>, 
         return_signal_mapping: Option<bool>
     ) -> R1CSData {
-        unimplemented!("This function is not implemented yet");
-        R1CSData::new()
+        // Assumes correct inputs
+
+        // more annoying type-checking stuff
+        let signal_mapping_: HashMap<usize, usize>;
+        let signal_mapping: &HashMap<usize, usize>;
+
+        let n_inputs: usize;
+        let n_outputs: usize;
+
+        // Construct the mapping
+        if signal_map.is_none() {
+            // construct from input/output_signals
+
+            let (inputs, outputs) = (input_signals.unwrap(), output_signals.unwrap());
+
+            if inputs.intersection(outputs).count() > 0 {panic!("Gave overlapping input/output to take_subcircuit");}
+
+            signal_mapping_ = outputs.iter().copied().chain(inputs.iter().copied()).chain(
+                constraint_subset.into_iter().flat_map(|cons| self.constraints[*cons].signals().into_iter()).collect::<HashSet<_>>().difference(&outputs.iter().chain(inputs.iter()).copied().collect::<HashSet<_>>()).copied()
+            ).enumerate().map(|(idx, val)| (val, idx+1)).collect();
+
+            n_inputs = inputs.len();
+            n_outputs = outputs.len();
+
+            signal_mapping = &signal_mapping_;
+        } else {
+
+            signal_mapping_ = HashMap::new();
+            signal_mapping = signal_map.unwrap();
+
+            n_inputs = self.get_input_signals().filter(|sig| signal_mapping.get(sig).is_some()).count();
+            n_outputs = self.get_output_signals().filter(|sig| signal_mapping.get(sig).is_some()).count();
+
+        }
+
+        let new_constraintlist = constraint_subset.into_iter().copied().map(|normi| &self.constraints[normi]).map(|con|
+            (con.0.iter().map(|(key, val)| (if key == &0 {0} else {signal_mapping[key]}, val.clone())).collect::<HashMap<usize, BigInt>>(),
+            con.1.iter().map(|(key, val)| (if key == &0 {0} else {signal_mapping[key]}, val.clone())).collect::<HashMap<usize, BigInt>>(),
+            con.2.iter().map(|(key, val)| (if key == &0 {0} else {signal_mapping[key]}, val.clone())).collect::<HashMap<usize, BigInt>>())
+        ).collect::<Vec<R1CSConstraint>>();
+
+        R1CSData {
+            header_data: HeaderData {
+                field: self.prime().clone(),
+                field_size: self.header_data.field_size,
+                total_wires: signal_mapping.len()+1,
+                public_outputs: n_outputs,
+                public_inputs: n_inputs,
+                private_inputs: 0,
+                number_of_labels: 0,
+                number_of_constraints: new_constraintlist.len(),
+            },
+            custom_gates: false,
+            constraints: new_constraintlist,
+            signals: SignalList::new(), // never used so save memory
+            custom_gates_used_data: None,
+            custom_gates_applied_data: None,
+        }
     }
     
     fn singular_class_requires_additional_constraints() -> bool {false}

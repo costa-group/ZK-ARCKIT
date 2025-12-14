@@ -36,7 +36,6 @@ pub trait Circuit<C: Constraint> {
     fn get_input_signals(&self) -> impl Iterator<Item = usize>;
     fn get_output_signals(&self) -> impl Iterator<Item = usize>;
     fn parse_file(&mut self, file: &str) -> ();
-    fn write_file(&self, file: &str) -> ();
     
     fn fingerprint_signal<'a, T: Hash + Eq + Default + Copy + Ord + Debug>(
         &self, 
