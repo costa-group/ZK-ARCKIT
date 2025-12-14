@@ -8,6 +8,7 @@ single-clustering = "0.6.0"
 graphrs = "0.11.16"
 combinatorial = "0.2.1"
 circuits_and_constraints = {path = "../circuits_and_constraints"}
+equivalence = {path = "../equivalence"}
 utils = {path = "../utils"}
 serde = { version = "1.0.104", features = ["derive"] }
 serde_json = "1.0.48"

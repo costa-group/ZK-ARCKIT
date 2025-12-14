@@ -7,6 +7,7 @@ use circuits_and_constraints::circuit::Circuit;
 
 pub mod dag_from_partition;
 pub mod dag_postprocessing;
+pub mod equivalence_classes;
 
 pub struct DAGNode<'a, C: Constraint + 'a, S: Circuit<C> + 'a> {
     circ : &'a S,
@@ -70,10 +71,15 @@ impl<'a, C: Constraint + 'a, S: Circuit<C> + 'a> DAGNode<'a, C, S> {
         self.output_signals.extend(to_add)
     }
 
-    pub fn get_subcircuit(&mut self) -> &S {
+    pub fn get_or_make_subcircuit(&mut self) -> &S {
         if self.subcircuit.is_none() {
             self.subcircuit = Some(self.circ.take_subcircuit(&self.constraints, Some(&self.input_signals), Some(&self.output_signals), None, None))
         }
+        self.subcircuit.as_ref().unwrap()
+    }
+
+    pub fn get_subcircuit(&self) -> &S {
+        if self.subcircuit.is_none() {panic!("Tried to get subcircuit without instancing it first");}
         self.subcircuit.as_ref().unwrap()
     }
 
