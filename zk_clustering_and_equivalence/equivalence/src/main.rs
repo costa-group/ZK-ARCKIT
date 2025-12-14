@@ -7,7 +7,7 @@ use circuits_and_constraints::utils::{circuit_shuffle};
 
 mod argument_parsing;
 mod encoding;
-mod fingerprinting;
+pub mod fingerprinting;
 pub mod compare_circuits;
 
 use argument_parsing::Args;

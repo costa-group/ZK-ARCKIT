@@ -11,10 +11,10 @@ use utils::assignment::Assignment;
 
 pub fn iterated_refinement<'a, C: Constraint, S: Circuit<C>, H: Hash + Eq, const N: usize>(
         circuits: &[&'a S; N],
-        norms_being_fingerprinted: &'a [Vec<C>; N],
-        signal_to_normi: &[HashMap<usize, Vec<usize>>; N],
-        init_fingerprints_to_normi: &[HashMap<H, Vec<usize>>; N],
-        init_fingerprints_to_signals: &[HashMap<H, Vec<usize>>; N],
+        norms_being_fingerprinted: &'a [&'a Vec<C>; N],
+        signal_to_normi: &[&HashMap<usize, Vec<usize>>; N],
+        init_fingerprints_to_normi: &[&HashMap<H, Vec<usize>>; N],
+        init_fingerprints_to_signals: &[&HashMap<H, Vec<usize>>; N],
         start_with_constraints: bool,
         per_iteration_postprocessing: Option<fn(&mut [HashMap<usize, (usize, usize)>; N], &mut [HashMap<(usize, usize), Vec<usize>>;N], &mut [HashMap<usize, (usize, usize)>; N], &mut [HashMap<(usize, usize), Vec<usize>>; N], &mut [HashMap<(usize, usize), usize>; N] ) -> ()>,
         strict_unique: bool,
@@ -81,8 +81,8 @@ pub fn iterated_refinement<'a, C: Constraint, S: Circuit<C>, H: Hash + Eq, const
         let mut round_num = 3;
 
         fn loop_iteration<'a, C: Constraint, S: Circuit<C>, const N: usize, H: 'a + Hash + Eq + Clone + Debug>(
-            circuits: &[&'a S; N], norms_being_fingerprinted: &'a [Vec<C>; N], round_num: usize, strict_unique: bool,
-            indices_to_update: [HashSet<usize>; N], signal_to_normi: &[HashMap<usize, Vec<usize>>; N],
+            circuits: &[&'a S; N], norms_being_fingerprinted: &'a [&'a Vec<C>; N], round_num: usize, strict_unique: bool,
+            indices_to_update: [HashSet<usize>; N], signal_to_normi: &[&HashMap<usize, Vec<usize>>; N],
             per_iteration_postprocessing: Option<fn(&mut [HashMap<usize, (usize, usize)>; N], &mut [HashMap<(usize, usize), Vec<usize>>;N], &mut [HashMap<usize, (usize, usize)>; N], &mut [HashMap<(usize, usize), Vec<usize>>; N], &mut [HashMap<(usize, usize), usize>; N] ) -> ()>,
             get_fingerprint: impl Fn(usize, &S, &mut Option<H>, &'a Vec<C>, &HashMap<usize, (usize, usize)>, &HashMap<usize, (usize, usize)>, &HashMap<usize, Vec<usize>>),
             last_loop: bool, get_to_update: impl Fn(usize, usize) -> Vec<usize>,
@@ -113,7 +113,7 @@ pub fn iterated_refinement<'a, C: Constraint, S: Circuit<C>, H: Hash + Eq, const
                     let raw_fingerprint: &mut Option<H> = &mut head[index - offset];
                     offset = index + 1;
 
-                    get_fingerprint(index, circuits[idx], raw_fingerprint , &norms_being_fingerprinted[idx], &other_index_to_label[idx], &prev_index_to_label[idx], &signal_to_normi[idx]);
+                    get_fingerprint(index, circuits[idx], raw_fingerprint , norms_being_fingerprinted[idx], &other_index_to_label[idx], &prev_index_to_label[idx], signal_to_normi[idx]);
 
                     let new_hash: usize = assignment.get_assignment([raw_fingerprint.as_ref().unwrap()]);
                     index_to_label[idx].insert(index, (round_num, new_hash));
@@ -208,7 +208,7 @@ pub fn iterated_refinement<'a, C: Constraint, S: Circuit<C>, H: Hash + Eq, const
     }
 } 
 
-fn iterated_refinement_preprocessing<const N: usize, H: Hash + Eq>(label_to_indices: &[HashMap<H, Vec<usize>>; N], index_to_label: &mut [HashMap<usize, (usize, usize)>; N], init_round: usize, strict_unique: bool)
+fn iterated_refinement_preprocessing<const N: usize, H: Hash + Eq>(label_to_indices: &[&HashMap<H, Vec<usize>>; N], index_to_label: &mut [HashMap<usize, (usize, usize)>; N], init_round: usize, strict_unique: bool)
  -> (usize, [HashSet<usize>; N]) {
 
     let mut nonsingular_keys: [Vec<&H>; N] = from_fn(|_| Vec::new());
@@ -240,11 +240,11 @@ fn iterated_refinement_preprocessing<const N: usize, H: Hash + Eq>(label_to_indi
     (num_singular, to_update)
  }
 
-fn key_is_unique<H: Hash + Eq, const N: usize>(label: &H, index: usize, label_to_indices: &[HashMap<H, Vec<usize>>; N], strict: bool) -> bool {
+fn key_is_unique<H: Hash + Eq, const N: usize>(label: &H, index: usize, labels_to_indices: &[&HashMap<H, Vec<usize>>; N], strict: bool) -> bool {
     if strict {
-        (0..N).into_iter().all(|idx| label_to_indices[idx].get(label).unwrap_or(&Vec::new()).len() == 1)
+        (0..N).into_iter().all(|idx| labels_to_indices[idx].get(label).unwrap_or(&Vec::new()).len() == 1)
     } else {
-        label_to_indices[index].get(label).is_some_and(|vec| vec.len() == 1)
+        labels_to_indices[index].get(label).is_some_and(|vec| vec.len() == 1)
     }
 }
 
@@ -267,9 +267,11 @@ fn fingerprint_switch<const N: usize>(
 
     let mut singular_renaming = Assignment::<(usize, usize), 1>::new(*num_singular_fingerprints.get(&(round_num-2)).unwrap());
 
+    let fingerprints_to_index_refs: [&_; N] = from_fn(|idx| &fingerprints_to_index[idx]);
+
     for idx in 0..N {
         for label in fingerprints_to_index[idx].keys() {
-            if key_is_unique(label, idx, fingerprints_to_index, strict) {
+            if key_is_unique(label, idx, &fingerprints_to_index_refs, strict) {
 
                 let index = fingerprints_to_index[idx].get(label).unwrap()[0];
                 fingerprints[idx].insert(index, (round_num, singular_renaming.get_assignment([label])));

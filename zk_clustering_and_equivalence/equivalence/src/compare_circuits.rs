@@ -47,21 +47,21 @@ pub enum NonequivalentReason {
 
 #[derive(Debug, Default)]
 pub struct ComparisonData {
-    result: bool,
-    reason: Option<NonequivalentReason>,
-    timing: HashMap<&'static str, Duration>,
-    norm_mapping: Option<Vec<usize>>,
-    sig_mapping: Option<Vec<usize>>
+    pub result: bool,
+    pub reason: Option<NonequivalentReason>,
+    pub timing: HashMap<&'static str, Duration>,
+    pub norm_mapping: Option<Vec<usize>>,
+    pub sig_mapping: Option<Vec<usize>>
 }
 
 pub fn compare_circuits<C: Constraint, S: Circuit<C>>(circuits: &[&S; 2], debug: bool) -> ComparisonData {compare_circuits_with_inits(circuits, None, None, None, None, debug)}
 
 pub fn compare_circuits_with_inits<C: Constraint, S: Circuit<C>>(
     circuits: &[&S; 2],
-    input_normalised_constraints: Option<&[Vec<C>; 2]>,
-    input_signals_to_normi: Option<&[HashMap<usize, Vec<usize>>; 2]>,
-    input_fingerprint_to_normi: Option<&[HashMap<usize, Vec<usize>>; 2]>,
-    input_fingerprint_to_signal: Option<&[HashMap<usize, Vec<usize>>; 2]>,
+    input_normalised_constraints: Option<&[&Vec<C>; 2]>,
+    input_signals_to_normi: Option<&[&HashMap<usize, Vec<usize>>; 2]>,
+    input_fingerprint_to_normi: Option<&[&HashMap<usize, Vec<usize>>; 2]>,
+    input_fingerprint_to_signal: Option<&[&HashMap<usize, Vec<usize>>; 2]>,
     debug: bool
 ) -> ComparisonData {
 
@@ -75,10 +75,12 @@ pub fn compare_circuits_with_inits<C: Constraint, S: Circuit<C>>(
 
     // Bit ugly but only want to actually do the calculation in the case that the input is None
     let _normalised_constraints: [Vec<C>; 2] = from_fn(|idx| if input_normalised_constraints.is_none() {circuits[idx].normalise_constraints()} else {Vec::new()});
-    let normalised_constraints: &[Vec<C>; 2] = input_normalised_constraints.unwrap_or(&_normalised_constraints);
+    let _normalised_constraints_refs: [&Vec<C>; 2] = from_fn(|idx| &_normalised_constraints[idx]);
+    let normalised_constraints: &[&Vec<C>; 2] = input_normalised_constraints.unwrap_or(&_normalised_constraints_refs);
 
     let _signals_to_normi: [HashMap<usize, Vec<usize>>; 2] = from_fn(|idx| if input_signals_to_normi.is_none() {signals_to_constraints_with_them(&normalised_constraints[idx], None, None)} else {HashMap::new()} );
-    let signals_to_normi = input_signals_to_normi.unwrap_or(&_signals_to_normi);
+    let _signals_to_normi_refs = from_fn(|idx| &_signals_to_normi[idx]);
+    let signals_to_normi = input_signals_to_normi.unwrap_or(&_signals_to_normi_refs);
 
     for (lval, rval, reason) in [
         (circuits[0].n_wires(), circuits[1].n_wires(), AssumptionError::DifferentNumSignals(circuits[0].n_wires(), circuits[1].n_wires())), 
@@ -88,7 +90,8 @@ pub fn compare_circuits_with_inits<C: Constraint, S: Circuit<C>>(
     }
 
     let _init_fingerprint_to_normi: [HashMap<usize, Vec<usize>>; 2] = from_fn(|idx| if input_fingerprint_to_normi.is_none() {[(1, (0..normalised_constraints[idx].len()).into_iter().collect())].into_iter().collect()} else {HashMap::new()});
-    let init_fingerprints_to_normi = input_fingerprint_to_normi.unwrap_or(&_init_fingerprint_to_normi);
+    let _init_fingerprint_to_normi_refs = from_fn(|idx| &_init_fingerprint_to_normi[idx]);
+    let init_fingerprints_to_normi = input_fingerprint_to_normi.unwrap_or(&_init_fingerprint_to_normi_refs);
 
     let _init_fingerprint_to_signals: [HashMap<usize, Vec<usize>>; 2] = from_fn(|idx|
         if input_fingerprint_to_signal.is_none() {
@@ -100,7 +103,8 @@ pub fn compare_circuits_with_inits<C: Constraint, S: Circuit<C>>(
             HashMap::new()
         }
     );
-    let init_fingerprints_to_signals = input_fingerprint_to_signal.unwrap_or(&_init_fingerprint_to_signals);
+    let _init_fingerprint_to_signals_refs = from_fn(|idx| &_init_fingerprint_to_signals[idx]);
+    let init_fingerprints_to_signals = input_fingerprint_to_signal.unwrap_or(&_init_fingerprint_to_signals_refs);
 
     insert_and_print_timing(debug, &mut timing, "preprocessing", preprocessing_timer.elapsed());
 
@@ -121,7 +125,7 @@ pub fn compare_circuits_with_inits<C: Constraint, S: Circuit<C>>(
     // ########### ENCODING #############
     let encoding_timer = Instant::now();
 
-    let _formula = encode_comparison::<_, S>(&normalised_constraints, &fingerprints_to_normi, &fingerprints_to_sig, &sig_fingerprints);
+    let _formula = encode_comparison::<_, S>(normalised_constraints, &fingerprints_to_normi, &fingerprints_to_sig, &sig_fingerprints);
 
     if let Err(reason) = _formula {return get_with_error(NonequivalentReason::Enc(reason), timing);}
 

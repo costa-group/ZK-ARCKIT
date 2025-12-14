@@ -17,7 +17,7 @@ pub enum EncodingError {
 }
 
 pub fn encode_comparison<C: Constraint, S: Circuit<C>>(
-    normalised_constraints: &[Vec<C>; 2],
+    normalised_constraints: &[&Vec<C>; 2],
     fingerprint_to_normi: &[HashMap<usize, Vec<usize>>; 2],
     fingerprint_to_signals: &[HashMap<usize, Vec<usize>>; 2],
     signal_to_fingerprint: &[HashMap<usize, usize>; 2]
@@ -92,7 +92,7 @@ pub fn encode_comparison<C: Constraint, S: Circuit<C>>(
 
 fn encode_single_norm_class<C: Constraint, S: Circuit<C>>(
     class: [&Vec<usize>; 2],
-    normalised_constraints: &[Vec<C>; 2],
+    normalised_constraints: &[&Vec<C>; 2],
     fingerprint_to_signals: &[HashMap<usize, Vec<usize>>; 2],
     signal_to_fingerprint: &[HashMap<usize, usize>; 2],
     formula: &mut SatInstance<ObjectVarManager>
