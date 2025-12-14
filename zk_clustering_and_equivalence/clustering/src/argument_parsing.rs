@@ -42,5 +42,8 @@ pub struct Args {
     pub graph_backend: GraphBackend,
 
     #[arg(short, long="equivalence", value_enum, default_value_t=EquivalenceMode::Structural)]
-    pub equivalence_mode: EquivalenceMode
+    pub equivalence_mode: EquivalenceMode,
+
+    #[arg(long)]
+    pub debug: bool
 }

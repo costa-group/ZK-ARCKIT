@@ -23,7 +23,7 @@ pub struct DAGNode<'a, C: Constraint + 'a, S: Circuit<C> + 'a> {
     _phantom: PhantomData<C>
 }
 
-#[derive(Serialize)]
+#[derive(Debug, Serialize)]
 pub struct NodeInfo{
     node_id: usize,
     constraints: Vec<usize>, //ids of the constraints
