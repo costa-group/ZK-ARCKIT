@@ -5,6 +5,7 @@ use circuits_and_constraints::circuit::Circuit;
 use equivalence::compare_circuits::compare_circuits_with_inits;
 
 use crate::directed_acyclic_graph::{DAGNode};
+use crate::directed_acyclic_graph::iterated_label_propagation::iterated_label_propagation;
 
 // TODO: if required implement the mapping handler -- this requires refactoring compare_circuits
 
@@ -63,7 +64,17 @@ fn naive_equivalency_analysis<'a, C: Constraint + 'a, S: Circuit<C> + 'a>(
     classes
 }
 
+fn class_iterated_label_passing<'a, C: Constraint + 'a, S: Circuit<C> + 'a>(
+    nodes: &HashMap<usize, DAGNode<'a, C, S>>, initial_labels: HashMap<usize, Vec<usize>>
+) -> HashMap<usize, Vec<usize>> {
 
+    let [label_to_nodes] = iterated_label_propagation(
+        &[nodes.keys().map(|key| (*key, nodes[key].get_successors())).collect::<HashMap<usize, &Vec<usize>>>()],
+        [initial_labels]
+    );
+
+    label_to_nodes
+}
 
 // fingerprint_subcircuit
 

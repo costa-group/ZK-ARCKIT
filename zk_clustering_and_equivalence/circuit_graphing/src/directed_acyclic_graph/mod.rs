@@ -8,6 +8,7 @@ use circuits_and_constraints::circuit::Circuit;
 pub mod dag_from_partition;
 pub mod dag_postprocessing;
 pub mod equivalence_classes;
+pub mod iterated_label_propagation;
 
 pub struct DAGNode<'a, C: Constraint + 'a, S: Circuit<C> + 'a> {
     circ : &'a S,
