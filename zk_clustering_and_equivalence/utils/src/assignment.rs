@@ -2,7 +2,6 @@ use std::collections::HashMap;
 
 use std::hash::Hash;
 use std::cmp::Eq;
-use std::array::from_fn;
 
 pub enum AssignmentError {
     InverseEnabledAfterAssignment
