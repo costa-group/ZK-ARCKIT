@@ -3,14 +3,17 @@ use rustsat::types::{Clause, Lit, Var};
 use rustsat::types::constraints::{PbConstraint};
 use std::collections::{HashSet, HashMap};
 use std::array::from_fn;
+use thiserror::Error;
 
 use circuits_and_constraints::constraint::Constraint;
 use circuits_and_constraints::circuit::Circuit;
 
-#[derive(Debug)]
+#[derive(Debug, Error)]
 pub enum EncodingError {
+    #[error("Some fingerprint class has different sizes")]
     FingerprintAssumptionError,
-    InvalidNormPairError
+    #[error("Norm {0} in first circuit has no valid norm to pair")]
+    NormHasNoValidPair(usize)
 }
 
 pub fn encode_comparison<C: Constraint, S: Circuit<C>>(
@@ -48,7 +51,7 @@ pub fn encode_comparison<C: Constraint, S: Circuit<C>>(
                 true
             );
 
-            if viable_pairs.len() == 0 {return Err(EncodingError::InvalidNormPairError);}
+            if viable_pairs.len() == 0 {return Err(EncodingError::NormHasNoValidPair(fingerprint_to_normi[0][key][0]));}
             viable_pairs.into_iter().for_each(|clause| formula.add_clause(clause));
         } else {
             if let Err(error) = encode_single_norm_class::<C, S>(
@@ -125,7 +128,7 @@ fn encode_single_norm_class<C: Constraint, S: Circuit<C>>(
         }
 
         // empty implies that normi has no valid pairing
-        if normi_options.len() == 0 {return Err(EncodingError::InvalidNormPairError);}
+        if normi_options.len() == 0 {return Err(EncodingError::NormHasNoValidPair(normi));}
         else {formula.add_clause(normi_options);}
     }
 
