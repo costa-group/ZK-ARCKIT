@@ -140,7 +140,7 @@ impl Circuit<R1CSConstraint> for R1CSData {
         input_signals: Option<&HashSet<usize>>, 
         output_signals: Option<&HashSet<usize>>, 
         signal_map: Option<&HashMap<usize,usize>>, 
-        return_signal_mapping: Option<bool>
+        _return_signal_mapping: Option<bool> // TODO: implement in the mapping overhoal
     ) -> R1CSData {
         // Assumes correct inputs
 
@@ -169,7 +169,6 @@ impl Circuit<R1CSConstraint> for R1CSData {
             signal_mapping = &signal_mapping_;
         } else {
 
-            signal_mapping_ = HashMap::new();
             signal_mapping = signal_map.unwrap();
 
             n_inputs = self.get_input_signals().filter(|sig| signal_mapping.get(sig).is_some()).count();
