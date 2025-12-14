@@ -9,12 +9,12 @@ use circuits_and_constraints::circuit::Circuit;
 use circuits_and_constraints::constraint::Constraint;
 use utils::assignment::Assignment;
 
-pub fn iterated_refinement<'a, C: Constraint, S: Circuit<C>, const N: usize>(
+pub fn iterated_refinement<'a, C: Constraint, S: Circuit<C>, H: Hash + Eq, const N: usize>(
         circuits: &[&'a S; N],
         norms_being_fingerprinted: &'a [Vec<C>; N],
         signal_to_normi: &[HashMap<usize, Vec<usize>>; N],
-        init_fingerprints_to_normi: [HashMap<usize, Vec<usize>>; N],
-        init_fingerprints_to_signals: [HashMap<usize, Vec<usize>>; N],
+        init_fingerprints_to_normi: [HashMap<H, Vec<usize>>; N],
+        init_fingerprints_to_signals: [HashMap<H, Vec<usize>>; N],
         start_with_constraints: bool,
         per_iteration_postprocessing: Option<fn(&mut [HashMap<usize, (usize, usize)>; N], &mut [HashMap<(usize, usize), Vec<usize>>;N], &mut [HashMap<usize, (usize, usize)>; N], &mut [HashMap<(usize, usize), Vec<usize>>; N], &mut [HashMap<(usize, usize), usize>; N] ) -> ()>,
         strict_unique: bool,
@@ -208,18 +208,18 @@ pub fn iterated_refinement<'a, C: Constraint, S: Circuit<C>, const N: usize>(
     }
 } 
 
-fn iterated_refinement_preprocessing<const N: usize>(label_to_indices: &[HashMap<usize, Vec<usize>>; N], index_to_label: &mut [HashMap<usize, (usize, usize)>; N], init_round: usize, strict_unique: bool)
+fn iterated_refinement_preprocessing<const N: usize, H: Hash + Eq>(label_to_indices: &[HashMap<H, Vec<usize>>; N], index_to_label: &mut [HashMap<usize, (usize, usize)>; N], init_round: usize, strict_unique: bool)
  -> (usize, [HashSet<usize>; N]) {
 
-    let mut nonsingular_keys: [Vec<usize>; N] = from_fn(|_| Vec::new());
-    let mut singular_remapping = Assignment::<usize, 1>::new(0);
+    let mut nonsingular_keys: [Vec<&H>; N] = from_fn(|_| Vec::new());
+    let mut singular_remapping = Assignment::<H, 1>::new(0);
 
     for index in 0..N {
         for label in label_to_indices[index].keys() {
             if key_is_unique(label, index, label_to_indices, strict_unique) {
                 index_to_label[index].insert(label_to_indices[index][label][0], (init_round, singular_remapping.get_assignment([label])));
             } else {
-                nonsingular_keys[index].push(*label)
+                nonsingular_keys[index].push(label)
             }
         }
     }
@@ -227,13 +227,13 @@ fn iterated_refinement_preprocessing<const N: usize>(label_to_indices: &[HashMap
     let mut to_update: [HashSet<usize>; N] = from_fn(|_| HashSet::new());
     let num_singular = singular_remapping.len();
 
-    let mut nonsingular_remapping = Assignment::<usize, 1>::new(num_singular);
+    let mut nonsingular_remapping = Assignment::<&H, 1>::new(num_singular);
 
     for (idx, nonsingular_vec) in nonsingular_keys.iter().enumerate() {
-        for label in nonsingular_vec.iter() {
+        for label in nonsingular_vec.into_iter() {
 
             to_update[idx].extend(&label_to_indices[idx][label]);
-            for index in label_to_indices[idx][&label].iter().copied() { index_to_label[idx].insert(index, (init_round, nonsingular_remapping.get_assignment([label]))); }
+            for index in label_to_indices[idx][label].iter().copied() { index_to_label[idx].insert(index, (init_round, nonsingular_remapping.get_assignment([&label]))); }
         }
     }
 
