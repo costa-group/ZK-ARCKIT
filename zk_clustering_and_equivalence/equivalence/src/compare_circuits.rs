@@ -115,6 +115,11 @@ pub fn compare_circuits_with_inits<C: Constraint, S: Circuit<C>>(
         circuits, normalised_constraints, signals_to_normi, init_fingerprints_to_normi, init_fingerprints_to_signals, true, None, false, debug
     );
 
+    // fixing for compile-time checking
+    let fingerprints_to_normi: [_; 2] = fingerprints_to_normi.try_into().unwrap();
+    let fingerprints_to_sig: [_; 2] = fingerprints_to_sig.try_into().unwrap();
+    let sig_fingerprints: [_; 2] = sig_fingerprints.try_into().unwrap();
+
     // sanity checking
     for (is_norm, label_to_indices) in [(true, &fingerprints_to_normi), (false, &fingerprints_to_sig)] {
         if let Err(reason) = sanity_check_fingerprints(is_norm, label_to_indices) {return get_with_error(NonequivalentReason::Fin(reason), timing);}
@@ -157,7 +162,7 @@ pub fn compare_circuits_with_inits<C: Constraint, S: Circuit<C>>(
     ComparisonData {result: result, reason: reason, timing: timing, norm_mapping: None, sig_mapping: None}
 }
 
-fn sanity_check_fingerprints<T: Hash + Eq + Copy, const N: usize>(is_norm: bool, label_to_indices: &[HashMap<T, Vec<usize>>; N]) -> Result<(), FingerprintError> {
+fn sanity_check_fingerprints<T: Hash + Eq + Copy>(is_norm: bool, label_to_indices: &[HashMap<T, Vec<usize>>]) -> Result<(), FingerprintError> {
     let index_type: &'static str = if is_norm {"norm"} else {"signal"};
 
     let keys_in_only_one: HashSet<T> = label_to_indices[0].keys().copied().collect::<HashSet<_>>().symmetric_difference(&label_to_indices[1].keys().copied().collect::<HashSet<_>>()).copied().collect();
