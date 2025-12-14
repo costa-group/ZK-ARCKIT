@@ -3,6 +3,7 @@ use itertools::Itertools;
 
 use circuits_and_constraints::constraint::Constraint;
 use circuits_and_constraints::circuit::Circuit;
+use circuits_and_constraints::utils::{signals_to_constraints_with_them};
 use equivalence::compare_circuits::compare_circuits_with_inits;
 use equivalence::fingerprinting::iterated_refinement;
 use utils::assignment::Assignment;
@@ -13,7 +14,7 @@ use crate::directed_acyclic_graph::iterated_label_propagation::iterated_label_pr
 // TODO: if required implement the mapping handler -- this requires refactoring compare_circuits
 
 fn naive_equivalency_analysis<'a, C: Constraint + 'a, S: Circuit<C> + 'a>(
-    nodes: &HashMap<usize, DAGNode<'a, C, S>>, normalised_constraints_by_id: &HashMap<usize, Vec<C>>, sig_to_normi_by_id: &HashMap<usize, HashMap<usize, Vec<usize>>>,
+    nodes: &HashMap<usize, &DAGNode<'a, C, S>>, normalised_constraints_by_id: &HashMap<usize, Vec<C>>, sig_to_normi_by_id: &HashMap<usize, HashMap<usize, Vec<usize>>>,
     fingerprints_to_normi_by_id: &HashMap<usize, HashMap<usize, Vec<usize>>>, fingerprints_to_sig_by_id: &HashMap<usize, HashMap<usize, Vec<usize>>>
 ) -> Vec<Vec<usize>> {
 
@@ -131,4 +132,58 @@ fn fingerprint_subcircuits<'a, C: Constraint + 'a, S: Circuit<C> + 'a>(
     let fingerprints_to_signals_by_id: HashMap<usize, HashMap<usize, Vec<usize>>> = fingerprints_to_signals.into_iter().enumerate().map(|(idx, label_to_indices)| (indices[idx], label_to_indices)).collect();
 
     (fingerprints_to_nodes, fingerprints_to_normi_by_id, fingerprints_to_signals_by_id)
+}
+
+fn dagnode_equivalency_preprocessing<'a, C: Constraint + 'a, S: Circuit<C> + 'a>(nodes: &mut HashMap<usize, DAGNode<'a, C, S>>) -> (HashMap<usize, Vec<C>>, HashMap<usize, HashMap<usize, Vec<usize>>>) {
+
+    for node in nodes.values_mut() {node.get_or_make_subcircuit();}
+
+    let normalised_constraints_by_id: HashMap<usize, Vec<C>> = nodes.iter().map(|(key, node)| (*key, node.get_subcircuit().normalise_constraints())).collect();
+    let sig_to_normi_by_id: HashMap<usize, HashMap<usize, Vec<usize>>> = nodes.keys().map(|key| (*key, signals_to_constraints_with_them(&normalised_constraints_by_id[key], None, None))).collect();
+
+    (normalised_constraints_by_id, sig_to_normi_by_id)
+}
+
+pub fn subcircuit_fingerprinting_equivalency<'a, C: Constraint + 'a, S: Circuit<C> + 'a>(nodes: &mut HashMap<usize, DAGNode<'a, C, S>>) -> Vec<Vec<usize>> {
+
+    let (normalised_constraints_by_id, sig_to_normi_by_id) = dagnode_equivalency_preprocessing(nodes);
+    let (subcircuit_groups, fingerprints_to_normi_by_id, fingerprints_to_signals_by_id) = fingerprint_subcircuits(nodes, &normalised_constraints_by_id, &sig_to_normi_by_id);
+
+    let mut equivalent: Vec<Vec<usize>> = Vec::new();
+
+    for class in subcircuit_groups.into_values() {
+        equivalent.extend(
+            naive_equivalency_analysis(&class.iter().map(|node_id| (*node_id, nodes.get(node_id).unwrap())).collect(), &normalised_constraints_by_id, &sig_to_normi_by_id, &fingerprints_to_normi_by_id, &fingerprints_to_signals_by_id)
+        );
+    }
+
+    equivalent
+}
+
+pub fn subcircuit_fingerprint_with_structural_augmentation_equivalency<'a, C: Constraint + 'a, S: Circuit<C> + 'a>(nodes: &mut HashMap<usize, DAGNode<'a, C, S>>) -> Vec<Vec<usize>> {
+
+    let (normalised_constraints_by_id, sig_to_normi_by_id) = dagnode_equivalency_preprocessing(nodes);
+    let (subcircuit_groups, fingerprints_to_normi_by_id, fingerprints_to_signals_by_id) = fingerprint_subcircuits(nodes, &normalised_constraints_by_id, &sig_to_normi_by_id);
+    let structural_labels = class_iterated_label_passing(nodes, subcircuit_groups);
+
+    let mut equivalent: HashMap<usize, Vec<usize>> = HashMap::new();
+    let mut counter = 0;
+
+    for class in structural_labels.into_values() {
+        let classes = naive_equivalency_analysis(&class.iter().map(|node_id| (*node_id, nodes.get(node_id).unwrap())).collect(), &normalised_constraints_by_id, &sig_to_normi_by_id, &fingerprints_to_normi_by_id, &fingerprints_to_signals_by_id);
+        for class in classes.into_iter() {
+            equivalent.insert(counter, class);
+            counter += 1;
+        }
+    }
+
+    class_iterated_label_passing(nodes, equivalent).into_values().collect()
+}
+
+pub fn subcircuit_fingerprinting_equivalency_and_structural_augmentation_equivalency<'a, C: Constraint + 'a, S: Circuit<C> + 'a>(nodes: &mut HashMap<usize, DAGNode<'a, C, S>>) -> (Vec<Vec<usize>>, Vec<Vec<usize>>) {
+
+    let local_equivalent = subcircuit_fingerprinting_equivalency(nodes);
+    let structural_equivalent = class_iterated_label_passing(nodes, local_equivalent.iter().cloned().enumerate().collect());
+
+    (local_equivalent, structural_equivalent.into_values().collect())
 }
