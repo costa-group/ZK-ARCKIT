@@ -13,8 +13,8 @@ pub fn iterated_refinement<'a, C: Constraint, S: Circuit<C>, H: Hash + Eq, const
         circuits: &[&'a S; N],
         norms_being_fingerprinted: &'a [Vec<C>; N],
         signal_to_normi: &[HashMap<usize, Vec<usize>>; N],
-        init_fingerprints_to_normi: [HashMap<H, Vec<usize>>; N],
-        init_fingerprints_to_signals: [HashMap<H, Vec<usize>>; N],
+        init_fingerprints_to_normi: &[HashMap<H, Vec<usize>>; N],
+        init_fingerprints_to_signals: &[HashMap<H, Vec<usize>>; N],
         start_with_constraints: bool,
         per_iteration_postprocessing: Option<fn(&mut [HashMap<usize, (usize, usize)>; N], &mut [HashMap<(usize, usize), Vec<usize>>;N], &mut [HashMap<usize, (usize, usize)>; N], &mut [HashMap<(usize, usize), Vec<usize>>; N], &mut [HashMap<(usize, usize), usize>; N] ) -> ()>,
         strict_unique: bool,
@@ -26,8 +26,8 @@ pub fn iterated_refinement<'a, C: Constraint, S: Circuit<C>, H: Hash + Eq, const
     let mut norm_fingerprints: [HashMap<usize, (usize, usize)>; N] = from_fn(|_| HashMap::new());
     let mut sig_fingerprints: [HashMap<usize, (usize, usize)>; N] = from_fn(|_| HashMap::new());
 
-    let (init_num_singular_norm_fingerprints, mut norms_to_update) = iterated_refinement_preprocessing(&init_fingerprints_to_normi, &mut norm_fingerprints, !start_with_constraints as usize + 1, strict_unique);
-    let (init_num_singular_sig_fingerprints, mut signals_to_update) = iterated_refinement_preprocessing(&init_fingerprints_to_signals, &mut sig_fingerprints, start_with_constraints as usize + 1, strict_unique);
+    let (init_num_singular_norm_fingerprints, mut norms_to_update) = iterated_refinement_preprocessing(init_fingerprints_to_normi, &mut norm_fingerprints, !start_with_constraints as usize + 1, strict_unique);
+    let (init_num_singular_sig_fingerprints, mut signals_to_update) = iterated_refinement_preprocessing(init_fingerprints_to_signals, &mut sig_fingerprints, start_with_constraints as usize + 1, strict_unique);
 
     fn exit_postprocessing<const N: usize >(index_to_label_and_roundnum: &[HashMap<usize, (usize, usize)>; N]) -> ([HashMap<usize, Vec<usize>>;N], [HashMap<usize, usize>;N]) {
             let mut label_to_indices: [HashMap<usize, Vec<usize>>;N] = from_fn(|_| HashMap::new());
@@ -126,13 +126,13 @@ pub fn iterated_refinement<'a, C: Constraint, S: Circuit<C>, H: Hash + Eq, const
                 f(index_to_label, label_to_indices, prev_index_to_label, prev_label_to_indices, prev_label_to_indices_count);
             }
 
-            if debug {println!("previous_distinct {:?}", prev_distinct_labels);println!("current_distinct {:?}", (0..N).into_iter().map(|idx| num_singular_labels[&(round_num - 2)] + label_to_indices[idx].len()).collect::<Vec<_>>());}
+            if debug {println!("previous_distinct {:?}", prev_distinct_labels);}
 
             // update loop exit checking
             let break_on_next_loop = (0..N).into_iter().all(|idx| num_singular_labels[&(round_num - 2)] + label_to_indices[idx].len() == prev_distinct_labels[idx]);
             *prev_distinct_labels = from_fn(|idx| num_singular_labels[&(round_num - 2)] + label_to_indices[idx].len());
 
-            if debug {sanity_check_fingerprinting(&assignment, index_to_label, label_to_indices, prev_index_to_label);}
+            if debug {println!("current distinct {:?}", prev_distinct_labels); println!("break on next loop: {:?}", break_on_next_loop); sanity_check_fingerprinting(&assignment, index_to_label, label_to_indices, prev_index_to_label);}
 
             // Handle the context switch if isn't the last loop
             if !last_loop {
@@ -143,7 +143,7 @@ pub fn iterated_refinement<'a, C: Constraint, S: Circuit<C>, H: Hash + Eq, const
                 );
 
                 *label_to_indices = from_fn(|_| HashMap::new());
-                if debug {println!("{:?}", raw_fingerprints[0].len());}
+                if debug {println!("{:?}", from_fn::<_, N, _>(|idx| other_indices_to_update[idx].len()));}
                 (break_on_next_loop, other_indices_to_update)
             } else {
                 (break_on_next_loop, from_fn(|_| HashSet::new()))
@@ -244,7 +244,7 @@ fn key_is_unique<H: Hash + Eq, const N: usize>(label: &H, index: usize, label_to
     if strict {
         (0..N).into_iter().all(|idx| label_to_indices[idx].get(label).unwrap_or(&Vec::new()).len() == 1)
     } else {
-        label_to_indices[index].get(label).unwrap_or(&Vec::new()).len() == 1
+        label_to_indices[index].get(label).is_some_and(|vec| vec.len() == 1)
     }
 }
 
@@ -256,10 +256,12 @@ fn fingerprint_switch<const N: usize>(
     // TODO: reset Assignment outside -- with passed offset 
 
     let mut next_to_update: [HashSet<usize>; N] = from_fn(|_| HashSet::new());
-    let mut add_to_update = |index: usize, idx: usize| next_to_update[idx].extend(get_to_update(index, idx).into_iter().filter(
+    let mut add_to_update = |index: usize, idx: usize| {
+        next_to_update[idx].extend(get_to_update(index, idx).into_iter().filter(
         // other_num_singular[round] is the number of singular fingerprints at that time, if oind_label.1 > that then it means it's not singular and should be looked at again
-        |oind: &usize| {let (prev_round, other_label): (usize, usize) = other_fingerprints[idx][oind]; other_label > other_num_singular[&prev_round]}
-    ));
+        |oind: &usize| {let (prev_round, other_label): (usize, usize) = other_fingerprints[idx][oind]; other_label >= other_num_singular[&prev_round]}
+    ))
+    };
 
     let mut nonsingular_fingerprints: [Vec<(usize, usize)>; N] = from_fn(|_| Vec::new());
 
@@ -351,7 +353,7 @@ fn fingerprint_switch<const N: usize>(
     (new_prev_other_index_to_label, next_to_update)
 }
 
-use utils::small_utilities::count_ints;
+// use utils::small_utilities::count_ints;
 
 fn sanity_check_fingerprinting<const N: usize, H: Hash + Eq + Clone + Debug>(
     assignment: &Assignment<H, 1>, _index_to_label: &[HashMap<usize, (usize, usize)>; N], label_to_indices: &[HashMap<(usize, usize), Vec<usize>>;N],
@@ -394,22 +396,5 @@ fn sanity_check_fingerprinting<const N: usize, H: Hash + Eq + Clone + Debug>(
             }
         }
         panic!("sanity check failed");
-    }
-}
-
-pub fn sanity_check_fingerprints<T: Hash + Eq + Debug + Copy + Ord, const N: usize>(index_to_label: &[HashMap<usize, T>; N], label_to_indices: &[HashMap<T, Vec<usize>>; N]) -> () {
-    let keys_in_only_one: HashSet<T> = label_to_indices[0].keys().copied().collect::<HashSet<_>>().symmetric_difference(&label_to_indices[1].keys().copied().collect::<HashSet<_>>()).copied().collect();
-    let keys_in_both: HashSet<T> = label_to_indices[0].keys().copied().collect::<HashSet<_>>().intersection(&label_to_indices[1].keys().copied().collect::<HashSet<_>>()).copied().collect();
-
-    let different_keys_in_both: Vec<T> = keys_in_both.into_iter().filter(|key| label_to_indices[0].get(&key).unwrap().len() != label_to_indices[1].get(&key).unwrap().len()).collect();
-
-    let num_per_count = from_fn::<Vec<(T, usize)>, 2, _>(|idx| count_ints(index_to_label[idx].values().copied().collect::<Vec<_>>()));
-    let different_fingerprints: Vec<T> = keys_in_only_one.into_iter().chain(different_keys_in_both.into_iter()).collect();
-    
-    if different_fingerprints.len() != 0 {
-
-        if num_per_count[0].len() < 1000 {println!("{:?}", num_per_count);}
-        if different_fingerprints.len() < 1000 {println!("{:?}", different_fingerprints);} else {println!("Differs at {:?} keys", different_fingerprints.len())}
-        panic!("other sanity check failed");
     }
 }
