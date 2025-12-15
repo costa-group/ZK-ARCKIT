@@ -101,7 +101,7 @@ fn fingerprint_subcircuits<'a, C: Constraint + 'a, S: Circuit<C> + 'a>(
         [(1, circuits[idx].get_output_signals().into_iter().collect()),
         (2, circuits[idx].get_input_signals().into_iter().collect()),
         (3, circuits[idx].get_signals().filter(|&sig| !circuits[idx].signal_is_input(sig) && !circuits[idx].signal_is_output(sig)).collect())
-        ].into_iter().collect()
+        ].into_iter().filter(|val : &(usize, Vec<usize>)| val.1.len() > 0).collect() //filter so the num_distinct is accurate in iterated_refinement
     ).collect();
 
     let (fingerprints_to_normi, fingerprints_to_signals, _, _) = iterated_refinement(
@@ -117,14 +117,16 @@ fn fingerprint_subcircuits<'a, C: Constraint + 'a, S: Circuit<C> + 'a>(
     );
 
     // Combine these into a unified node fingerprint
-    let mut unifier = Assignment::<Vec<(usize, usize)>, 1>::new(0);
-    let node_to_hash: HashMap<usize, Vec<(usize, usize)>> = indices.iter().copied().enumerate().map(|(idx, node_id)|
-        (node_id, fingerprints_to_normi[idx].iter().map(|(key, class)| (*key, class.len())).collect())
+    let mut unifier = Assignment::<Vec<(usize, usize)>, 2>::new(0);
+    let node_to_hash: HashMap<usize, [Vec<(usize, usize)>; 2]> = indices.iter().copied().enumerate().map(|(idx, node_id)|
+        (node_id, 
+        [fingerprints_to_normi[idx].iter().map(|(key, class)| (*key, class.len())).sorted().collect(), 
+        fingerprints_to_signals[idx].iter().map(|(key, class)| (*key, class.len())).sorted().collect()])
     ).collect();
 
     let mut fingerprints_to_nodes: HashMap<usize, Vec<usize>> = HashMap::new();
     for node_id in indices.iter().copied() {
-        let new_key = unifier.get_assignment([node_to_hash.get(&node_id).unwrap()]);
+        let new_key = unifier.get_assignment([&node_to_hash[&node_id][0], &node_to_hash[&node_id][1]]);
         fingerprints_to_nodes.entry(new_key).or_insert_with(|| Vec::new()).push(node_id);
     }
 
