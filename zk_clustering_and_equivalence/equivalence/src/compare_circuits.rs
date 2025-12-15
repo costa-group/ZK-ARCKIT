@@ -137,7 +137,7 @@ pub fn compare_circuits_with_inits<C: Constraint, S: Circuit<C>>(
     let formula = _formula.ok().unwrap();
 
     // TODO: allow glucose argument passthrough
-    let mut solver = rustsat_glucose::core::Glucose::default();
+    let mut solver = rustsat_kissat::Kissat::default();
     if let Err(reason) = solver.add_cnf(formula.into_cnf().0) {return get_with_error(NonequivalentReason::Other(reason), timing);}
 
     insert_and_print_timing(debug, &mut timing, "encoding", encoding_timer.elapsed());

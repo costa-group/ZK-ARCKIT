@@ -31,8 +31,10 @@ pub fn iterated_refinement<'a, C: Constraint, S: Circuit<C>, H: Hash + Eq>(
     let mut norm_fingerprints: Vec<HashMap<usize, (usize, usize)>> = from_fn(n, |_| HashMap::new());
     let mut sig_fingerprints: Vec<HashMap<usize, (usize, usize)>> = from_fn(n, |_| HashMap::new());
 
+    let mut signals_to_update: Vec<HashSet<usize>>;
+
     let (init_num_singular_norm_fingerprints, mut norms_to_update) = iterated_refinement_preprocessing(init_fingerprints_to_normi, &mut norm_fingerprints, !start_with_constraints as usize + 1, strict_unique);
-    let (init_num_singular_sig_fingerprints, mut signals_to_update) = iterated_refinement_preprocessing(init_fingerprints_to_signals, &mut sig_fingerprints, start_with_constraints as usize + 1, strict_unique);
+    let (init_num_singular_sig_fingerprints, init_signals_to_update) = iterated_refinement_preprocessing(init_fingerprints_to_signals, &mut sig_fingerprints, start_with_constraints as usize + 1, strict_unique);
 
     fn exit_postprocessing(index_to_label_and_roundnum: &[HashMap<usize, (usize, usize)>]) -> (Vec<HashMap<usize, Vec<usize>>>, Vec<HashMap<usize, usize>>) {
             let n = index_to_label_and_roundnum.len();
@@ -53,7 +55,7 @@ pub fn iterated_refinement<'a, C: Constraint, S: Circuit<C>, H: Hash + Eq>(
             (label_to_indices, index_to_label)
         }
 
-    let (mut any_norms_to_update, mut any_sigs_to_update): (bool, bool) = (norms_to_update.iter().all(|arr| arr.len() > 0), signals_to_update.iter().all(|arr| arr.len() > 0));
+    let (mut any_norms_to_update, mut any_sigs_to_update): (bool, bool) = (norms_to_update.iter().any(|arr| arr.len() > 0), init_signals_to_update.iter().any(|arr| arr.len() > 0));
 
     if !any_norms_to_update && !any_sigs_to_update {
         // TODO: these might not line up at first !!
@@ -146,11 +148,12 @@ pub fn iterated_refinement<'a, C: Constraint, S: Circuit<C>, H: Hash + Eq>(
 
             // Handle the context switch if isn't the last loop
             if !last_loop {
-                let other_indices_to_update: Vec<HashSet<usize>>;
-                (*prev_other_index_to_label, other_indices_to_update) = fingerprint_switch(
+                let (new_prev_other_index_to_label, other_indices_to_update) = fingerprint_switch(
                     index_to_label, label_to_indices, num_singular_labels, prev_index_to_label, prev_label_to_indices, prev_label_to_indices_count, get_to_update,
                     other_index_to_label, other_num_singular, round_num, strict_unique
                 );
+
+                if round_num > 3 {*prev_other_index_to_label = new_prev_other_index_to_label;} // first round is special case for encoding structure
 
                 *label_to_indices = from_fn(n, |_| HashMap::new());
                 if debug {println!("{:?}", from_fn(n, |idx| other_indices_to_update[idx].len()));}
@@ -169,15 +172,15 @@ pub fn iterated_refinement<'a, C: Constraint, S: Circuit<C>, H: Hash + Eq>(
 
         // handle starting with signals
         if !start_with_constraints {
-            (break_on_next_signal, norms_to_update) = loop_iteration(circuits, norms_being_fingerprinted, round_num, strict_unique,
-                signals_to_update, signal_to_normi, per_iteration_postprocessing, get_sig_fingerprint, 
+            (break_on_next_signal, _) = loop_iteration(circuits, norms_being_fingerprinted, round_num, strict_unique,
+                init_signals_to_update.clone(), signal_to_normi, per_iteration_postprocessing, get_sig_fingerprint, 
                 !break_on_next_norm && !break_on_next_signal, get_to_update_signal,
                 &mut sig_fingerprints, &mut fingerprints_to_signals, &mut sig_raw_fingerprints, &mut norm_fingerprints,
                 &mut prev_sig_to_fingerprints, &mut prev_fingerprints_to_sig, &mut prev_fingerprints_to_sig_count,
                 &mut prev_normi_to_fingerprints, &mut previous_distinct_sig_fingerprints, 
                 &mut num_singular_sig_fingerprints, &num_singular_norm_fingerprints, debug
             );
-            any_norms_to_update = norms_to_update.iter().all(|arr| arr.len() > 0);
+            any_norms_to_update = norms_to_update.iter().any(|arr| arr.len() > 0);
             round_num += 1;
         }
 
@@ -192,7 +195,8 @@ pub fn iterated_refinement<'a, C: Constraint, S: Circuit<C>, H: Hash + Eq>(
                 &mut prev_sig_to_fingerprints, &mut previous_distinct_norm_fingerprints, 
                 &mut num_singular_norm_fingerprints, &num_singular_sig_fingerprints, debug
             );
-            any_sigs_to_update = signals_to_update.iter().all(|arr| arr.len() > 0);
+            if round_num == 3 {signals_to_update = init_signals_to_update.clone();} // ensure we encode structural at least once
+            any_sigs_to_update = signals_to_update.iter().any(|arr| arr.len() > 0);
             round_num += 1;
 
             // Run loop for signals
@@ -205,7 +209,7 @@ pub fn iterated_refinement<'a, C: Constraint, S: Circuit<C>, H: Hash + Eq>(
                 &mut prev_normi_to_fingerprints, &mut previous_distinct_sig_fingerprints, 
                 &mut num_singular_sig_fingerprints, &num_singular_norm_fingerprints, debug
             );
-            any_norms_to_update = norms_to_update.iter().all(|arr| arr.len() > 0);
+            any_norms_to_update = norms_to_update.iter().any(|arr| arr.len() > 0);
             round_num += 1;
 
             
