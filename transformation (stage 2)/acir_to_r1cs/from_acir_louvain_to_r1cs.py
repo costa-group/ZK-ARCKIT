@@ -224,7 +224,32 @@ def generate_clusters(signals, difs):
         
 
 
+import argparse
+import copy
+parser = argparse.ArgumentParser()
 
+parser.add_argument("filein", help=".json file including the ACIR constraints",
+                    type=str)
+parser.add_argument("structure", help="Structure to use for the clustering",
+                    type=str)   
+parser.add_argument("n", help="Maximum number of admited aux signals",
+                    type=str)
+parser.add_argument("fileout", help= "Output file with the R1CS constraints ",
+                    type=str)
+
+
+args=parser.parse_args()
+
+
+# Opening JSON file
+f = open(args.filein)
+data = json.load(f)
+
+f = open(args.structure)
+structure = json.load(f)
+##print(data)
+
+verbose = False
 
 
 
