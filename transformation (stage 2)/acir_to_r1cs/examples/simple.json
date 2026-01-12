@@ -1,5 +1,7 @@
 {
-  "constraints": [
+  "functions": [
+    {
+     "constraints": [
     {
       "constant": "0",
       "linear": [],
@@ -48,4 +50,15 @@
       ]
     }
   ]
+      ,
+      "inputs": [
+        0,1,2,3
+      ],
+      "number_of_signals": 5,
+      "outputs": [
+      ]
+    }
+  ],
+  "num_functions": 1,
+  "prime": "21888242871839275222246405745257275088548364400416034343698204186575808495617"
 }

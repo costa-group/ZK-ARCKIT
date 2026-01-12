@@ -120,11 +120,9 @@ def build_constraints(choosen_AB, linear_part_constraints, auxiliar_signals, coe
     index_cons = 0
     for linear in linear_part_constraints:    
         (choosen_A, choosen_B) = choosen_AB[index_cons]
-        print(choosen_A, choosen_B)
         extra_coefs = {}
         if index_cons in coefs_for_difs: 
             extra_coefs = coefs_for_difs[index_cons]
-        print(extra_coefs)
         constraints.append(build_previous_constraint(choosen_A, choosen_B, linear, extra_coefs))
         index_cons += 1
     
@@ -334,7 +332,7 @@ for (c, list_mons) in clusters.items():
 print("Maximum size of the clusters of constraints that need to be solved: " + str(maxSize))
 print("Number of clusters: "+ str(len(clusters)))
 
-if verbose:
+if verbose and len(clusters) > 0:
     print("Clusters that need to be solved: " + str(list_mons))
 
 #print(len(list_mons))
@@ -467,7 +465,10 @@ file = open(args.fileout, "w")
 file.write(json_object)
 
 
-#print(constraints)
+if verbose:
+    print("# Solution: ")
+    for c in constraints:
+        print("### " + str(c))
 print("Total number of auxiliar signals added: ", total_number_of_aux)
 print("#################### FINISHED REBUILDING ####################")
 
