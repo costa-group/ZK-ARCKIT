@@ -114,7 +114,8 @@ def build_constraints(choosen_AB, linear_part_constraints, auxiliar_signals, coe
     
     # Build the new auxiliar constraints
     for (signals_A, signals_B) in auxiliar_signals:
-        constraints.append(build_constraint_aux(signals_A, signals_B, n_signals + index_aux))
+        aux = build_constraint_aux(signals_A, signals_B, n_signals + index_aux)
+        constraints.append(aux)
         index_aux += 1
     # Transform the previous constraints
     index_cons = 0
@@ -217,38 +218,14 @@ def generate_clusters(signals, difs):
             if cluster in cluster_to_constraints: 
                 cluster_to_constraints[cluster].append(({(s1, s2): coef}, index))
             else:
-                cluster_to_constraints[cluster] = [({(s1, s2): index}, index)]
+                cluster_to_constraints[cluster] = [({(s1, s2): coef}, index)]
     
     return cluster_to_constraints
         
 
 
-import argparse
-import copy
-parser = argparse.ArgumentParser()
-
-parser.add_argument("filein", help=".json file including the ACIR constraints",
-                    type=str)
-parser.add_argument("structure", help="Structure to use for the clustering",
-                    type=str)   
-parser.add_argument("n", help="Maximum number of admited aux signals",
-                    type=str)
-parser.add_argument("fileout", help= "Output file with the R1CS constraints ",
-                    type=str)
 
 
-args=parser.parse_args()
-
-
-# Opening JSON file
-f = open(args.filein)
-data = json.load(f)
-
-f = open(args.structure)
-structure = json.load(f)
-##print(data)
-
-verbose = False
 
 
 prime = int(data["prime"])
@@ -340,9 +317,12 @@ def parse_cluster(data,prime):
     #print("Maximum size of the clusters of constraints that need to be solved: " + str(maxSize))
     #print("Number of clusters: "+ str(len(clusters)))
 
-    #    #print(len(list_mons))
-    #    #print(list_mons)
-    #print("#################### FINISHED CLUSTERING ####################")
+    if verbose and len(clusters) > 0:
+        print("Clusters that need to be solved: " + str(list_mons))
+
+    #print(len(list_mons))
+    #print(list_mons)
+    print("#################### FINISHED CLUSTERING ####################")
 
     #######              Phase 2 ----> Build auxiliar signals to eliminate the difs
 
@@ -354,6 +334,9 @@ def parse_cluster(data,prime):
         signals = set()
         cons_sys = []
         indexes = []
+
+        if verbose: 
+            print("Solving cluster: " + str(cons_sys))
         
         # Build the set of signals and the constraint system:
         for (c, index) in constraints:
@@ -376,8 +359,12 @@ def parse_cluster(data,prime):
             if verbose:
                 print("SAT: Found solution for the cluster using " +str(naux) + " variables")
         
+        if verbose: 
+            print(signals_aux)
+            print(coefs)
         # Update the info of the complete circuit    
         auxiliar_signals.extend(signals_aux)
+
         for index in indexes:
             s = 0
             coefs_index = {}
@@ -394,12 +381,14 @@ def parse_cluster(data,prime):
         
         total_number_of_aux += naux
 
-    #print("#################### FINISHED PHASE 2 ####################")
+
+    print("#################### FINISHED PHASE 2 ####################")
         
 
     
         
     #######               Rebuild the constraints
+
     constraints = build_constraints(choosen_AB, linear_part_constraints, auxiliar_signals, coefs_for_difs, n_signals)
 
 
@@ -409,54 +398,47 @@ def parse_cluster(data,prime):
         new_C = {}
         
         for (s, coef) in constraint[0].items():
-            if s not in renaming:
-                new_s = s
-            else:
-                new_s = renaming[s]
+            new_s = renaming[s]
             new_A[new_s] = coef
         for (s, coef) in constraint[1].items():
-            if s not in renaming:
-                new_s = s
-            else:
-                new_s = renaming[s]
+            new_s = renaming[s]
             new_B[new_s] = coef
         for (s, coef) in constraint[2].items():
-            if s not in renaming:
-                new_s = s
-            else:
-                new_s = renaming[s]
+            new_s = renaming[s]
             new_C[new_s] = coef
         
         return (new_A, new_B, new_C)
 
-
-    def apply_renaming_signals(constraints, inputs, outputs, next_id_signal, signals):
+    def apply_renaming_signals(constraints, inputs, outputs, signals):
         """
         Aplica un renombrado de señales:
         - outputs → primeras posiciones
         - inputs → siguientes posiciones
         - signals auxiliares → después
         """
+        # renaming: diccionario de señal original -> nueva posición
         renaming = {}
-
+        renaming[0] = 0  # La señal 0 siempre mapea a 0
+        #print(renaming)
+        #print("Outputs: ", outputs)
+        #print("Inputs: ", inputs)
+        for s in outputs:
+            renaming[s+1] = len(renaming)
+        for s in inputs:
+            renaming[s+1] = len(renaming)
         for s in signals:
             if s not in renaming:
-                renaming[s] = next_id_signal
-                next_id_signal += 1
-        print("renaming:", renaming)
+                renaming[s] = len(renaming)
+        #print(renaming)
+        # Aplicar el renombrado a cada restricción
         for i, c in enumerate(constraints):
+            #print("Applying renaming to constraint ", i)
+            #print("Before: ", c)
             constraints[i] = apply_correspondence(c, renaming)
+            #print("After: ", constraints[i])
 
+    apply_renaming_signals(constraints, n_inputs, n_outputs, list(range(1, n_signals + len(auxiliar_signals)+1)))
 
-    ##print("applying renaming: ", constraints, n_inputs, n_outputs, list(range(1, n_signals + len(auxiliar_signals)+1)))   
-    
-    #print(constraints)
-    #print("Applying renaming of signals...")
-    #print(n_inputs)
-    #print(n_outputs)
-    #print(n_signals)
-    apply_renaming_signals(constraints, n_inputs, n_outputs, next_signal, list(range(n_signals + 1, n_signals + len(auxiliar_signals)+1)))
-    print("renaming applied", constraints)
     map_result = {}
     map_result["prime"] = str(prime)
     map_result["constraints"] = constraints
