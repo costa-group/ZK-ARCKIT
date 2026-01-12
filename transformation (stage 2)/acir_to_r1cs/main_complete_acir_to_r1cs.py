@@ -349,9 +349,6 @@ for (n_clus, constraints) in clusters.items():
     signals = set()
     cons_sys = []
     indexes = []
-
-    if verbose: 
-        print("Solving cluster: " + str(cons_sys))
     
     # Build the set of signals and the constraint system:
     for (c, index) in constraints:
@@ -360,6 +357,9 @@ for (n_clus, constraints) in clusters.items():
             signals.add(s2)
         cons_sys.append(c)
         indexes.append(index)
+    
+    if verbose: 
+        print("Solving cluster: " + str(cons_sys))
     
     
     # Generate the Z3 problem and solve it
@@ -380,20 +380,22 @@ for (n_clus, constraints) in clusters.items():
     # Update the info of the complete circuit    
     auxiliar_signals.extend(signals_aux)
 
-    for index in indexes:
-        s = 0
-        coefs_index = {}
-        for coefs_s in coefs:
+    index = 0
+    coefs_index = {}
+    for coefs_s in coefs:
+        for s in range(len(signals_aux)):
             real_s = total_number_of_aux + n_signals + s
             if coefs_s[s] != 0:
                 coefs_index[real_s] = coefs_s[s]
-            s += 1
+
         if not index in coefs_for_difs:
             coefs_for_difs[index] = {}
         
         for (s, coef) in coefs_index.items():    
             coefs_for_difs[index][s] = coef
-    
+        
+        index += 1
+        
     total_number_of_aux += naux
 
 
@@ -405,8 +407,10 @@ print("#################### FINISHED PHASE 2 ####################")
 #######               Rebuild the constraints
 
 constraints = build_constraints(choosen_AB, linear_part_constraints, auxiliar_signals, coefs_for_difs, n_signals)
-
-
+if verbose:
+    print("# Solution before renaming: ")
+    for c in constraints:
+        print("### " + str(c))
 def apply_correspondence(constraint, renaming):
     new_A = {}
     new_B = {}
@@ -454,6 +458,9 @@ def apply_renaming_signals(constraints, inputs, outputs, signals):
 
 apply_renaming_signals(constraints, n_inputs, n_outputs, list(range(1, n_signals + len(auxiliar_signals)+1)))
 
+print("#################### FINISHED RENAMING ####################")
+
+
 map_result = {}
 map_result["prime"] = str(prime)
 map_result["constraints"] = constraints
@@ -466,7 +473,7 @@ file.write(json_object)
 
 
 if verbose:
-    print("# Solution: ")
+    print("# Solution after renaming: ")
     for c in constraints:
         print("### " + str(c))
 print("Total number of auxiliar signals added: ", total_number_of_aux)
