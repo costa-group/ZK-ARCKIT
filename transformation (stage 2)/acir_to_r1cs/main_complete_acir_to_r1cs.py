@@ -113,15 +113,18 @@ def build_constraints(choosen_AB, linear_part_constraints, auxiliar_signals, coe
     
     # Build the new auxiliar constraints
     for (signals_A, signals_B) in auxiliar_signals:
-        constraints.append(build_constraint_aux(signals_A, signals_B, n_signals + index_aux))
+        aux = build_constraint_aux(signals_A, signals_B, n_signals + index_aux)
+        constraints.append(aux)
         index_aux += 1
     # Transform the previous constraints
     index_cons = 0
     for linear in linear_part_constraints:    
         (choosen_A, choosen_B) = choosen_AB[index_cons]
+        print(choosen_A, choosen_B)
         extra_coefs = {}
         if index_cons in coefs_for_difs: 
             extra_coefs = coefs_for_difs[index_cons]
+        print(extra_coefs)
         constraints.append(build_previous_constraint(choosen_A, choosen_B, linear, extra_coefs))
         index_cons += 1
     
@@ -216,7 +219,7 @@ def generate_clusters(signals, difs):
             if cluster in cluster_to_constraints: 
                 cluster_to_constraints[cluster].append(({(s1, s2): coef}, index))
             else:
-                cluster_to_constraints[cluster] = [({(s1, s2): index}, index)]
+                cluster_to_constraints[cluster] = [({(s1, s2): coef}, index)]
     
     return cluster_to_constraints
         
@@ -241,7 +244,7 @@ data = json.load(f)
 
 #print(data)
 
-verbose = False
+verbose = True
 
 
 prime = int(data["prime"])
@@ -314,6 +317,7 @@ for constraint in non_linear_part_constraints:
         number_solved += 1
     index += 1
 
+
 print("Number of completely solved constraints: " + str(number_solved))
 print("Maximum number of missing monomials added by a constraint: " + str(max_difs))
 
@@ -330,8 +334,11 @@ for (c, list_mons) in clusters.items():
 print("Maximum size of the clusters of constraints that need to be solved: " + str(maxSize))
 print("Number of clusters: "+ str(len(clusters)))
 
-#    print(len(list_mons))
-#    print(list_mons)
+if verbose:
+    print("Clusters that need to be solved: " + str(list_mons))
+
+#print(len(list_mons))
+#print(list_mons)
 print("#################### FINISHED CLUSTERING ####################")
 
 #######              Phase 2 ----> Build auxiliar signals to eliminate the difs
@@ -344,6 +351,9 @@ for (n_clus, constraints) in clusters.items():
     signals = set()
     cons_sys = []
     indexes = []
+
+    if verbose: 
+        print("Solving cluster: " + str(cons_sys))
     
     # Build the set of signals and the constraint system:
     for (c, index) in constraints:
@@ -366,8 +376,12 @@ for (n_clus, constraints) in clusters.items():
         if verbose:
             print("SAT: Found solution for the cluster using " +str(naux) + " variables")
     
+    if verbose: 
+        print(signals_aux)
+        print(coefs)
     # Update the info of the complete circuit    
     auxiliar_signals.extend(signals_aux)
+
     for index in indexes:
         s = 0
         coefs_index = {}
@@ -383,6 +397,7 @@ for (n_clus, constraints) in clusters.items():
             coefs_for_difs[index][s] = coef
     
     total_number_of_aux += naux
+
 
 print("#################### FINISHED PHASE 2 ####################")
       

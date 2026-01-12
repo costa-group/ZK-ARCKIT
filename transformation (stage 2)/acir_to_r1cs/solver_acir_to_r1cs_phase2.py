@@ -25,10 +25,11 @@ def complete_phase2_transformation(constraints, signals, naux, verbose):
         for c in constraints:
             for ((s1, s2), coef) in c.items():
                 coefs = [[coef]]
+                print(coef)
                 if s1 == s2:
-                    used_signals = [([1], [1])]
+                    used_signals = [([s1], [s1])]
                 else:
-                    used_signals = [([1, 0], [0,1])]
+                    used_signals = [([s1], [s2])]
                 total_aux = 1
                 return total_aux, coefs, used_signals
     else:
