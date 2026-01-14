@@ -101,7 +101,8 @@ def build_previous_constraint(A, B, linear, extra_coefs):
         map_C[s + 1] = coef_to_string(coef)
     
     for (s, coef) in extra_coefs.items():
-        map_C[s + 1] = coef_to_string(coef)
+        if coef != 0:
+            map_C[s + 1] = coef_to_string(coef)
 
     return (map_A, map_B, map_C)
 
@@ -374,6 +375,7 @@ for (n_clus, constraints) in clusters.items():
         if verbose:
             print("SAT: Found solution for the cluster using " +str(naux) + " variables")
     
+
     if verbose: 
         print(signals_aux)
         print(coefs)
@@ -385,8 +387,7 @@ for (n_clus, constraints) in clusters.items():
     for coefs_s in coefs:
         for s in range(len(signals_aux)):
             real_s = total_number_of_aux + n_signals + s
-            if coefs_s[s] != 0:
-                coefs_index[real_s] = coefs_s[s]
+            coefs_index[real_s] = coefs_s[s]
 
         if not index in coefs_for_difs:
             coefs_for_difs[index] = {}
