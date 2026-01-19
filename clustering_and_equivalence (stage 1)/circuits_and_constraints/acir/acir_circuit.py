@@ -31,7 +31,7 @@ class ACIRCircuit(Circuit):
         return signal in self.output_signals
     
     def get_signals(self) -> Iterable[int]:
-        return range(0, self.nWires)
+        return set(itertools.chain(self.input_signals, self.output_signals, itertools.chain.from_iterable(map(lambda con : con.signals(), self.constraints))))
 
     def get_input_signals(self) -> Iterable[int]: 
         return self.input_signals
@@ -53,15 +53,10 @@ class ACIRCircuit(Circuit):
 
         ## fix any preprocessing bugs
         circ_signals = set(itertools.chain(self.input_signals, self.output_signals, itertools.chain.from_iterable(map(lambda con : con.signals(), self.constraints))))
-        if len(circ_signals) != self._nWires: warnings.warn(f"Number of signals in file {self.nWires} does not match given value {len(circ_signals)}, fixing...")
+        if len(circ_signals) != self._nWires: 
+            warnings.warn(f"Number of signals in file {self.nWires} does not match given value {len(circ_signals)}, fixing...")
 
-        next_int = itertools.count().__next__
-        sigmapp = {sig : next_int() for sig in sorted(circ_signals)}
-
-        self._constraints = list(map(lambda con : con.signal_map(sigmapp), self._constraints))
         self._nWires = len(circ_signals)
-        self.input_signals = list(map(sigmapp.__getitem__, self.input_signals))
-        self.output_signals = list(map(sigmapp.__getitem__, self.output_signals))
     
     def write_file(self, file: str) -> None:
         raise NotImplementedError()
